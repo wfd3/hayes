@@ -1,10 +1,11 @@
 package hayes
 
+// Command Result codes
+
 import (
 	"fmt"
 )
 
-// Command Result codes
 const (
 	OK            = 0
 	CONNECT       = 1

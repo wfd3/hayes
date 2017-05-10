@@ -408,6 +408,4 @@ func (m *Modem) PowerOn() {
 			}
 		}
 	}
-	m.lowerDSR()
-	m.lowerCTS()
 }
