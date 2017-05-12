@@ -6,13 +6,10 @@ import (
 	"github.com/stianeikeland/go-rpio"
 	"fmt"
 	"strings"
+	"time"
 )
 
-type Pins  [28]rpio.Pin	// TODO:  this is ugly
-const (
-	HIGH = true
-	LOW  = false
-)
+type Pins map[int]rpio.Pin
 
 // LED and data pins
 const (
@@ -29,13 +26,12 @@ const (
 	OH_LED  = 27		// Physical pin 13
 	// Data Pins
 	CTS_PIN = 12		// Physical pin 32 - Output
-	DTR_PIN = 16 		// Physical pin 36 - Input
 	RI_PIN  = 23		// Physical pin 16 - Output
 	CD_PIN  = 24		// Physical pin 18 - Output
 	DSR_PIN = 25 		// Physical pin 22 - Output
 	RTS_PIN = 7		// Physical pin 26 - Input
+	DTR_PIN = 16 		// Physical pin 36 - Input
 )
-
 
 func (m *Modem) setupPins() {
 
@@ -43,36 +39,39 @@ func (m *Modem) setupPins() {
 		panic(err)
 	}
 
+	m.leds = make(Pins)
+	m.pins = make(Pins)
+
 	// LEDs
-	m.pins[HS_LED] = rpio.Pin(HS_LED)
-	m.pins[HS_LED].Output()
+	m.leds[HS_LED] = rpio.Pin(HS_LED)
+	m.leds[HS_LED].Output()
 	
-	m.pins[AA_LED] = rpio.Pin(AA_LED)
-	m.pins[AA_LED].Output()
+	m.leds[AA_LED] = rpio.Pin(AA_LED)
+	m.leds[AA_LED].Output()
 	
-	m.pins[RI_LED] = rpio.Pin(RI_LED)
-	m.pins[RI_LED].Output()
+	m.leds[RI_LED] = rpio.Pin(RI_LED)
+	m.leds[RI_LED].Output()
 	
-	m.pins[MR_LED] = rpio.Pin(MR_LED)
-	m.pins[MR_LED].Output()
+	m.leds[MR_LED] = rpio.Pin(MR_LED)
+	m.leds[MR_LED].Output()
 	
-	m.pins[TR_LED] = rpio.Pin(TR_LED)
-	m.pins[TR_LED].Output()
+	m.leds[TR_LED] = rpio.Pin(TR_LED)
+	m.leds[TR_LED].Output()
 	
-	m.pins[RD_LED] = rpio.Pin(RD_LED)
-	m.pins[RD_LED].Input()
+	m.leds[RD_LED] = rpio.Pin(RD_LED)
+	m.leds[RD_LED].Output()
 	
-	m.pins[CS_LED] = rpio.Pin(CS_LED)
-	m.pins[CS_LED].Output()
+	m.leds[CS_LED] = rpio.Pin(CS_LED)
+	m.leds[CS_LED].Output()
 
-	m.pins[OH_LED] = rpio.Pin(OH_LED)
-	m.pins[OH_LED].Output()
+	m.leds[OH_LED] = rpio.Pin(OH_LED)
+	m.leds[OH_LED].Output()
 
-	m.pins[CD_LED] = rpio.Pin(CD_LED)
-	m.pins[CD_LED].Output()
+	m.leds[CD_LED] = rpio.Pin(CD_LED)
+	m.leds[CD_LED].Output()
 	
-	m.pins[SD_LED] = rpio.Pin(SD_LED)
-	m.pins[SD_LED].Output()
+	m.leds[SD_LED] = rpio.Pin(SD_LED)
+	m.leds[SD_LED].Output()
 	
 
 	// Pins
@@ -96,16 +95,16 @@ func (m *Modem) setupPins() {
 }
 
 func (m *Modem) clearPins() {
-	m.pins[HS_LED].Low()
-	m.pins[AA_LED].Low()
-	m.pins[RI_LED].Low()
-	m.pins[MR_LED].Low()
-	m.pins[TR_LED].Low()
-	m.pins[RD_LED].Low()
-	m.pins[CS_LED].Low()
-	m.pins[CD_LED].Low()
-	m.pins[SD_LED].Low()
-	m.pins[OH_LED].Low()
+	m.leds[HS_LED].Low()
+	m.leds[AA_LED].Low()
+	m.leds[RI_LED].Low()
+	m.leds[MR_LED].Low()
+	m.leds[TR_LED].Low()
+	m.leds[RD_LED].Low()
+	m.leds[CS_LED].Low()
+	m.leds[CD_LED].Low()
+	m.leds[SD_LED].Low()
+	m.leds[OH_LED].Low()
 
 	m.pins[RI_PIN].Low()
 	m.pins[CD_PIN].Low()
@@ -115,9 +114,9 @@ func (m *Modem) clearPins() {
 
 func (m *Modem) showPins() {
 
-	pp := func (n string, p rpio.Pin) (string) {
+	pp := func (n string, p int) (string) {
 		var state string
-		if p.Read() == rpio.High {
+		if m.pins[p].Read() == rpio.High {
 			state = "High"
 		} else {
 			state = "Low"
@@ -133,8 +132,8 @@ func (m *Modem) showPins() {
 	s += pp("DTR", DTR_PIN)
 	fmt.Println(s)
 
-	pl := func (n string, p rpio.Pin) (string) {
-		if p.Read() == rpio.High {	// LED is on
+	pl := func (n string, p int) (string) {
+		if m.leds[p].Read() == rpio.High {	// LED is on
 			s = strings.ToUpper(n)
 		} else {
 			s = strings.ToLower(n)
@@ -147,64 +146,92 @@ func (m *Modem) showPins() {
 	s += pl("HS", HS_LED)
 	s += pl("AA", AA_LED)
 	s += pl("RI", RI_LED)
-	s += pl("MR", MR_LED)
-	s += pl("TR", TR_LED)
-	s += pl("RD", RD_LED)
-	s += pl("CS", CS_LED)
 	s += pl("CD", CD_LED)
+	s += pl("OH", OH_LED)
+	
+	s += pl("MR", MR_LED)
+	s += pl("CS", CS_LED)
+	s += pl("TR", TR_LED)
 	s += pl("SD", SD_LED)
+	s += pl("RD", RD_LED)
 	s += "]"
 	fmt.Println(s)
 }
 
 // Pin functions
+func (m *Modem) led_HS_on() {
+	m.leds[HS_LED].High()
+}
+func (m *Modem) led_HS_off() {
+	m.leds[HS_LED].Low()
+}
 func (m *Modem) led_MR_on() {
-	m.pins[MR_LED].High()
+	m.leds[MR_LED].High()
 }
 func (m *Modem) led_MR_off() {
-	m.pins[MR_LED].Low()
+	m.leds[MR_LED].Low()
 }
 func (m *Modem) led_AA_on() {
-	m.pins[AA_LED].High()
+	m.leds[AA_LED].High()
 }
 func (m *Modem) led_AA_off() {
-	m.pins[AA_LED].Low()
+	m.leds[AA_LED].Low()
+}
+func (m *Modem) led_RI_on() {
+	m.leds[RI_LED].High()
+}
+func (m *Modem) led_RI_off() {
+	m.leds[RI_LED].Low()
 }
 func(m *Modem) led_OH_on() {
-	m.pins[OH_LED].High()
+	m.leds[OH_LED].High()
 }
 func(m *Modem) led_OH_off() {
-	m.pins[OH_LED].Low()
+	m.leds[OH_LED].Low()
 }
 func(m *Modem) led_TR_on() {
-	m.pins[TR_LED].High()
+	m.leds[TR_LED].High()
 }
 func(m *Modem) led_TR_off() {
-	m.pins[TR_LED].Low()
+	m.leds[TR_LED].Low()
 }
 func(m *Modem) led_CS_on() {
-	m.pins[CS_LED].High()
+	m.leds[CS_LED].High()
 }
 func(m *Modem) led_CS_off() {
-	m.pins[CS_LED].Low()
+	m.leds[CS_LED].Low()
 }
 func (m *Modem) led_SD_on() {
-	m.pins[SD_LED].High()
+	m.leds[SD_LED].High()
 }
 func (m *Modem) led_SD_off() {
-	m.pins[SD_LED].Low()
+	m.leds[SD_LED].Low()
 }
 func (m *Modem) led_RD_on() {
-	m.pins[RD_LED].High()
+	m.leds[RD_LED].High()
 }
 func (m *Modem) led_RD_off() {
-	m.pins[RD_LED].Low()
+	m.leds[RD_LED].Low()
 }
 func (m *Modem) led_CD_on() {
-	m.pins[CD_LED].High()
+	m.leds[CD_LED].High()
 }
 func (m *Modem) led_CD_off() {
-	m.pins[CD_LED].Low()
+	m.leds[CD_LED].Low()
+}
+func (m *Modem) ledTest() {
+	for j := 0; j < 3; j++ {
+		for i:= range m.leds {
+			m.leds[i].High()
+			time.Sleep(50 * time.Millisecond)
+		}
+		time.Sleep(10 * time.Millisecond)
+		for i:= range m.leds {
+			m.leds[i].Low()
+			time.Sleep(50 * time.Millisecond)
+		}
+	}
+	
 }
 
 // PINs
@@ -256,13 +283,29 @@ func (m *Modem) readCTS() (bool) {
 // DTR
 func (m *Modem) readDTR() (bool) {
 	return m.pins[DTR_PIN].Read() == rpio.High
-	// Debugging
-	// return m.r[200] == 1
+}
+func (m *Modem) raiseDTR() {
+	if !debug {
+		panic("Can't raise input pins on this platform")
+	}
+}
+func (m *Modem) lowerDTR() {
+	if !debug {
+		panic("Can't raise input pins on this platform")
+	}
 }
 
 // RTS
 func (m *Modem) readRTS() (bool) {
 	return m.pins[RTS_PIN].Read() == rpio.High
-	// Debugging
-	// return m.r[200] == 1
+}
+func (m *Modem) raiseRTS() {
+	if !debug {
+		panic("Can't raise input pins on this platform")
+	}
+}
+func (m *Modem) lowerRTS() {
+	if !debug {
+		panic("Can't raise input pins on this platform")
+	}
 }

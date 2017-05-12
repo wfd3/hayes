@@ -9,37 +9,37 @@ const (
 	REG_AUTO_ANSWER    = 0
 	REG_RING_COUNT     = 1
 	REG_ESC_CH         = 2
-	REG_CR_CH          = 4
+	REG_CR_CH          = 3
+	REG_LF_CH          = 4
 	REG_BS_CH          = 5
+	REG_CARRIER_DETECT_TIME = 9
 	REG_ESC_CODE_GUARD = 12
 	REG_DTR_DELAY      = 30
 )
 
-// TODO:  This is ugly
-const ACTIVE_REGS_COUNT = 61
-var ACTIVE_REGS [ACTIVE_REGS_COUNT]int = [ACTIVE_REGS_COUNT]int {0,1,2,3,4,5,6,7,8,
-	9,10,11,12,18,25,26,30,33,36,38,43,44,46,48,49,50,53,55,56,57,63,69,70,71,
-	72,73,74,75,76,77,78,79,80,81,82,84,85,86,87,91,92,93,94,95,97,105,108,109,
-	110,115,120}
-
 func (m *Modem) setupRegs() {
-	for i := 0; i < len(m.r); i++ {
-		m.r[i] = 0
-	}
+
+	m.curreg = 0		// current register selected (from ATSn)
+	m.r = make(map[byte]byte)
+
+	// Defaults
+	m.r[REG_AUTO_ANSWER] = 0
+	m.r[REG_RING_COUNT] = 0
 	m.r[REG_ESC_CH] = 43	// escape character '+'
 	m.r[REG_CR_CH] = 13	// Carriage return character
-	m.r[4] = 10 		// Line feed character
+	m.r[REG_LF_CH] = 10 	// Line feed character
 	m.r[REG_BS_CH] = 8	// Backspace character
 	m.r[6] = 2		// Wait time before blind dialing (seconds)
 	m.r[7] = 50		// Wait for carrier after dial (seconds)
 	m.r[8] = 2		// Pause time for comma (dial delay) (seconds)
-	m.r[9] = 6		// Carrier Detect Response time (tenths of a second)
+	m.r[REG_CARRIER_DETECT_TIME] = 6 // Carrier Detect Response time (1/10s)
 	m.r[10] = 14		// Delay between Loss of Carrier and hangup (1/10s)
 	m.r[11] = 95		// DTMF Tone Duration (milliseconds)
 	m.r[REG_ESC_CODE_GUARD] = 50 // Escape code guard time (1/50 second)
 	m.r[25] = 5		// Delay to DTR (seconds)
 	m.r[26] = 1		// RTS to DTS delay interval (1/100 second)
 	m.r[28] = 20		// Delay before force disconnect (seconds)
+	m.r[REG_DTR_DELAY] = 0
 }
 
 // ATS...

@@ -3,9 +3,12 @@ package hayes
 import (
 	"fmt"
 	"os"
+	"sort"
 )
 
 var debug bool = false
+//var debug bool = true
+
 func debugf(format string, a ...interface{}) {
 	if debug {
 		format = "# " + format + "\n"
@@ -14,18 +17,23 @@ func debugf(format string, a ...interface{}) {
 }
 
 func (m *Modem) setupDebug() {
-	for i := range m.r {
-		m.r[i] = 0
+	for i := range m.d {
+		m.d[i] = 0
 	}
 }
 
 func (m *Modem) printRegs() {
 	var s string
+	var i []int
+	
+	for f := range m.r {
+		i = append(i, int(f))
+	}
+	sort.Ints(i)
 
 	fmt.Println("Registers:")
-	for i := range ACTIVE_REGS {
-		f := ACTIVE_REGS[i]
-		s += fmt.Sprintf("S%02d:%03d ", f, m.r[f])
+	for _, f := range i {
+		s += fmt.Sprintf("S%02d:%03d ", f, m.r[byte(f)])
 		if (len(s) + 6) >80  {
 			fmt.Println(s)
 			s = ""

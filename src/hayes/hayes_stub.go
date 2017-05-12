@@ -44,6 +44,9 @@ func (m *Modem) setupPins() {
 }
 
 func (m *Modem) clearPins() {
+	for i := range m.leds {
+		m.leds[i] = false
+	}
 	for i := range m.pins {
 		m.pins[i] = false
 	}
@@ -71,7 +74,7 @@ func (m *Modem) showPins() {
 
 	pl := func (n string, p int) (string) {
 		var s string
-		if m.pins[p] {	// LED is on
+		if m.leds[p] {	// LED is on
 			s = strings.ToUpper(n)
 		} else {
 			s = strings.ToLower(n)
@@ -96,53 +99,68 @@ func (m *Modem) showPins() {
 }
 
 // LED functions
+func (m *Modem) led_HS_on() {
+	m.leds[HS_LED] = true
+}
+func (m *Modem) led_HS_off() {
+	m.leds[HS_LED] = false
+}
 func (m *Modem) led_MR_on() {
-	m.pins[MR_LED] = true
+	m.leds[MR_LED] = true
 }
 func (m *Modem) led_MR_off() {
-	m.pins[MR_LED] = false
+	m.leds[MR_LED] = false
 }
 func (m *Modem) led_AA_on() {
-	m.pins[AA_LED] = true
+	m.leds[AA_LED] = true
 }
 func (m *Modem) led_AA_off() {
-	m.pins[AA_LED] = false
+	m.leds[AA_LED] = false
+}
+func (m *Modem) led_RI_on() {
+	m.leds[AA_LED] = true
+}
+func (m *Modem) led_RI_off() {
+	m.leds[AA_LED] = false
 }
 func(m *Modem) led_OH_on() {
-	m.pins[OH_LED] = true
+	m.leds[OH_LED] = true
 }
 func(m *Modem) led_OH_off() {
-	m.pins[OH_LED] = false
+	m.leds[OH_LED] = false
 }
 func(m *Modem) led_TR_on() {
-	m.pins[TR_LED] = true
+	m.leds[TR_LED] = true
 }
 func(m *Modem) led_TR_off() {
-	m.pins[TR_LED] = false
+	m.leds[TR_LED] = false
 }
 func(m *Modem) led_CS_on() {
-	m.pins[CS_LED] = true
+	m.leds[CS_LED] = true
 }
 func(m *Modem) led_CS_off() {
-	m.pins[CS_LED] = false
+	m.leds[CS_LED] = false
 }
 func (m *Modem) led_SD_on() {
-	m.pins[SD_LED] = true
+	m.leds[SD_LED] = true
 }
 func (m *Modem) led_SD_off() {
-	m.pins[SD_LED] = false
+	m.leds[SD_LED] = false
 }
 func (m *Modem) led_RD_on() {
-	m.pins[RD_LED] = true
+	m.leds[RD_LED] = true
 }
 func (m *Modem) led_RD_off() {
-	m.pins[RD_LED] = false
+	m.leds[RD_LED] = false
 }
 func (m *Modem) led_CD_on() {
-	m.pins[CD_LED] = true
+	m.leds[CD_LED] = true
 }
 func (m *Modem) led_CD_off() {
-	m.pins[CD_LED] = false
+	m.leds[CD_LED] = false
+}
+func (m *Modem) ledTest() {
+	// NOOP
 }
 
 // PINs
@@ -200,9 +218,35 @@ func (m *Modem) readDTR() (bool) {
 	// Is the computer ready to send data?
 	return m.pins[DTR_PIN]
 }
+func (m *Modem) raiseDTR() {
+	if !debug {
+		panic("Can't raise/lower input pins when not in DEBUG mode")
+	}
+	m.pins[DTR_PIN] = true
+}
+func (m *Modem) lowerDTR() {
+	if !debug {
+		panic("Can't raise/lower input pins when not in DEBUG mode")
+	}
+	m.pins[DTR_PIN] = false
+}
 
 // RTS - Request to Send
 func (m *Modem) readRTS() (bool) {
 	// Has the computer requested data be sent?
 	return m.pins[RTS_PIN]
 }
+func (m *Modem) raiseRTS() {
+	if !debug {
+		panic("Can't raise/lower input pins when not in DEBUG mode")
+	}
+	m.pins[RTS_PIN] = true
+}
+func (m *Modem) lowerRTS() {
+	if !debug {
+		panic("Can't raise/lower input pins when not in DEBUG mode")
+	}
+	m.pins[RTS_PIN] = false
+}
+
+

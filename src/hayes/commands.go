@@ -19,6 +19,7 @@ func (m *Modem) onHook() (int) {
 
 	m.onhook = true
 	m.mode = COMMANDMODE
+	m.connect_speed = 0
 	return OK
 }
 
@@ -34,6 +35,7 @@ func (m *Modem) answer() (int) {
 	time.Sleep(600 * time.Millisecond) // Simulate Carrier Detect delay
 	m.raiseCD()
 	m.mode = DATAMODE
+	m.connect_speed = 38400
 	return CONNECT_38400
 }
 

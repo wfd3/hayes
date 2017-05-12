@@ -66,11 +66,13 @@ type Modem struct {
 	quiet bool
 	lastcmds []string
 	lastdialed string
-	r [255]byte
+	r map[byte]byte
 	curreg byte
 	conn net.Conn
 	pins Pins
+	leds Pins
 	d [10]int
+	connect_speed int
 }
 
 // Setup/reset modem.  Also ATZ, conveniently.
@@ -87,7 +89,6 @@ func (m *Modem) reset() (int) {
 	m.speakermode = 1	// on until other modem heard
 	m.lastcmds = nil
 	m.lastdialed = ""
-	m.curreg = 0		// current register selected (from ATSn)
 	m.setupRegs()
 	m.setupDebug()
 
@@ -102,6 +103,13 @@ func (m *Modem) reset() (int) {
 // Must be a goroutine
 func (m *Modem) handlePINs() {
 	for {
+		// HS LED
+		if m.connect_speed > 14480 {
+			m.led_HS_on()
+		} else {
+			m.led_HS_off()
+		}
+
 		// MR LED
 		if m.readCTS() && m.readDSR() {
 			m.led_MR_on()
@@ -139,9 +147,9 @@ func (m *Modem) handlePINs() {
 
 		// RI LED
 		if m.readRI() {
-			m.led_RD_on()
+			m.led_RI_on()
 		} else {
-			m.led_RD_off()
+			m.led_RI_off()
 		}
 
 		// CS LED
@@ -152,6 +160,7 @@ func (m *Modem) handlePINs() {
 		}
 
 		// DTR PIN
+		/*
 		if m.readDTR() == false && !m.onhook && m.conn != nil {
 			// DTE Dropped DTR, hang up the phone if DTR is not
 			// reestablished withing S25 * 1/100's of a second
@@ -161,6 +170,7 @@ func (m *Modem) handlePINs() {
 				m.onHook()
 			}
 		}
+                */
 
 		// debug
 		if m.d[1] == 2 {
@@ -172,6 +182,11 @@ func (m *Modem) handlePINs() {
 			m.lowerDSR()
 			m.lowerCTS()
 			m.d[1] = 0
+		}
+
+		if m.d[2] != 0 {
+			m.ledTest()
+			m.d[2] = 0
 		}
 
 		time.Sleep(250 * time.Millisecond)
@@ -280,17 +295,19 @@ func (m *Modem) handleModem() {
 		//
 		// TODO: this is line based, needed to be character based
 		// TODO: Blink the RD LED somewhere in here.
-		// TODO: XXX Racy -- if DTE issues ATA , causing m.onhook == true
-		// before m.mode == DATAMODE, the for loop exits and hangs up.
 		m.r[REG_RING_COUNT] = 0
 		m.lowerRI()
 		buf := make([]byte, 1)
-		for !m.onhook  && m.mode == DATAMODE && m.conn != nil {
+		for !m.onhook {
 			if _, err = m.conn.Read(buf); err != nil {
+				debugf("m.conn.Read(): %s", err)
+				// carrier lost
 				break
 			}
 			m.led_RD_on()
-			fmt.Printf("%s", string(buf)) //  Send to DTE (stdout)
+			if m.mode == DATAMODE {
+				fmt.Printf("%s", string(buf)) //  Send to DTE (stdout)
+			}
 			m.led_RD_off()
 		}
 
@@ -318,17 +335,17 @@ func (m *Modem) signalHandler() {
 
 // Boot the modem
 func (m *Modem) PowerOn() {
-	m.setupPins()		// Setup LED and GPIO pins
-	m.reset()		// Setup modem inital state (or reset to
-	                        // initial state)
-	go m.signalHandler()	     
-
+	m.setupPins()	      
+	m.reset()	      // Setup modem inital state (or reset initial state)
+	
+	go m.signalHandler()	// Catch signals in a different thread
 	go m.handlePINs()       // Monitor input pins & internal registers
 	go m.handleModem()	// Handle in-bound in a seperate goroutine
 
 	// Signal to DTE that we're ready
 	m.raiseDSR()
 	m.raiseCTS()
+
 	// Tell user (if they're looking) we're ready
 	m.prstatus(OK)
 
@@ -367,7 +384,7 @@ func (m *Modem) PowerOn() {
 
 		switch m.mode {
 		case COMMANDMODE:
-			if c == m.r[REG_CR_CH] && s != "" {
+			if c == m.r[REG_LF_CH] && s != "" {
 				m.command(s)
 				s = ""
 			}  else if c == m.r[REG_BS_CH]  && len(s) > 0 {
