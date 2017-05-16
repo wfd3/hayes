@@ -110,6 +110,8 @@ func (m *Modem) clearPins() {
 	m.pins[CD_PIN].Low()
 	m.pins[DSR_PIN].Low()
 	m.pins[CTS_PIN].Low()
+	// m.pins[RTS_PIN].Low()
+	// m.pins[DTR_PIN].Low()	
 }
 
 func (m *Modem) showPins() {
@@ -219,8 +221,13 @@ func (m *Modem) led_CD_on() {
 func (m *Modem) led_CD_off() {
 	m.leds[CD_LED].Low()
 }
-func (m *Modem) ledTest() {
-	for j := 0; j < 3; j++ {
+func (m *Modem) ledTest(round int) {
+	for i:= range m.leds {
+		m.leds[i].High()
+		time.Sleep(50 * time.Millisecond)
+	}
+	time.Sleep(500 * time.Millisecond)
+	for j := 0; j < round; j++ {
 		for i:= range m.leds {
 			m.leds[i].High()
 			time.Sleep(50 * time.Millisecond)

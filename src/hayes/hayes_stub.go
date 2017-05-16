@@ -159,7 +159,7 @@ func (m *Modem) led_CD_on() {
 func (m *Modem) led_CD_off() {
 	m.leds[CD_LED] = false
 }
-func (m *Modem) ledTest() {
+func (m *Modem) ledTest(i int) {
 	// NOOP
 }
 

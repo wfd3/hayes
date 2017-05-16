@@ -185,7 +185,7 @@ func (m *Modem) handlePINs() {
 		}
 
 		if m.d[2] != 0 {
-			m.ledTest()
+			m.ledTest(m.d[2])
 			m.d[2] = 0
 		}
 
@@ -224,12 +224,13 @@ func (m *Modem) handleModem() {
 			continue
 		}
 
-		if !m.onhook {	// "Busy" signal. 
+		if !m.onhook {	// "Busy" signal.
+			conn.Write([]byte("BUSY\n"))
 			conn.Close()
 			continue
 		}
 
-		for i := byte(0); i < __MAX_RINGS; i++ {
+		for i := 0; i < __MAX_RINGS; i++ {
 			last_ring_time = time.Now()
 			m.prstatus(RING)
 			if !m.onhook { // computer has issued 'ATA' 
@@ -280,10 +281,14 @@ func (m *Modem) handleModem() {
 				}
 			}
 		}
-		
+
+//	no_answer:
 		// At this point we've not answered and have timed out.
 		if m.onhook {	// computer didn't answer
 			conn.Close()
+			m.lowerRI()
+			m.led_RI_off()
+			m.prstatus(NO_ANSWER)
 			continue
 		}
 
@@ -293,8 +298,11 @@ func (m *Modem) handleModem() {
 		// as long as we're offhook, we're in DATA MODE and we have
 		// valid carrier (m.comm != nil)
 		//
-		// TODO: this is line based, needed to be character based
-		// TODO: Blink the RD LED somewhere in here.
+		// TODO: Negoitate Telnet behavior -- we're telnetd, pretty much
+		// TODO:   character based, no local echo
+		// TODO: Blink the RD LED somewhere in here, probably with a
+		// TODO:   delay to make it look good.
+		// TODO: Read() with a timeout?
 		m.r[REG_RING_COUNT] = 0
 		m.lowerRI()
 		buf := make([]byte, 1)
@@ -306,7 +314,7 @@ func (m *Modem) handleModem() {
 			}
 			m.led_RD_on()
 			if m.mode == DATAMODE {
-				fmt.Printf("%s", string(buf)) //  Send to DTE (stdout)
+				fmt.Printf("%s", string(buf)) //  Send to DTE
 			}
 			m.led_RD_off()
 		}
@@ -315,8 +323,8 @@ func (m *Modem) handleModem() {
 		m.led_RD_off()
 		m.prstatus(NO_CARRIER)
 		m.onHook()
-		if conn != nil {
-			conn.Close() // just to be safe?
+		if m.conn != nil {
+			m.conn.Close() // just to be safe?
 		}
 	}	
 }
@@ -361,8 +369,7 @@ func (m *Modem) PowerOn() {
 
 	out = make([]byte, 1)
 	for {
-		// XXX
-		// becuse this is not just a modem  program yet, some static
+		// XXX becuse this is not just a modem program yet, some static
 		// key mapping is needed 
 		c = byte(C.getch())
 		if c == 127 {	// ASCII DEL -> ASCII BS
@@ -396,7 +403,6 @@ func (m *Modem) PowerOn() {
 		case DATAMODE:
 			if m.onhook == false && m.conn != nil {
 				m.led_SD_on()
-				out = make([]byte, 1)
 				out[0] = c
 				m.conn.Write(out)
 				time.Sleep(10 *time.Millisecond) // HACK!
