@@ -52,7 +52,8 @@ const (
 
 const OFFHOOK = false
 const ONHOOK = true
-const __MAX_RINGS = 5
+const __MAX_RINGS = 15
+const __DELAY_MS = 20
 const __CONNECT_TIMEOUT = __MAX_RINGS * 6 * time.Second
 
 //Basic modem struct
@@ -92,7 +93,7 @@ func (m *Modem) reset() (int) {
 	m.setupRegs()
 	m.setupDebug()
 
-	time.Sleep(500 *time.Millisecond) // Make it look good
+	time.Sleep(250 *time.Millisecond) // Make it look good
 	
 	m.raiseDSR()
 	m.raiseCTS()		// Ready for DTE to send us data
@@ -217,6 +218,10 @@ func (m *Modem) handleModem() {
 	}
 	defer l.Close()
 
+	var zero []byte
+	zero = make([]byte, 1)
+	zero[0] = 0
+
 	for {
 		conn, err := l.Accept()
 		if err != nil {
@@ -247,8 +252,11 @@ func (m *Modem) handleModem() {
 			d := 0
 			m.raiseRI()
 			for m.onhook  && d < 2000 {
-				time.Sleep(250 * time.Millisecond)
-				d += 250
+				if _, err = conn.Write(zero); err != nil {
+					goto no_answer
+				}
+				time.Sleep(__DELAY_MS * time.Millisecond)
+				d += __DELAY_MS
 				if !m.onhook { // computer has issued 'ATA' 
 					m.conn = conn
 					conn = nil
@@ -272,8 +280,12 @@ func (m *Modem) handleModem() {
 			// Silence for 4s
 			d = 0
 			for m.onhook && d < 4000 {
-				time.Sleep(250 * time.Millisecond)
-				d += 250
+				if _, err = conn.Write(zero); err != nil {
+					goto no_answer
+				}
+
+				time.Sleep(__DELAY_MS * time.Millisecond)
+				d += __DELAY_MS
 				if !m.onhook { // computer has issued 'ATA' 
 					m.conn = conn
 					conn = nil
@@ -282,13 +294,13 @@ func (m *Modem) handleModem() {
 			}
 		}
 
-//	no_answer:
-		// At this point we've not answered and have timed out.
-		if m.onhook {	// computer didn't answer
+	no_answer:
+		// At this point we've not answered and have timed out, or the
+		// caller hung up before we answered.
+		if m.onhook {	
 			conn.Close()
 			m.lowerRI()
 			m.led_RI_off()
-			m.prstatus(NO_ANSWER)
 			continue
 		}
 
@@ -300,6 +312,7 @@ func (m *Modem) handleModem() {
 		//
 		// TODO: Negoitate Telnet behavior -- we're telnetd, pretty much
 		// TODO:   character based, no local echo
+		// TODO: Accept SSH connections
 		// TODO: Blink the RD LED somewhere in here, probably with a
 		// TODO:   delay to make it look good.
 		// TODO: Read() with a timeout?
@@ -348,13 +361,13 @@ func (m *Modem) PowerOn() {
 	
 	go m.signalHandler()	// Catch signals in a different thread
 	go m.handlePINs()       // Monitor input pins & internal registers
-	go m.handleModem()	// Handle in-bound in a seperate goroutine
+	go m.handleModem()	// Handle in-bound bytes in a seperate goroutine
 
 	// Signal to DTE that we're ready
 	m.raiseDSR()
 	m.raiseCTS()
 
-	// Tell user (if they're looking) we're ready
+	// Tell user we're ready
 	m.prstatus(OK)
 
 	// Consume bytes from the serial port and process or send to remote

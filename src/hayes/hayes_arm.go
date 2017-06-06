@@ -288,9 +288,6 @@ func (m *Modem) readCTS() (bool) {
 }
 
 // DTR
-func (m *Modem) readDTR() (bool) {
-	return m.pins[DTR_PIN].Read() == rpio.High
-}
 func (m *Modem) raiseDTR() {
 	if !debug {
 		panic("Can't raise input pins on this platform")
@@ -301,11 +298,11 @@ func (m *Modem) lowerDTR() {
 		panic("Can't raise input pins on this platform")
 	}
 }
+func (m *Modem) readDTR() (bool) {
+	return m.pins[DTR_PIN].Read() == rpio.High
+}
 
 // RTS
-func (m *Modem) readRTS() (bool) {
-	return m.pins[RTS_PIN].Read() == rpio.High
-}
 func (m *Modem) raiseRTS() {
 	if !debug {
 		panic("Can't raise input pins on this platform")
@@ -315,4 +312,7 @@ func (m *Modem) lowerRTS() {
 	if !debug {
 		panic("Can't raise input pins on this platform")
 	}
+}
+func (m *Modem) readRTS() (bool) {
+	return m.pins[RTS_PIN].Read() == rpio.High
 }
