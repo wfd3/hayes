@@ -29,9 +29,9 @@ const (
 	DTR_PIN
 	RTS_PIN
 
-	_PIN_LEN = RTS_PIN
+	_PIN_LEN		// This needs to be last in the const list
 )
-type Pins [_PIN_LEN + 1]bool
+type Pins [_PIN_LEN]bool
 
 func (m *Modem) setupPins() {
 	debugf("Simulated Pins enabled on %s/%s\n", runtime.GOOS, runtime.GOARCH)
@@ -105,60 +105,42 @@ func (m *Modem) led_HS_on() {
 func (m *Modem) led_HS_off() {
 	m.leds[HS_LED] = false
 }
-func (m *Modem) led_MR_on() {
-	m.leds[MR_LED] = true
-}
-func (m *Modem) led_MR_off() {
-	m.leds[MR_LED] = false
-}
+
 func (m *Modem) led_AA_on() {
 	m.leds[AA_LED] = true
 }
 func (m *Modem) led_AA_off() {
 	m.leds[AA_LED] = false
 }
-func (m *Modem) led_RI_on() {
-	m.leds[AA_LED] = true
-}
-func (m *Modem) led_RI_off() {
-	m.leds[AA_LED] = false
-}
+
 func(m *Modem) led_OH_on() {
 	m.leds[OH_LED] = true
 }
 func(m *Modem) led_OH_off() {
 	m.leds[OH_LED] = false
 }
+
 func(m *Modem) led_TR_on() {
 	m.leds[TR_LED] = true
 }
 func(m *Modem) led_TR_off() {
 	m.leds[TR_LED] = false
 }
-func(m *Modem) led_CS_on() {
-	m.leds[CS_LED] = true
-}
-func(m *Modem) led_CS_off() {
-	m.leds[CS_LED] = false
-}
+
 func (m *Modem) led_SD_on() {
 	m.leds[SD_LED] = true
 }
 func (m *Modem) led_SD_off() {
 	m.leds[SD_LED] = false
 }
+
 func (m *Modem) led_RD_on() {
 	m.leds[RD_LED] = true
 }
 func (m *Modem) led_RD_off() {
 	m.leds[RD_LED] = false
 }
-func (m *Modem) led_CD_on() {
-	m.leds[CD_LED] = true
-}
-func (m *Modem) led_CD_off() {
-	m.leds[CD_LED] = false
-}
+
 func (m *Modem) ledTest(i int) {
 	// NOOP
 }
@@ -178,39 +160,45 @@ func (m *Modem) readRI() (bool) {
 
 // CD - Carrier Detect
 func (m *Modem) raiseCD() {
+	m.leds[CD_LED] = true
 	m.pins[CD_PIN] = true
 }
 func (m *Modem) lowerCD() {
+	m.leds[CD_LED] = false
 	m.pins[CD_PIN] = false
 }
 func (m *Modem) readCD() (bool) {
-	return m.pins[CD_PIN]
+	return m.pins[CD_PIN] && m.leds[CD_LED]
 }
 
 // DSR - Data Set Ready
 func (m *Modem) raiseDSR() {
+	m.leds[MR_LED] = true
 	m.pins[DSR_PIN] = true
 	debugf("raiseDSR()")
 }
 func (m *Modem) lowerDSR() {
+	m.leds[MR_LED] = false
 	m.pins[DSR_PIN] = false
 	debugf("lowerDSR()")
 }
 func (m *Modem) readDSR() (bool) {
-	return m.pins[DSR_PIN]
+	return m.pins[DSR_PIN] && m.leds[MR_LED]
 }
 
 // CTS - Clear to Send
 func (m *Modem) raiseCTS() {
+	m.leds[CS_LED] = true
 	m.pins[CTS_PIN] = true
 	debugf("raiseCTS()")
 }
 func (m *Modem) lowerCTS() {
+	m.leds[CS_LED] = true
 	m.pins[CTS_PIN] = false
 	debugf("lowerCTS()")
 }
 func (m *Modem) readCTS() (bool) {
-	return m.pins[CTS_PIN]
+	return m.pins[CTS_PIN] && m.leds[CS_LED]
 }
 
 // DTR - Data Terminal Ready
@@ -232,10 +220,6 @@ func (m *Modem) lowerDTR() {
 }
 
 // RTS - Request to Send
-func (m *Modem) readRTS() (bool) {
-	// Has the computer requested data be sent?
-	return m.pins[RTS_PIN]
-}
 func (m *Modem) raiseRTS() {
 	if !debug {
 		panic("Can't raise/lower input pins when not in DEBUG mode")
@@ -248,5 +232,7 @@ func (m *Modem) lowerRTS() {
 	}
 	m.pins[RTS_PIN] = false
 }
-
-
+func (m *Modem) readRTS() (bool) {
+	// Has the computer requested data be sent?
+	return m.pins[RTS_PIN]
+}

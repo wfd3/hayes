@@ -112,7 +112,7 @@ func (m *Modem) handlePINs() {
 		}
 
 		// AA LED
-		if m.r[REG_AUTO_ANSWER] != 0 {
+		if m.readReg(REG_AUTO_ANSWER) != 0 { // RACE
 			m.led_AA_on()
 		} else {
 			m.led_AA_off()
@@ -179,7 +179,7 @@ func (m *Modem) handleModem() {
 	go func() {		
 		for range time.Tick(8 * time.Second) {
 			if time.Since(last_ring_time) >= 8 * time.Second {
-				m.r[REG_RING_COUNT] = 0
+				m.writeReg(REG_RING_COUNT, 0) 
 			}
 		}
 	}()
@@ -242,9 +242,9 @@ func (m *Modem) handleModem() {
 			// wait before answering, answer the call.  We
 			// do this here before the 4s delay as I think
 			// it feels more correct.
-			if m.r[REG_AUTO_ANSWER] > 0 {
-				m.r[REG_RING_COUNT]++
-				if m.r[REG_RING_COUNT] >= m.r[REG_AUTO_ANSWER] {
+			if m.readReg(REG_AUTO_ANSWER) > 0 {
+				if m.incReg(REG_RING_COUNT) >=
+					m.readReg(REG_AUTO_ANSWER) {
 					m.answer()
 				}
 			}
@@ -287,7 +287,7 @@ func (m *Modem) handleModem() {
 		// TODO: Blink the RD LED somewhere in here, probably with a
 		// TODO:   delay to make it look good.
 		// TODO: Read() with a timeout?
-		m.r[REG_RING_COUNT] = 0
+		m.writeReg(REG_RING_COUNT, 0)
 		m.lowerRI()
 		buf := make([]byte, 1)
 		for !m.onhook {
@@ -357,7 +357,7 @@ func (m *Modem) PowerOn() {
 		// key mapping is needed 
 		c = byte(C.getch())
 		if c == 127 {	// ASCII DEL -> ASCII BS
-			c = m.r[REG_BS_CH]
+			c = byte(m.readReg(REG_BS_CH))
 		}
 		// Ignore anything above ASCII 127 or the ASCII escape
 		if c > 127 || c == 27 { 
@@ -368,17 +368,17 @@ func (m *Modem) PowerOn() {
 		if m.echo {
 			fmt.Printf("%c", c)
 			// XXX: handle backspace
-			if c == m.r[REG_BS_CH] {
+			if c == m.readReg(REG_BS_CH) {
 				fmt.Printf(" %c", c)
 			}
 		}
 
 		switch m.mode {
 		case COMMANDMODE:
-			if c == m.r[REG_LF_CH] && s != "" {
+			if c == m.readReg(REG_LF_CH) && s != "" {
 				m.command(s)
 				s = ""
-			}  else if c == m.r[REG_BS_CH]  && len(s) > 0 {
+			}  else if c == m.readReg(REG_BS_CH)  && len(s) > 0 {
 				s = s[0:len(s) - 1]
 			} else {
 				s += string(c)
@@ -398,12 +398,11 @@ func (m *Modem) PowerOn() {
 			lastthree[idx] = c
 			idx = (idx + 1) % 3
 			guard_time =
-				time.Duration(float64(m.r[REG_ESC_CODE_GUARD]) *
-				0.02) * time.Second
-
-			if lastthree[0] == m.r[REG_ESC_CH] &&
-				lastthree[1] == m.r[REG_ESC_CH] &&
-				lastthree[2] == m.r[REG_ESC_CH] &&
+				time.Duration(float64(m.readReg(REG_ESC_CODE_GUARD))				* 0.02) * time.Second
+			
+			if lastthree[0] == m.readReg(REG_ESC_CH) &&
+				lastthree[1] == m.readReg(REG_ESC_CH) &&
+				lastthree[2] == m.readReg(REG_ESC_CH) &&
 				time.Since(sinceLastChar) >
 				time.Duration(guard_time)  {
 				m.mode = COMMANDMODE

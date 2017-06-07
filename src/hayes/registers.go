@@ -42,6 +42,21 @@ func (m *Modem) setupRegs() {
 	m.r[REG_DTR_DELAY] = 0
 }
 
+
+// TODO: locks, validation
+func (m *Modem) readReg(reg int) byte {
+	return m.r[byte(reg)]
+}
+
+func (m *Modem) writeReg(reg, val int) {
+	m.r[byte(reg)] = byte(val)
+}
+
+func (m *Modem) incReg(reg int) byte {
+	m.r[byte(reg)]++
+	return m.r[byte(reg)]
+}
+
 // ATS...
 // Given a string that looks like a "S" command, parse & normalize it
 func parseRegisters(cmd string) (string, int, error) {
@@ -109,8 +124,7 @@ func (m *Modem) registers(cmd string) (int) {
 			debugf("Register value over/underflow: %d", val)
 			return ERROR
 		}
-		
-		m.r[byte(reg)] = byte(val)
+		m.writeReg(reg, val)
 		return OK
 	}
 
@@ -122,7 +136,7 @@ func (m *Modem) registers(cmd string) (int) {
 			return ERROR
 		}
 		
-		fmt.Printf("%d\n", m.r[byte(reg)])
+		fmt.Printf("%d\n", m.readReg(reg))
 		return OK
 	}
 
