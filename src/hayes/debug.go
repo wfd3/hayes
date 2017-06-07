@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"time"
 )
 
 var debug bool = false
@@ -111,6 +112,9 @@ func (m *Modem) debug(cmd string) (int) {
 	// *n=x - write x to n
 	_, err = fmt.Sscanf(cmd, "*%d=%d", &reg, &val)
 	if err == nil {
+		if reg > len(m.d) {
+			return ERROR
+		}
 		m.d[reg] = val
 		if reg == 0 {
 			if m.d[0] != 0 {
@@ -119,6 +123,15 @@ func (m *Modem) debug(cmd string) (int) {
 			} else {
 				debugf("Debugging disabled")
 				debug = false
+			}
+		} else if reg == 9 {
+			for i := 0; i < val; i++ {
+				fmt.Println("Toggling RI up")
+				m.raiseRI()
+				time.Sleep(2 * time.Second)
+				fmt.Println("Toggling RI down")
+				m.lowerRI()
+				time.Sleep(2 * time.Second)
 			}
 		}
 		return OK

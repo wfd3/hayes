@@ -111,13 +111,6 @@ func (m *Modem) handlePINs() {
 			m.led_HS_off()
 		}
 
-		// MR LED
-		if m.readCTS() && m.readDSR() {
-			m.led_MR_on()
-		} else {
-			m.led_MR_off()
-		}
-		
 		// AA LED
 		if m.r[REG_AUTO_ANSWER] != 0 {
 			m.led_AA_on()
@@ -132,32 +125,11 @@ func (m *Modem) handlePINs() {
 			m.led_TR_off()
 		}
 
-		// CD LED
-		if m.readCD() {
-			m.led_CD_on()
-		} else {
-			m.led_CD_off()
-		}
-
 		// OH LED
 		if !m.onhook {
 			m.led_OH_on()
 		} else {
 			m.led_OH_off()
-		}
-
-		// RI LED
-		if m.readRI() {
-			m.led_RI_on()
-		} else {
-			m.led_RI_off()
-		}
-
-		// CS LED
-		if m.readCTS() {
-			m.led_CS_on()
-		} else {
-			m.led_CS_off()
 		}
 
 		// DTR PIN
@@ -300,7 +272,6 @@ func (m *Modem) handleModem() {
 		if m.onhook {	
 			conn.Close()
 			m.lowerRI()
-			m.led_RI_off()
 			continue
 		}
 
