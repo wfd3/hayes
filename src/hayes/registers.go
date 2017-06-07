@@ -22,7 +22,9 @@ func (m *Modem) setupRegs() {
 	m.curreg = 0		// current register selected (from ATSn)
 	m.r = make(map[byte]byte)
 
+
 	// Defaults
+	m.rlock.Lock()
 	m.r[REG_AUTO_ANSWER] = 0
 	m.r[REG_RING_COUNT] = 0
 	m.r[REG_ESC_CH] = 43	// escape character '+'
@@ -40,19 +42,42 @@ func (m *Modem) setupRegs() {
 	m.r[26] = 1		// RTS to DTS delay interval (1/100 second)
 	m.r[28] = 20		// Delay before force disconnect (seconds)
 	m.r[REG_DTR_DELAY] = 0
+	m.rlock.Unlock()
 }
 
 
 // TODO: locks, validation
 func (m *Modem) readReg(reg int) byte {
+	if reg > 255 {
+		panic("Registers 0-255 only")
+	}
+
+	m.rlock.RLock()
+	defer m.rlock.RUnlock()
 	return m.r[byte(reg)]
 }
 
 func (m *Modem) writeReg(reg, val int) {
+	if reg > 255 {
+		panic("Registers 0-255 only")
+	}
+	if val > 255 {
+		panic("Register values 0-255 only")
+	}
+
+	m.rlock.Lock()
+	defer m.rlock.Unlock()
 	m.r[byte(reg)] = byte(val)
 }
 
 func (m *Modem) incReg(reg int) byte {
+	if reg > 255 {
+		panic("Registers 0-255 only")
+	}
+	m.rlock.RLock()
+
+	m.rlock.Lock()
+	defer m.rlock.Unlock()
 	m.r[byte(reg)]++
 	return m.r[byte(reg)]
 }

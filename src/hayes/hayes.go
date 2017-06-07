@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"time"
 	"net"
+	"sync"
 )
 
 /*
@@ -67,6 +68,7 @@ type Modem struct {
 	quiet bool
 	lastcmds []string
 	lastdialed string
+	rlock sync.RWMutex	// Lock for registers map (r)
 	r map[byte]byte
 	curreg byte
 	conn net.Conn
@@ -357,7 +359,7 @@ func (m *Modem) PowerOn() {
 		// key mapping is needed 
 		c = byte(C.getch())
 		if c == 127 {	// ASCII DEL -> ASCII BS
-			c = byte(m.readReg(REG_BS_CH))
+			c = m.readReg(REG_BS_CH)
 		}
 		// Ignore anything above ASCII 127 or the ASCII escape
 		if c > 127 || c == 27 { 
