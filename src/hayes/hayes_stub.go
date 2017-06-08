@@ -87,15 +87,15 @@ func (m *Modem) showPins() {
 	s += pl("HS", HS_LED)
 	s += pl("AA", AA_LED)
 	s += pl("RI", RI_LED)
-	s += pl("MR", MR_LED)
-	s += pl("TR", TR_LED)
-	s += pl("RD", RD_LED)
-	s += pl("CS", CS_LED)
 	s += pl("CD", CD_LED)
+	s += pl("OH", OH_LED)
 	s += pl("SD", SD_LED)
+	s += pl("RD", RD_LED)
+	s += pl("TR", TR_LED)
+	s += pl("CS", CS_LED)
+	s += pl("MR", MR_LED)
 	s += "]"
 	fmt.Println(s)
-
 }
 
 // LED functions

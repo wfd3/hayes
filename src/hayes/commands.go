@@ -21,12 +21,14 @@ func (m *Modem) onHook() (int) {
 	m.mode = COMMANDMODE
 	m.connect_speed = 0
 	m.led_HS_off()
+	m.led_OH_off()
 	return OK
 }
 
 // ATH1
 func (m *Modem) offHook() (int){
 	m.onhook = false
+	m.led_OH_on()
 	return OK
 }
 
@@ -70,8 +72,10 @@ func (m *Modem) processCommands(commands []string) (int) {
 		case 'H':
 			if cmd[1] == '0' { 
 				status = m.onHook()
-			} else {
+			} else if cmd[1] == '1' {
 				status = m.offHook()
+			} else {
+				status = ERROR
 			}
 		case 'Q':
 			if cmd[1] == '0' {

@@ -108,29 +108,19 @@ func (m *Modem) handlePINs() {
 	for {
 		if m.readDTR() {
 			m.led_TR_on()
-		} else {
+		} else { 
+			if !m.onhook && m.conn != nil {
+				// DTE Dropped DTR, hang up the phone if DTR is not
+				// reestablished withing S25 * 1/100's of a second
+				time.Sleep(time.Duration(m.readReg(REG_DTR_DELAY)) *
+					100 * time.Millisecond)
+				if m.readDTR() == false && !m.onhook &&
+					m.conn != nil {
+					m.onHook()
+				}
+			}
 			m.led_TR_off()
 		}
-
-		// OH LED
-		if !m.onhook {
-			m.led_OH_on()
-		} else {
-			m.led_OH_off()
-		}
-
-		// DTR PIN
-		/*
-		if m.readDTR() == false && !m.onhook && m.conn != nil {
-			// DTE Dropped DTR, hang up the phone if DTR is not
-			// reestablished withing S25 * 1/100's of a second
-			time.Sleep(time.Duration(m.r[REG_DTR_DELAY]) * 100 *
-				time.Millisecond)
-			if m.readDTR() == false && !m.onhook && m.conn != nil {
-				m.onHook()
-			}
-		}
-                */
 
 		// debug
 		if m.d[1] == 2 {

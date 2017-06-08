@@ -24,7 +24,7 @@ const (
 	CONNECT_38400 = 28
 )
 var status_codes = map[int]string{
-	OK:            "OK",	
+	OK:            "OK",  	// nil == OK
 	CONNECT:       "CONNECT",
 	RING:          "RING",
 	NO_CARRIER:    "NO_CARRIER",
@@ -41,14 +41,19 @@ var status_codes = map[int]string{
 	CONNECT_38400: "CONNECT_38400",
 }
 
+type herror struct {
+	code int
+	description string
+}
+
 // Print command status, subject to quiet mode and verbose mode flags
-func (m *Modem) prstatus(status int) {
+func (m *Modem) prstatus(code int) {
 	if m.quiet {
 		return
 	}
 	if m.verbose {
-		fmt.Println(status_codes[status])
+		fmt.Println(status_codes[code])
 	} else {
-		fmt.Println(status)
+		fmt.Println(code)
 	} 
 }
