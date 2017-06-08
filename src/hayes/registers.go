@@ -134,7 +134,7 @@ func (m *Modem) registers(cmd string) (int) {
 
 	// S? - query selected register
 	if cmd[:2] == "S?" {
-		fmt.Printf("%d\n", m.r[m.curreg])
+		fmt.Printf("%d\n", m.readReg(m.curreg))
 		return OK
 	}
 
@@ -150,6 +150,13 @@ func (m *Modem) registers(cmd string) (int) {
 			return ERROR
 		}
 		m.writeReg(reg, val)
+		if reg == REG_AUTO_ANSWER { // Turn on AA led
+			if val == 0 {
+				m.led_AA_off()
+			} else {
+				m.led_AA_on()
+			}
+		}
 		return OK
 	}
 
@@ -172,7 +179,7 @@ func (m *Modem) registers(cmd string) (int) {
 			debugf("Register index over/underflow: %d", reg)
 			return ERROR
 		}
-		m.curreg = byte(reg)
+		m.curreg = reg
 		return OK
 	}
 

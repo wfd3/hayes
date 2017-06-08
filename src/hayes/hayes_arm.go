@@ -108,7 +108,7 @@ func (m *Modem) setupPins() {
 	m.pins[RTS_PIN] = rpio.Pin(RTS_PIN)
 	m.pins[RTS_PIN].Input()
 
-	// Control
+	// Control pin for L293
 	m.pins[CONTROL] = rpio.Pin(CONTROL)
 	m.pins[CONTROL].Output()
 	m.pins[CONTROL].High()
@@ -139,9 +139,9 @@ func (m *Modem) clearPins() {
 
 func (m *Modem) showPins() {
 
-	pp := func (n string, p int) (string) {
+	pp := func (n string, b bool) (string) {
 		var state string
-		if m.pins[p].Read() == rpio.High {
+		if b {
 			state = "High"
 		} else {
 			state = "Low"
@@ -149,12 +149,12 @@ func (m *Modem) showPins() {
 		return fmt.Sprintf("%s:[%s] ", n, state)
 	}
 	s := "PINs: "
-	s += pp("CTS", CTS_PIN)
-	s += pp("RI", RI_PIN)
-	s += pp("CD", CD_PIN)
-	s += pp("DSR", DSR_PIN)
-	s += pp("RTS", RTS_PIN)
-	s += pp("DTR", DTR_PIN)
+	s += pp("CTS", m.readCTS())
+	s += pp("RI", m.readRI())
+	s += pp("CD", m.readCD())
+	s += pp("DSR", m.readDSR())
+	s += pp("RTS", m.readRTS())
+	s += pp("DTR", m.readDTR())
 	fmt.Println(s)
 
 	pl := func (n string, p int) (string) {

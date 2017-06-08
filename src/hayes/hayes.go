@@ -70,7 +70,7 @@ type Modem struct {
 	lastdialed string
 	rlock sync.RWMutex	// Lock for registers map (r)
 	r map[byte]byte
-	curreg byte
+	curreg int
 	conn net.Conn
 	pins Pins
 	leds Pins
@@ -106,21 +106,6 @@ func (m *Modem) reset() (int) {
 // Must be a goroutine
 func (m *Modem) handlePINs() {
 	for {
-		// HS LED
-		if m.connect_speed > 14480 {
-			m.led_HS_on()
-		} else {
-			m.led_HS_off()
-		}
-
-		// AA LED
-		if m.readReg(REG_AUTO_ANSWER) != 0 { // RACE
-			m.led_AA_on()
-		} else {
-			m.led_AA_off()
-		}
-
-		// TR LED
 		if m.readDTR() {
 			m.led_TR_on()
 		} else {
