@@ -184,9 +184,13 @@ func (m *Modem) handleModem() {
 			continue
 		}
 
+		// This is a telnet session, negotiate char-at-a-time
+		conn.Write([]byte("\377\375\042\377\373\001"))
+
 		for i := 0; i < __MAX_RINGS; i++ {
 			last_ring_time = time.Now()
 			m.prstatus(RING)
+			conn.Write([]byte("Ringing...\n"))
 			if !m.onhook { // computer has issued 'ATA' 
 				m.conn = conn
 				conn = nil
