@@ -63,6 +63,7 @@ func (m *Modem) dial(to string) (int) {
 			return BUSY
 		}
 		m.mode = DATAMODE // TODO: ';' to stay in command mode
+		m.offHook()
 		return CONNECT_38400
 	}
 

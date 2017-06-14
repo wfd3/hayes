@@ -27,7 +27,7 @@ const (
 	DSR_PIN
 	CTS_PIN
 	DTR_PIN
-	RTS_PIN
+	RTS_PIN 
 
 	_PIN_LEN		// This needs to be last in the const list
 )

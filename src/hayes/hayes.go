@@ -185,12 +185,14 @@ func (m *Modem) handleModem() {
 		}
 
 		// This is a telnet session, negotiate char-at-a-time
-		conn.Write([]byte("\377\375\042\377\373\001"))
+		// IAC, DO, LINEMODE, IAC, WILL, ECHO
+		const char_at_a_time = "\377\375\042\377\373\001"
+		conn.Write([]byte(char_at_a_time))
 
 		for i := 0; i < __MAX_RINGS; i++ {
 			last_ring_time = time.Now()
 			m.prstatus(RING)
-			conn.Write([]byte("Ringing...\n"))
+			conn.Write([]byte("Ringing...\n\r"))
 			if !m.onhook { // computer has issued 'ATA' 
 				m.conn = conn
 				conn = nil
@@ -240,8 +242,6 @@ func (m *Modem) handleModem() {
 				time.Sleep(__DELAY_MS * time.Millisecond)
 				d += __DELAY_MS
 				if !m.onhook { // computer has issued 'ATA' 
-					m.conn = conn
-					conn = nil
 					goto answered
 				}
 			}
@@ -262,14 +262,13 @@ func (m *Modem) handleModem() {
 		// as long as we're offhook, we're in DATA MODE and we have
 		// valid carrier (m.comm != nil)
 		//
-		// TODO: Negoitate Telnet behavior -- we're telnetd, pretty much
-		// TODO:   character based, no local echo
 		// TODO: Accept SSH connections
-		// TODO: Blink the RD LED somewhere in here, probably with a
-		// TODO:   delay to make it look good.
-		// TODO: Read() with a timeout?
+		m.conn = conn
+		conn = nil
 		m.writeReg(REG_RING_COUNT, 0)
 		m.lowerRI()
+		m.conn.Write([]byte("Answered\n\r"))
+
 		buf := make([]byte, 1)
 		for !m.onhook {
 			if _, err = m.conn.Read(buf); err != nil {
