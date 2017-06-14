@@ -17,7 +17,7 @@ import (
 	"os/signal"
 	"fmt"
 	"time"
-	"net"
+	"io"
 	"sync"
 )
 
@@ -71,7 +71,7 @@ type Modem struct {
 	rlock sync.RWMutex	// Lock for registers map (r)
 	r map[byte]byte
 	curreg int
-	conn net.Conn
+	conn io.ReadWriteCloser
 	pins Pins
 	leds Pins
 	d [10]int
@@ -161,33 +161,22 @@ func (m *Modem) handleModem() {
 		}
 	}()
 
-	l, err := net.Listen("tcp", ":20000")
-	if err != nil {
-		panic(err)
-	}
-	defer l.Close()
-
+	var err error
 	var zero []byte
 	zero = make([]byte, 1)
 	zero[0] = 0
 
+	startListeners()
+
 	for {
-		conn, err := l.Accept()
-		if err != nil {
-			debugf("l.Accept(): %s\n", err)
-			continue
-		}
+		err = nil
+		conn := getConnection()
 
 		if !m.onhook {	// "Busy" signal.
 			conn.Write([]byte("BUSY\n"))
 			conn.Close()
 			continue
 		}
-
-		// This is a telnet session, negotiate char-at-a-time
-		// IAC, DO, LINEMODE, IAC, WILL, ECHO
-		const char_at_a_time = "\377\375\042\377\373\001"
-		conn.Write([]byte(char_at_a_time))
 
 		for i := 0; i < __MAX_RINGS; i++ {
 			last_ring_time = time.Now()
@@ -235,6 +224,7 @@ func (m *Modem) handleModem() {
 			// Silence for 4s
 			d = 0
 			for m.onhook && d < 4000 {
+				// Test for closed connection
 				if _, err = conn.Write(zero); err != nil {
 					goto no_answer
 				}
@@ -261,10 +251,7 @@ func (m *Modem) handleModem() {
 		// from the remote dialer to the serial port (for now, stdout)
 		// as long as we're offhook, we're in DATA MODE and we have
 		// valid carrier (m.comm != nil)
-		//
-		// TODO: Accept SSH connections
 		m.conn = conn
-		conn = nil
 		m.writeReg(REG_RING_COUNT, 0)
 		m.lowerRI()
 		m.conn.Write([]byte("Answered\n\r"))
