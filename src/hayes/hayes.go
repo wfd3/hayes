@@ -218,7 +218,9 @@ func (m *Modem) PowerOn() {
 			if c == m.readReg(REG_LF_CH) && s != "" {
 				m.command(s)
 				s = ""
-			}  else if c == m.readReg(REG_BS_CH)  && len(s) > 0 {
+			} else if c == m.readReg(REG_LF_CH) {
+				// ignore naked CR's
+			} else if c == m.readReg(REG_BS_CH)  && len(s) > 0 {
 				s = s[0:len(s) - 1]
 			} else {
 				s += string(c)

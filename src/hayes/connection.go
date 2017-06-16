@@ -30,7 +30,6 @@ func (m *Modem) acceptSSH() {
 		NoClientAuth: true,
 	}
 
-	// TODO: ssh client always asks to proceed.
 	// You can generate a keypair with 'ssh-keygen -t rsa'
 	privateBytes, err := ioutil.ReadFile("id_rsa")
 	if err != nil {
@@ -192,11 +191,10 @@ func (m *Modem) answerIncomming(conn io.ReadWriteCloser) bool {
 		}
 		m.lowerRI()
 		
-		// If Auto Answer if enabled and we've
-		// exceeded the configured number of rings to
-		// wait before answering, answer the call.  We
-		// do this here before the 4s delay as I think
-		// it feels more correct.
+		// If Auto Answer if enabled and we've exceeded the
+		// configured number of rings to wait before
+		// answering, answer the call.  We do this here before
+		// the 4s delay as I think it feels more correct.
 		if m.readReg(REG_AUTO_ANSWER) > 0 {
 			if m.incReg(REG_RING_COUNT) >=
 				m.readReg(REG_AUTO_ANSWER) {

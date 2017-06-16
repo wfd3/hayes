@@ -33,7 +33,12 @@ func (m *Modem) offHook() (int){
 }
 
 // ATA
+// TODO - Issuing ATA when there's no inbound caller results in a "CONNECT"
+// response code.  Need to synchronize with the inbound network code so that ATA
+// doesn't seem to connect when there's no active but unanswered connection.
+// TODO - Issuing ATA when we're already connected has bad behavior
 func (m *Modem) answer() (int) {
+	
 	m.offHook()
 	time.Sleep(600 * time.Millisecond) // Simulate Carrier Detect delay
 	m.raiseCD()
