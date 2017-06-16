@@ -45,8 +45,13 @@ func (m *Modem) printRegs() {
 
 // Debug function
 func (m *Modem) printState() {
-	fmt.Printf("OnHook   : %t\n", m.onhook)
-	fmt.Printf("Echo     : %t\n", m.onhook)
+	fmt.Printf("Hook     : ")
+	if m.getHook() == ON_HOOK {
+		fmt.Println("ON HOOK")
+	} else {
+		fmt.Println("OFF HOOK")
+	}
+	fmt.Printf("Echo     : %t\n", m.echo)
 	fmt.Print( "Mode     : ")
 	if m.mode == COMMANDMODE {
 		fmt.Println("Command")
@@ -55,6 +60,7 @@ func (m *Modem) printState() {
 	}
 	fmt.Printf("Quiet    : %t\n", m.quiet)
 	fmt.Printf("Verbose  : %t\n", m.verbose)
+	fmt.Printf("Line Busy: %t\n", m.getLineBusy())
 	fmt.Printf("Volume   : %d\n", m.volume)
 	fmt.Printf("SpkrMode : %d\n", m.speakermode)
 	fmt.Printf("Last Cmd : %v\n", m.lastcmds)

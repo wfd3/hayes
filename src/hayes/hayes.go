@@ -78,6 +78,21 @@ type Modem struct {
 	leds Pins
 	d [10]int
 	connect_speed int
+	linebusy bool
+	linebusylock sync.RWMutex
+}
+
+// Is the phone line busy?
+func (m *Modem) getLineBusy() bool {
+	m.linebusylock.RLock()
+	defer m.linebusylock.RUnlock()
+	return m.linebusy
+}	
+
+func (m *Modem) setLineBusy(b bool) {
+	m.linebusylock.Lock()
+	defer m.linebusylock.Unlock()
+	m.linebusy = b
 }
 
 // Setup/reset modem.  Also ATZ, conveniently.
@@ -94,6 +109,7 @@ func (m *Modem) reset() (int) {
 	m.speakermode = 1	// on until other modem heard
 	m.lastcmds = nil
 	m.lastdialed = ""
+	m.setLineBusy(false)
 	m.setupRegs()
 	m.setupDebug()
 
@@ -111,12 +127,12 @@ func (m *Modem) handlePINs() {
 		if m.readDTR() {
 			m.led_TR_on()
 		} else { 
-			if !m.onhook && m.conn != nil {
+			if m.getHook() == OFF_HOOK && m.conn != nil {
 				// DTE Dropped DTR, hang up the phone if DTR is not
 				// reestablished withing S25 * 1/100's of a second
 				time.Sleep(time.Duration(m.readReg(REG_DTR_DELAY)) *
 					100 * time.Millisecond)
-				if m.readDTR() == false && !m.onhook &&
+				if !m.readDTR() && m.getHook() == OFF_HOOK &&
 					m.conn != nil {
 					m.onHook()
 				}
@@ -227,7 +243,7 @@ func (m *Modem) PowerOn() {
 			}
 
 		case DATAMODE:
-			if m.onhook == false && m.conn != nil {
+			if m.getHook() == OFF_HOOK && m.conn != nil {
 				m.led_SD_on()
 				out[0] = c
 				m.conn.Write(out)

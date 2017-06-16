@@ -7,13 +7,10 @@ import (
 	"fmt"
 	"golang.org/x/crypto/ssh"
 	"io/ioutil"
-	"sync"
 )
 
 var connection chan io.ReadWriteCloser
 var last_ring_time time.Time
-var ringing bool
-var ringlock sync.RWMutex
 
 func (m *Modem) acceptSSH() {
 
@@ -46,7 +43,6 @@ func (m *Modem) acceptSSH() {
 	// Once a ServerConfig has been configured, connections can be accepted.
 	listener, err := net.Listen("tcp", "0.0.0.0:2200")
 	if err != nil {
-		fmt.Printf("Failed to listen on 2200 (%s)", err)
 		panic(err)
 	}
 
@@ -56,19 +52,19 @@ func (m *Modem) acceptSSH() {
 	for {
 		tcpConn, err := listener.Accept()
 		if err != nil {
-			fmt.Printf("Failed to accept incoming connection (%s)", err)
+			debugf("Failed to accept incoming connection (%s)", err)
 			continue
 		}
 		// Before use, a handshake must be performed on the
 		// incoming net.Conn.
 		sshConn, chans, reqs, err := ssh.NewServerConn(tcpConn, config)
 		if err != nil {
-			fmt.Printf("Failed to handshake (%s)", err)
+			debugf("Failed to handshake (%s)", err)
 			continue
 		}
 		go ssh.DiscardRequests(reqs)
 
-		fmt.Printf("New SSH connection from %s (%s)\n",
+		debugf("New SSH connection from %s (%s)\n",
 			sshConn.RemoteAddr(), sshConn.ClientVersion())
 
 		for newChannel = range chans {
@@ -134,7 +130,7 @@ func (m *Modem) handleConnection() {
 
 	buf := make([]byte, 1)
 
-	for !m.onhook {
+	for m.getHook() == OFF_HOOK {
 		if _, err := m.conn.Read(buf); err != nil {//timeout
 			debugf("m.conn.Read(): %s", err)
 			// carrier lost
@@ -164,7 +160,7 @@ func (m *Modem) answerIncomming(conn io.ReadWriteCloser) bool {
 		last_ring_time = time.Now()
 		m.prstatus(RING)
 		conn.Write([]byte("Ringing...\n\r"))
-		if !m.onhook { // computer has issued 'ATA' 
+		if m.getHook() == OFF_HOOK { // computer has issued 'ATA' 
 			m.conn = conn
 			conn = nil
 			goto answered
@@ -177,13 +173,13 @@ func (m *Modem) answerIncomming(conn io.ReadWriteCloser) bool {
 		// Ring for 2s
 		d := 0
 		m.raiseRI()
-		for m.onhook  && d < 2000 {
+		for m.getHook() == ON_HOOK  && d < 2000 {
 			if _, err := conn.Write(zero); err != nil {
 				goto no_answer
 			}
 			time.Sleep(__DELAY_MS * time.Millisecond)
 			d += __DELAY_MS
-			if !m.onhook { // computer has issued 'ATA' 
+			if m.getHook() == OFF_HOOK { // computer has issued 'ATA' 
 				m.conn = conn
 				conn = nil
 				goto answered
@@ -204,7 +200,7 @@ func (m *Modem) answerIncomming(conn io.ReadWriteCloser) bool {
 		
 		// Silence for 4s
 		d = 0
-		for m.onhook && d < 4000 {
+		for m.getHook() == ON_HOOK && d < 4000 {
 			// Test for closed connection
 			if _, err := conn.Write(zero); err != nil {
 				goto no_answer
@@ -212,7 +208,7 @@ func (m *Modem) answerIncomming(conn io.ReadWriteCloser) bool {
 			
 			time.Sleep(__DELAY_MS * time.Millisecond)
 			d += __DELAY_MS
-			if !m.onhook { // computer has issued 'ATA' 
+			if m.getHook() == OFF_HOOK { // computer has issued 'ATA' 
 				goto answered
 			}
 		}
@@ -221,7 +217,7 @@ func (m *Modem) answerIncomming(conn io.ReadWriteCloser) bool {
 no_answer:
 	// At this point we've not answered and have timed out, or the
 	// caller hung up before we answered.
-	if m.onhook {	
+	if m.getHook() == ON_HOOK {	
 		conn.Close()
 	}
 	m.lowerRI()
@@ -236,26 +232,13 @@ answered:
 
 // "Busy" signal.
 func checkBusy(m *Modem, conn io.ReadWriteCloser) bool {
-	if !m.onhook || getRinging() {	
+	if m.getHook() == OFF_HOOK || m.getLineBusy() {	
 		conn.Write([]byte("BUSY\n\r"))
 		return true
 	}
 	return false
 }
 
-func getRinging() bool {
-	ringlock.RLock()
-	defer ringlock.RUnlock()
-	fmt.Printf("Ringing: %t\n", ringing)
-	return ringing
-}	
-
-func setRinging(b bool) {
-	ringlock.Lock()
-	defer ringlock.Unlock()
-	ringing = b
-}
-	
 func (m *Modem) handleModem() {
 	var conn io.ReadWriteCloser
 
@@ -273,19 +256,17 @@ func (m *Modem) handleModem() {
 		}
 	}()
 
-	setRinging(false)
 	for {
-		fmt.Println("Waiting for a conneciton from channel")
 		conn = <- connection
 
-		setRinging(true)
+		m.setLineBusy(true)
 		if m.answerIncomming(conn) {
 			// if we're here, the computer answered.
 			m.conn = conn
 			m.conn.Write([]byte("Answered\n\r"))
 			go m.handleConnection()
 		}
-		setRinging(false)
+		m.setLineBusy(false)
 	}
 }
 

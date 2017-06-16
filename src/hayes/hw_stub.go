@@ -201,37 +201,13 @@ func (m *Modem) readCTS() (bool) {
 	return m.pins[CTS_PIN] && m.leds[CS_LED]
 }
 
-// DTR - Data Terminal Ready
+// DTR - Data Terminal Ready (input)
 func (m *Modem) readDTR() (bool) {
 	// Is the computer ready to send data?
 	return m.pins[DTR_PIN]
 }
-func (m *Modem) raiseDTR() {
-	if !debug {
-		panic("Can't raise/lower input pins when not in DEBUG mode")
-	}
-	m.pins[DTR_PIN] = true
-}
-func (m *Modem) lowerDTR() {
-	if !debug {
-		panic("Can't raise/lower input pins when not in DEBUG mode")
-	}
-	m.pins[DTR_PIN] = false
-}
 
-// RTS - Request to Send
-func (m *Modem) raiseRTS() {
-	if !debug {
-		panic("Can't raise/lower input pins when not in DEBUG mode")
-	}
-	m.pins[RTS_PIN] = true
-}
-func (m *Modem) lowerRTS() {
-	if !debug {
-		panic("Can't raise/lower input pins when not in DEBUG mode")
-	}
-	m.pins[RTS_PIN] = false
-}
+// RTS - Request to Send (input)
 func (m *Modem) readRTS() (bool) {
 	// Has the computer requested data be sent?
 	return m.pins[RTS_PIN]
