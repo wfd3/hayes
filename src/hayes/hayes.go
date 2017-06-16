@@ -19,6 +19,8 @@ import (
 	"time"
 	"io"
 	"sync"
+	"runtime/pprof"
+	"syscall"
 )
 
 /*
@@ -143,153 +145,24 @@ func (m *Modem) handlePINs() {
 	}
 }
 
-func (m *Modem) handleModem() {
-	// Handle:
-	// - passing bytes from the modem to the serial port (stdout for now)
-	// - accepting incoming connections (ie, noticing the phone ringing)
-	// - other housekeeping tasks (eg, clearing the ring counter)
-	//
-	// This must be a goroutine.
-
-	// Clear the ring counter if there's been no rings for at least 8 seconds
-	last_ring_time := time.Now()
-	go func() {		
-		for range time.Tick(8 * time.Second) {
-			if time.Since(last_ring_time) >= 8 * time.Second {
-				m.writeReg(REG_RING_COUNT, 0) 
-			}
-		}
-	}()
-
-	var err error
-	var zero []byte
-	zero = make([]byte, 1)
-	zero[0] = 0
-
-	startListeners()
-
-	for {
-		err = nil
-		conn := getConnection()
-
-		if !m.onhook {	// "Busy" signal.
-			conn.Write([]byte("BUSY\n"))
-			conn.Close()
-			continue
-		}
-
-		for i := 0; i < __MAX_RINGS; i++ {
-			last_ring_time = time.Now()
-			m.prstatus(RING)
-			conn.Write([]byte("Ringing...\n\r"))
-			if !m.onhook { // computer has issued 'ATA' 
-				m.conn = conn
-				conn = nil
-				goto answered
-			}
-
-			// Simulate the "2-4" pattern for POTS ring signal (2
-			// seconds of high voltage ring signal, 4 seconds
-			// of silence)
-
-			// Ring for 2s
-			d := 0
-			m.raiseRI()
-			for m.onhook  && d < 2000 {
-				if _, err = conn.Write(zero); err != nil {
-					goto no_answer
-				}
-				time.Sleep(__DELAY_MS * time.Millisecond)
-				d += __DELAY_MS
-				if !m.onhook { // computer has issued 'ATA' 
-					m.conn = conn
-					conn = nil
-					goto answered
-				}
-			}
-			m.lowerRI()
-
-			// If Auto Answer if enabled and we've
-			// exceeded the configured number of rings to
-			// wait before answering, answer the call.  We
-			// do this here before the 4s delay as I think
-			// it feels more correct.
-			if m.readReg(REG_AUTO_ANSWER) > 0 {
-				if m.incReg(REG_RING_COUNT) >=
-					m.readReg(REG_AUTO_ANSWER) {
-					m.answer()
-				}
-			}
-
-			// Silence for 4s
-			d = 0
-			for m.onhook && d < 4000 {
-				// Test for closed connection
-				if _, err = conn.Write(zero); err != nil {
-					goto no_answer
-				}
-
-				time.Sleep(__DELAY_MS * time.Millisecond)
-				d += __DELAY_MS
-				if !m.onhook { // computer has issued 'ATA' 
-					goto answered
-				}
-			}
-		}
-
-	no_answer:
-		// At this point we've not answered and have timed out, or the
-		// caller hung up before we answered.
-		if m.onhook {	
-			conn.Close()
-			m.lowerRI()
-			continue
-		}
-
-	answered:
-		// if we're here, the computer answered, so pass bytes
-		// from the remote dialer to the serial port (for now, stdout)
-		// as long as we're offhook, we're in DATA MODE and we have
-		// valid carrier (m.comm != nil)
-		m.conn = conn
-		m.writeReg(REG_RING_COUNT, 0)
-		m.lowerRI()
-		m.conn.Write([]byte("Answered\n\r"))
-
-		buf := make([]byte, 1)
-		for !m.onhook {
-			if _, err = m.conn.Read(buf); err != nil {
-				debugf("m.conn.Read(): %s", err)
-				// carrier lost
-				break
-			}
-			m.led_RD_on()
-			if m.mode == DATAMODE {
-				fmt.Printf("%s", string(buf)) //  Send to DTE
-			}
-			m.led_RD_off()
-		}
-
-		// If we're here, we lost "carrier" somehow.
-		m.led_RD_off()
-		m.prstatus(NO_CARRIER)
-		m.onHook()
-		if m.conn != nil {
-			m.conn.Close() // just to be safe?
-		}
-	}	
-}
 
 // Catch ^C, reset the HW pins
 func (m *Modem) signalHandler() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 
-	// Block until a signal is received.
-	s := <-c
-	fmt.Println("Got signal:", s)
-	m.clearPins()
-	os.Exit(0)
+	for {
+		// Block until a signal is received.
+		s := <-c
+		fmt.Println("Got signal:", s)
+		if s == syscall.SIGINT {
+			m.clearPins()
+			os.Exit(0)
+		}
+		if s == syscall.SIGQUIT {
+			pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
+		}
+	}
 }
 
 // Boot the modem
@@ -382,3 +255,4 @@ func (m *Modem) PowerOn() {
 		}
 	}
 }
+
