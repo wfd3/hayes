@@ -10,7 +10,7 @@ import (
 func (m *Modem) onHook() (int) {
 	m.lowerCD()
 
-	// Its OK to hang up the phone when there's no active network connection.
+	// It's OK to hang up the phone when there's no active network connection.
 	// But if there is, close it.
 	if m.conn != nil {
 		m.conn.Close()
@@ -25,15 +25,16 @@ func (m *Modem) onHook() (int) {
 	return OK
 }
 
+const ON_HOOK = true
+const OFF_HOOK = false
+
 // ATH1
-func (m *Modem) offHook() (int){
-	m.onhook = false
+func (m *Modem) offHook() int {
+	m.onhook = OFF_HOOK
 	m.led_OH_on()
 	return OK
 }
 
-const ON_HOOK = true
-const OFF_HOOK = false
 func (m *Modem) getHook() bool {
 	return m.onhook
 }
@@ -49,8 +50,7 @@ func (m *Modem) answer() (int) {
 	m.raiseCD()
 	m.mode = DATAMODE
 	m.connect_speed = 38400	// We only go fast...
-	m.led_HS_on()
-	return CONNECT_38400
+	return CONNECT
 }
 
 // process each command

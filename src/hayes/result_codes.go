@@ -51,6 +51,17 @@ func (m *Modem) prstatus(code int) {
 	if m.quiet {
 		return
 	}
+	if code == CONNECT {
+		switch  m.connect_speed {
+		case 2400: code = CONNECT_2400
+		case 4800: code = CONNECT_4800
+		case 9600: code = CONNECT_9600
+		case 14400: code = CONNECT_14400
+		case 19200: code = CONNECT_19200
+		case 38400: code = CONNECT_38400
+		}
+	}
+			
 	if m.verbose {
 		fmt.Println(status_codes[code])
 	} else {

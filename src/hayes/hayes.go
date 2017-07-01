@@ -59,6 +59,12 @@ const __MAX_RINGS = 15
 const __DELAY_MS = 20
 const __CONNECT_TIMEOUT = __MAX_RINGS * 6 * time.Second
 
+type ab_host struct {
+	host string
+	protocol string
+	stored int 		// if 0-3, useable by AT&Z
+}
+
 //Basic modem struct
 type Modem struct {
 	mode int
@@ -80,6 +86,7 @@ type Modem struct {
 	connect_speed int
 	linebusy bool
 	linebusylock sync.RWMutex
+	addressbook map[string] *ab_host
 }
 
 // Is the phone line busy?
@@ -109,9 +116,12 @@ func (m *Modem) reset() (int) {
 	m.speakermode = 1	// on until other modem heard
 	m.lastcmds = nil
 	m.lastdialed = ""
+	m.connect_speed = 0
 	m.setLineBusy(false)
 	m.setupRegs()
 	m.setupDebug()
+
+	m.loadAddressBook()
 
 	time.Sleep(250 *time.Millisecond) // Make it look good
 	
@@ -139,6 +149,13 @@ func (m *Modem) handlePINs() {
 			}
 			m.led_TR_off()
 		}
+
+		if m.connect_speed > 19200 {
+			m.led_HS_on()
+		} else {
+			m.led_HS_off()
+		}
+			
 
 		// debug
 		if m.d[1] == 2 {
