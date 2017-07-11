@@ -177,6 +177,7 @@ func (m *Modem) command(cmd string) {
 
 	commands = nil
 	status = OK
+	savecmds := true
 	for  c < len(cmd) && status == OK {
 		switch (cmd[c]) {
 		case 'D':
@@ -208,6 +209,7 @@ func (m *Modem) command(cmd string) {
 			continue
 		case '/':
 			opts = ""
+			savecmds = false
 		case 'A':
 			opts = "0"
 		case 'E', 'H', 'Q', 'V', 'Z':
@@ -237,5 +239,7 @@ func (m *Modem) command(cmd string) {
 	status = m.processCommands(commands)
 	m.prstatus(status)
 
-	m.lastcmds = commands
+	if savecmds {
+		m.lastcmds = commands
+	}
 }

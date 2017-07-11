@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"github.com/tarm/serial"
 )
@@ -28,27 +29,38 @@ char getch(){
 */
 import "C"
 
-func main() {
+var s *serial.Port
 
-	c := &serial.Config{Name: "/dev/ttyAMA0", Baud: 9600}
-	s, err := serial.OpenPort(c)
+func write(s *serial.Port) {
+	var out []byte
+	out = make([]byte, 1)
+	for {
+		out[0] = byte(C.getch())
+		if _, err := s.Write(out); err != nil {
+			log.Fatal(err)
+		}
+		fmt.Printf("%c", out[0])
+	}
+}
+		
+func main() {
+	var err error
+	
+	c := &serial.Config{Name: "/dev/ttyAMA0", Baud: 115200}
+	s, err = serial.OpenPort(c)
         if err != nil {
                 log.Fatal(err)
         }
 
+	go write(s)
+	
 	buf := make([]byte, 128)
         for {
-
-		n, err := s.Write([]byte("test"))
+		_, err := s.Read(buf)
 		if err != nil {
 			log.Fatal(err)
 		}
-		
-		n, err = s.Read(buf)
-		if err != nil {
-			log.Fatal(err)
-		}
-		log.Printf("%q", buf[:n])
+		fmt.Printf("%c", buf[0])
 	}
 	
 }

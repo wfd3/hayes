@@ -124,7 +124,8 @@ func (m *Modem) debug(cmd string) (int) {
 			return ERROR
 		}
 		m.d[reg] = val
-		if reg == 0 {
+		switch reg {
+		case 0:		// Enable verbose debugging
 			if m.d[0] != 0 {
 				debug = true
 				debugf("Debugging enabled")
@@ -132,7 +133,16 @@ func (m *Modem) debug(cmd string) (int) {
 				debugf("Debugging disabled")
 				debug = false
 			}
-		} else if reg == 9 {
+		case 8:		// Toggle CD pin val times
+			for i := 0; i < val; i++ {
+				fmt.Println("Toggling CD up")
+				m.raiseCD()
+				time.Sleep(2 * time.Second)
+				fmt.Println("Toggling CD down")
+				m.lowerCD()
+				time.Sleep(2 * time.Second)
+			}
+		case 9:		// Toggle RI pin val times
 			for i := 0; i < val; i++ {
 				fmt.Println("Toggling RI up")
 				m.raiseRI()

@@ -1,4 +1,4 @@
-// +build arm
+at// +build arm
 
 package hayes
 
@@ -24,9 +24,7 @@ const (
 	SD_LED  = 22		// Send Data
 
 	// Data Pins
-	// These pin pairs are required to drive an L293.  The _LED pin asserts the
-	// desired output (High or Low), the _PIN pin is the inverse to control the
-	// poliarity int he L293.
+	// A MAX3232 translates these from 0V & 3V to RS232 -/+{3,5,12}V
 	CTS_PIN = 12		// Clear To Send pin
 	CS_LED  = 11		// Clear To Send
 
@@ -41,11 +39,6 @@ const (
 
 	RTS_PIN = 7		// Request to Send pin (Input)
 	DTR_PIN = 16 		// Data Terminal Ready (Input)
-
-	// Control Pin -- when asserted, the L293 will switch
-	// polarity. When deasserted, the L239 will generate 0C
-	CONTROL = 26	
-	
 )
 
 func (m *Modem) setupPins() {
@@ -107,12 +100,6 @@ func (m *Modem) setupPins() {
 	
 	m.pins[RTS_PIN] = rpio.Pin(RTS_PIN)
 	m.pins[RTS_PIN].Input()
-
-	// Control pin for L293
-	m.pins[CONTROL] = rpio.Pin(CONTROL)
-	m.pins[CONTROL].Output()
-	m.pins[CONTROL].High()
-
 }
 
 func (m *Modem) clearPins() {
@@ -134,7 +121,6 @@ func (m *Modem) clearPins() {
 	// m.pins[RTS_PIN].Low()
 	// m.pins[DTR_PIN].Low()
 
-	m.pins[CONTROL].Low()
 }
 
 func (m *Modem) showPins() {
@@ -231,9 +217,6 @@ func (m *Modem) ledTest(round int) {
 
 	saved_leds = make(map[int]rpio.State)
 
-	// First turn off the L293
-	m.pins[CONTROL].Low()
-
 	// Turn them all on, wait a bit, turn them all off.
 	for i:= range m.leds {
 		saved_leds[i] = m.leds[i].Read() // Save current state
@@ -265,65 +248,67 @@ func (m *Modem) ledTest(round int) {
 		m.leds[j].Write(saved_leds[j])
 	}
 
-	// Turn the L293 back on
-	m.pins[CONTROL].High()
 }
 
 // PINs
+//
+// This assumes a MAX3232 to do the level conversion between the Pi's
+// 0 and 3V low/high and RS-232 +5V/-5V.  So 0V (low) on the Pi is +5V
+// (low) on RS-232 and vice versa.
 
 // RI - assert RI and turn on RI light
 func (m *Modem) raiseRI() {
 	m.leds[RI_LED].High()
-	m.pins[RI_PIN].Low()
+	m.pins[RI_PIN].High()
 }
 func (m *Modem) lowerRI() {
 	m.leds[RI_LED].Low()
-	m.pins[RI_PIN].High()
+	m.pins[RI_PIN].Low()
 }
 func (m *Modem) readRI() (bool) {
-	return m.pins[RI_PIN].Read() == rpio.Low &&
+	return m.pins[RI_PIN].Read() == rpio.High &&
 		m.leds[RI_LED].Read() == rpio.High
 }
 
 // CD - assert CD and turn on CD light
 func (m *Modem) raiseCD() {
 	m.leds[CD_LED].High()
-	m.pins[CD_PIN].Low()
+	m.pins[CD_PIN].High()
 }
 func (m *Modem) lowerCD() {
 	m.leds[CD_LED].Low()
-	m.pins[CD_PIN].High()
+	m.pins[CD_PIN].Low()
 }
 func (m *Modem) readCD() (bool) {
-	return m.pins[CD_PIN].Read() == rpio.Low &&
+	return m.pins[CD_PIN].Read() == rpio.High &&
 		m.leds[CD_LED].Read() == rpio.High
 }
 
 // DSR - assert DSR and turn on MR light
 func (m *Modem) raiseDSR() {
 	m.leds[MR_LED].High()
-	m.pins[DSR_PIN].Low()
+	m.pins[DSR_PIN].High()
 }
 func (m *Modem) lowerDSR() {
 	m.leds[MR_LED].Low()
-	m.pins[DSR_PIN].High()
+	m.pins[DSR_PIN].Low()
 }
 func (m *Modem) readDSR() (bool) {
-	return m.pins[DSR_PIN].Read() == rpio.Low &&
+	return m.pins[DSR_PIN].Read() == rpio.High &&
 		m.pins[MR_LED].Read() == rpio.High
 }
 
 // CTS - assert CTS and turn on CS light
 func (m *Modem) raiseCTS() {
 	m.leds[CS_LED].High()
-	m.pins[CTS_PIN].Low()
+	m.pins[CTS_PIN].High()
 }
 func (m *Modem) lowerCTS() {
 	m.leds[CS_LED].Low()
-	m.pins[CTS_PIN].High()
+	m.pins[CTS_PIN].Low()
 }
 func (m *Modem) readCTS() (bool) {
-	return m.pins[CTS_PIN].Read() == rpio.Low &&
+	return m.pins[CTS_PIN].Read() == rpio.High &&
 		m.leds[CS_LED].Read() == rpio.High
 }
 
