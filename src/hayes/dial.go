@@ -92,12 +92,12 @@ func (m *Modem) dialSSH(remote string) int {
 }
 
 func (m *Modem) dialTelnet(remote string) int {
-	var err error
 
-	m.conn, err = net.DialTimeout("tcp", remote, __CONNECT_TIMEOUT)
+	conn, err := net.DialTimeout("tcp", remote, __CONNECT_TIMEOUT)
 	if err != nil {
 		return BUSY
 	}
+	m.conn = conn
 	return CONNECT
 }
 
