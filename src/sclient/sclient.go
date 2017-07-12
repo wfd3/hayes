@@ -24,14 +24,6 @@ func main() {
 	log.Printf("Made a connection\n")
 	defer client.Close()
 
-	channel, _, err := client.Conn.OpenChannel("session", nil)
-	if err != nil {
-		log.Fatal("OpenChannel", err)
-	}
-	channel.Write([]byte("Hello!"))
-
-
-/*
 	// Create a session
 	session, err := client.NewSession()
 	if err != nil {
@@ -51,16 +43,16 @@ func main() {
 	}
 	// Start remote shell
 
+	log.Print("Getting stdin")
 	send, err :=  session.StdinPipe()
 	if err != nil {
 		log.Fatal("StdoutPipe(): ", err)
 	}
-	send.Write([]byte("Hello!"))
-*/
-/*
-	if err := session.Shell(); err != nil {
-    		log.Fatal("failed to start shell: ", err)
-	}	
-	log.Printf("Shell() returned\n")
-*/
+	log.Print("Starting shell")	
+        session.Shell()
+	log.Print("Sending string")
+	send.Write([]byte("touch foobarbaz && exit\n"))
+	log.Print("Waiting")
+	session.Wait()
+	log.Print("Done")
 }
