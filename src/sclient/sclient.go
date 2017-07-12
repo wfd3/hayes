@@ -61,12 +61,13 @@ func main() {
 	log.Print("Starting shell")	
         session.Shell()
 	log.Print("Starting Copy functions")
-	// Copy(dst, src)
 	// my stdout -> send
 	// my stdin <- recv
 	// my stdin <- stderr
 	go io.Copy(os.Stdin, recv)
 	go io.Copy(os.Stderr, stderr)
 	io.Copy(send, os.Stdout)
+	log.Print("Wait()'ing")
+	session.Wait()
 	log.Print("Done")
 }
