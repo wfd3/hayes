@@ -66,8 +66,11 @@ func main() {
 	// my stdin <- stderr
 	go io.Copy(os.Stdin, recv)
 	go io.Copy(os.Stderr, stderr)
-	io.Copy(send, os.Stdout)
+	i, err := io.Copy(send, os.Stdout)
+	log.Printf("sent: %d, err: %s\n", i, err)
 	log.Print("Wait()'ing")
-	session.Wait()
+	if err :=session.Wait(); err != nil {
+		log.Print("Wait(): ", err)
+	}
 	log.Print("Done")
 }

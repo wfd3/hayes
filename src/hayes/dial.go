@@ -18,7 +18,60 @@ func (m *Modem) dialTelnet(remote string) int {
 }
 
 func (m *Modem) dialSSH(remote string) int {
-	debugf("SSH dialing not supported")
+	client, err := ssh.Dial("tcp", remote, config)
+	if err != nil {
+		debugf("Dial(): %s", err)
+		panic(err)
+	}
+	defer client.Close()
+
+	// Create a session
+	session, err := client.NewSession()
+	if err != nil {
+    		log.Fatal("unable to create session: ", err)
+	}
+	defer session.Close()
+
+	// Set up terminal modes
+	modes := ssh.TerminalModes{
+    		ssh.ECHO:          0,     // disable echoing
+    		ssh.TTY_OP_ISPEED: 14400, // input speed = 14.4kbaud
+    		ssh.TTY_OP_OSPEED: 14400, // output speed = 14.4kbaud
+	}	
+	// Request pseudo terminal
+	if err := session.RequestPty("xterm", 40, 80, modes); err != nil {
+    		log.Fatal("request for pseudo terminal failed: ", err)
+	}
+
+	// Start remote shell
+	send, err :=  session.StdinPipe()
+	if err != nil {
+		debugf("StdinPipe(): ", err)
+		panic(err)
+	}
+	recv, err := session.StdoutPipe()
+	if err != nil {
+		panic(err)
+	}
+	stderr, err := session.StderrPipe()
+	if err != nil {
+		panic(err)
+	}
+        session.Shell()
+	// my stdout -> send
+	// my stdin <- recv
+	// my stdin <- stderr
+	m.conn = io.ReadWriteCloser{recv, send ... }
+	go io.Copy(os.Stdin, recv)
+	go io.Copy(os.Stderr, stderr)
+	i, err := io.Copy(send, os.Stdout)
+	log.Printf("sent: %d, err: %s\n", i, err)
+	log.Print("Wait()'ing")
+	if err :=session.Wait(); err != nil {
+		log.Print("Wait(): ", err)
+	}
+	log.Print("Done")
+	
 	return BUSY
 }
 
