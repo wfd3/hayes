@@ -3,6 +3,8 @@ package main
 import (
 	"log"
 	"golang.org/x/crypto/ssh"
+	"io"
+	"os"
 )
 
 var remote string = "127.0.0.1:22"
@@ -46,13 +48,25 @@ func main() {
 	log.Print("Getting stdin")
 	send, err :=  session.StdinPipe()
 	if err != nil {
+		log.Fatal("StdinPipe(): ", err)
+	}
+	recv, err := session.StdoutPipe()
+	if err != nil {
 		log.Fatal("StdoutPipe(): ", err)
+	}
+	stderr, err := session.StderrPipe()
+	if err != nil {
+		log.Fatal("StderrPipe(): ", err)
 	}
 	log.Print("Starting shell")	
         session.Shell()
-	log.Print("Sending string")
-	send.Write([]byte("touch foobarbaz && exit\n"))
-	log.Print("Waiting")
-	session.Wait()
+	log.Print("Starting Copy functions")
+	// Copy(dst, src)
+	// my stdout -> send
+	// my stdin <- recv
+	// my stdin <- stderr
+	go io.Copy(os.Stdin, recv)
+	go io.Copy(os.Stderr, stderr)
+	io.Copy(send, os.Stdout)
 	log.Print("Done")
 }
