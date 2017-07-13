@@ -13,7 +13,6 @@ import (
 type myReadWriter struct {
 	in io.Reader
 	out io.WriteCloser
-
 }
 
 func (m myReadWriter) Read(p []byte) (int, error) {
@@ -39,9 +38,9 @@ func newReadWriteCloser(in io.Reader, out io.WriteCloser) io.ReadWriteCloser {
 
 func (m *Modem) dialSSH(remote string) int {
 	config := &ssh.ClientConfig{
-		User: "userid",
+		User: "user"
 		Auth: []ssh.AuthMethod{
-			ssh.Password("password"),
+			ssh.Password("passwd"),
 		},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // Danger?
 	}

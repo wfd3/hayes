@@ -5,15 +5,45 @@ import (
 	"golang.org/x/crypto/ssh"
 	"io"
 	"os"
+	"flag"
 )
 
 var remote string = "127.0.0.1:22"
 
-func main() {
+
+// Implements io.ReadWriteCloser
+type myReadWriter struct {
+	in io.Reader
+	out io.WriteCloser
+
+}
+
+func (m myReadWriter) Read(p []byte) (int, error) {
+	return m.in.Read(p)
+}
+
+func (m myReadWriter) Write(p []byte) (int, error) {
+	return m.out.Write(p)
+}
+
+func (m myReadWriter) Close() error {
+	// Remember, in is an io.Reader so it doesn't Close()
+	return m.out.Close()
+}
+
+func newReadWriteCloser(in io.Reader, out io.WriteCloser) io.ReadWriteCloser {
+	var q myReadWriter
+	q.in = in
+	q.out = out
+
+	return io.ReadWriteCloser(q)
+}
+
+func dial() {
 	config := &ssh.ClientConfig{
-		User: "userid",
+		User: *user,
 		Auth: []ssh.AuthMethod{
-			ssh.Password("passwd"),
+			ssh.Password(*pw),
 		},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // Danger?
 	}
@@ -54,23 +84,32 @@ func main() {
 	if err != nil {
 		log.Fatal("StdoutPipe(): ", err)
 	}
-	stderr, err := session.StderrPipe()
-	if err != nil {
-		log.Fatal("StderrPipe(): ", err)
-	}
+	log.Print("Creating io.ReadWriteCloser")
+	f := newReadWriteCloser(recv, send)
+
 	log.Print("Starting shell")	
         session.Shell()
-	log.Print("Starting Copy functions")
-	// my stdout -> send
-	// my stdin <- recv
-	// my stdin <- stderr
-	go io.Copy(os.Stdin, recv)
-	go io.Copy(os.Stderr, stderr)
-	i, err := io.Copy(send, os.Stdout)
-	log.Printf("sent: %d, err: %s\n", i, err)
-	log.Print("Wait()'ing")
+
+	log.Print("Starting copies")
+	go io.Copy(os.Stdin, f)
+	go io.Copy(os.Stderr, f)
+	go io.Copy(f, os.Stdout)
+	log.Print("Waiting")
 	if err :=session.Wait(); err != nil {
 		log.Print("Wait(): ", err)
 	}
 	log.Print("Done")
+}
+
+var user = flag.String("u", "", "username")
+var pw = flag.String("p", "", "password")
+func main() {
+	flag.Parse()
+	if *user == "" {
+		log.Fatal("No username")
+	}
+	if *pw == "" {
+		log.Fatal("No password")
+	}
+	dial()
 }
