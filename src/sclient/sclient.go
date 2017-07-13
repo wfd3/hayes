@@ -39,7 +39,7 @@ func newReadWriteCloser(in io.Reader, out io.WriteCloser) io.ReadWriteCloser {
 	return io.ReadWriteCloser(q)
 }
 
-func dial() {
+func dial() io.ReadWriteCloser {
 	config := &ssh.ClientConfig{
 		User: *user,
 		Auth: []ssh.AuthMethod{
@@ -90,16 +90,11 @@ func dial() {
 	log.Print("Starting shell")	
         session.Shell()
 
-	log.Print("Starting copies")
-	go io.Copy(os.Stdin, f)
-	go io.Copy(os.Stderr, f)
-	go io.Copy(f, os.Stdout)
-	log.Print("Waiting")
-	if err :=session.Wait(); err != nil {
-		log.Print("Wait(): ", err)
-	}
-	log.Print("Done")
+	log.Print("Returning")
+
+	return f
 }
+
 
 var user = flag.String("u", "", "username")
 var pw = flag.String("p", "", "password")
@@ -112,6 +107,25 @@ func main() {
 		log.Fatal("No password")
 	}
 
-	dial()
+	f := dial()
+	
+	log.Print("Starting copies")
+	go io.Copy(os.Stdin, f)
+	// io.Copy(f, os.Stdout)
+	var b []byte
+	b = make([]byte, 1)
+	for {
+		_, err := f.Read(b)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			log.Fatal("f.Read(): ", err)
+		}
+		os.Stdout.Write(b)
+	}
+
+	log.Print("Done")
+
 
 }
