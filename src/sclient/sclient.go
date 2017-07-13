@@ -111,5 +111,7 @@ func main() {
 	if *pw == "" {
 		log.Fatal("No password")
 	}
+
 	dial()
+
 }
