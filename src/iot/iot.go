@@ -7,8 +7,8 @@ import (
 
 // Implements io.ReadWriteCloser
 type myReadWriter struct {
-	in *os.File
-	out *os.File
+	in io.Reader
+	out io.WriterCloser
 }
 
 func (m myReadWriter) Read(p []byte) (int, error) {
@@ -20,16 +20,7 @@ func (m myReadWriter) Write(p []byte) (int, error) {
 }
 
 func (m myReadWriter) Close() error {
-	err1 := m.in.Close()
-	err2 := m.out.Close()
-
-	if err1 != nil {
-		return err1
-	}
-	if err2 != nil {
-		return err2
-	}
-	return nil
+	return m.out.Close()
 }
 
 func do() (io.ReadWriteCloser) {

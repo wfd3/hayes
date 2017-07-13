@@ -7,12 +7,17 @@ import (
 	"net"
 	"io"
 	"golang.org/x/crypto/ssh"
+	"flag"
 )
+var user = flag.String("u", "", "username")
+var pw = flag.String("p", "", "password")
 
 // Implements io.ReadWriteCloser
 type myReadWriter struct {
 	in io.Reader
 	out io.WriteCloser
+	client *ssh.Client
+	session *ssh.Session
 }
 
 func (m myReadWriter) Read(p []byte) (int, error) {
@@ -25,22 +30,17 @@ func (m myReadWriter) Write(p []byte) (int, error) {
 
 func (m myReadWriter) Close() error {
 	// Remember, in is an io.Reader so it doesn't Close()
-	return m.out.Close()
-}
-
-func newReadWriteCloser(in io.Reader, out io.WriteCloser) io.ReadWriteCloser {
-	var q myReadWriter
-	q.in = in
-	q.out = out
-
-	return io.ReadWriteCloser(q)
+	err := m.out.Close()
+	m.session.Close()
+	m.client.Close()
+	return err
 }
 
 func (m *Modem) dialSSH(remote string) int {
 	config := &ssh.ClientConfig{
-		User: "user"
+		User: *user,
 		Auth: []ssh.AuthMethod{
-			ssh.Password("passwd"),
+			ssh.Password(*pw),
 		},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // Danger?
 	}
@@ -50,7 +50,6 @@ func (m *Modem) dialSSH(remote string) int {
 		debugf("Dial(): %s", err)
 		panic(err)
 	}
-	defer client.Close()
 
 	// Create a session
 	session, err := client.NewSession()
@@ -58,7 +57,6 @@ func (m *Modem) dialSSH(remote string) int {
     		debugf("unable to create session: %s", err)
 		return ERROR
 	}
-	defer session.Close()
 
 	// Set up terminal modes
 	modes := ssh.TerminalModes{
@@ -84,7 +82,7 @@ func (m *Modem) dialSSH(remote string) int {
 		return ERROR
 	}
 
-	m.conn = newReadWriteCloser(recv, send)
+	m.conn = &myReadWriter{recv, send, client, session}
         session.Shell()
 	
 	return CONNECT
