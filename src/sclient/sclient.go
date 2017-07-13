@@ -11,9 +11,9 @@ var remote string = "127.0.0.1:22"
 
 func main() {
 	config := &ssh.ClientConfig{
-		User: "walt",
+		User: "userid",
 		Auth: []ssh.AuthMethod{
-			ssh.Password("ks120872"),
+			ssh.Password("passwd"),
 		},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // Danger?
 	}
