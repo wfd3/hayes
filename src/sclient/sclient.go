@@ -8,9 +8,6 @@ import (
 	"flag"
 )
 
-var remote string = "127.0.0.1:22"
-
-
 // Implements io.ReadWriteCloser
 type myReadWriter struct {
 	in io.Reader
@@ -48,8 +45,8 @@ func dial() io.ReadWriteCloser {
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // Danger?
 	}
 
-	log.Printf("SSH'inh to %s", remote)
-	client, err := ssh.Dial("tcp", remote, config)
+	log.Printf("SSH'inh to %s", *remote)
+	client, err := ssh.Dial("tcp", *remote, config)
 	if err != nil {
 		log.Fatalf("Dial(): %s", err)
 	}
@@ -80,6 +77,7 @@ func dial() io.ReadWriteCloser {
 	if err != nil {
 		log.Fatal("StdinPipe(): ", err)
 	}
+	log.Print("Getting stdout")
 	recv, err := session.StdoutPipe()
 	if err != nil {
 		log.Fatal("StdoutPipe(): ", err)
@@ -96,6 +94,7 @@ func dial() io.ReadWriteCloser {
 }
 
 
+var remote = flag.String("r", "home.drummond.us:22", "remote")
 var user = flag.String("u", "", "username")
 var pw = flag.String("p", "", "password")
 func main() {
@@ -109,23 +108,25 @@ func main() {
 
 	f := dial()
 	
-	log.Print("Starting copies")
-	go io.Copy(os.Stdin, f)
-	// io.Copy(f, os.Stdout)
+	log.Print("Starting copy from stdin->f")
+	go io.Copy(f, os.Stdin)
+
+	//go io.Copy(os.Stdout, f)
 	var b []byte
 	b = make([]byte, 1)
+	log.Print("Starting copy to f->stdout")
 	for {
-		_, err := f.Read(b)
-		if err == io.EOF {
-			break
+		n, err := f.Read(b)
+		if n > 0 {
+			os.Stdout.Write(b)
 		}
 		if err != nil {
+			if err == io.EOF {
+				log.Printf("EOF on Read(): n == %d\n", n)
+				break
+			}
 			log.Fatal("f.Read(): ", err)
 		}
-		os.Stdout.Write(b)
 	}
-
 	log.Print("Done")
-
-
 }
