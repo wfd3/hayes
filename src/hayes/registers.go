@@ -5,6 +5,7 @@ import (
 )
 
 // Register constants
+// TODO: Fill this out as per the manual
 const (
 	REG_AUTO_ANSWER    = 0
 	REG_RING_COUNT     = 1
@@ -22,9 +23,10 @@ func (m *Modem) setupRegs() {
 	m.curreg = 0		// current register selected (from ATSn)
 	m.r = make(map[byte]byte)
 
+	m.rlock.Lock()
+	defer m.rlock.Unlock()
 
 	// Defaults
-	m.rlock.Lock()
 	m.r[REG_AUTO_ANSWER] = 0
 	m.r[REG_RING_COUNT] = 0
 	m.r[REG_ESC_CH] = 43	// escape character '+'
@@ -42,14 +44,13 @@ func (m *Modem) setupRegs() {
 	m.r[26] = 1		// RTS to DTS delay interval (1/100 second)
 	m.r[28] = 20		// Delay before force disconnect (seconds)
 	m.r[REG_DTR_DELAY] = 0
-	m.rlock.Unlock()
 }
 
 
-// TODO: locks, validation
+// Note the locks here.
 func (m *Modem) readReg(reg int) byte {
 	if reg > 255 {
-		panic("Registers 0-255 only")
+		m.log.Fatalf("Fatal Error: registers out of range (%d)", reg)
 	}
 
 	m.rlock.RLock()
@@ -59,10 +60,10 @@ func (m *Modem) readReg(reg int) byte {
 
 func (m *Modem) writeReg(reg, val int) {
 	if reg > 255 {
-		panic("Registers 0-255 only")
+		m.log.Fatalf("Fatal Error: registers out of range (%d)", reg)
 	}
 	if val > 255 {
-		panic("Register values 0-255 only")
+		m.log.Fatalf("Fatal Error: registers out of range (%d)", reg)
 	}
 
 	m.rlock.Lock()
@@ -72,10 +73,10 @@ func (m *Modem) writeReg(reg, val int) {
 
 func (m *Modem) incReg(reg int) byte {
 	if reg > 255 {
-		panic("Registers 0-255 only")
+		m.log.Fatalf("Fatal Error: registers out of range (%d)", reg)
 	}
-	m.rlock.RLock()
 
+	m.rlock.RLock()
 	m.rlock.Lock()
 	defer m.rlock.Unlock()
 	m.r[byte(reg)]++
@@ -142,11 +143,11 @@ func (m *Modem) registers(cmd string) (int) {
 	_, err = fmt.Sscanf(cmd, "S%d=%d", &reg, &val)
 	if err == nil {
 		if reg > 255 || reg < 0 {
-			debugf("Register index over/underflow: %d", reg)
+			m.log.Printf("Register index over/underflow: %d", reg)
 			return ERROR
 		}
 		if val > 255 || val < 0 {
-			debugf("Register value over/underflow: %d", val)
+			m.log.Printf("Register value over/underflow: %d", val)
 			return ERROR
 		}
 		m.writeReg(reg, val)
@@ -164,7 +165,7 @@ func (m *Modem) registers(cmd string) (int) {
 	_, err = fmt.Sscanf(cmd, "S%d?", &reg)
 	if err == nil {
 		if reg > 255 || reg < 0 {	
-			debugf("Register index over/underflow: %d", reg)
+			m.log.Printf("Register index over/underflow: %d", reg)
 			return ERROR
 		}
 		
@@ -176,7 +177,7 @@ func (m *Modem) registers(cmd string) (int) {
 	_, err = fmt.Sscanf(cmd, "S%d", &reg)
 	if err == nil {
 		if reg > 255 || reg < 0 {	
-			debugf("Register index over/underflow: %d", reg)
+			m.log.Printf("Register index over/underflow: %d", reg)
 			return ERROR
 		}
 		m.curreg = reg
@@ -184,7 +185,7 @@ func (m *Modem) registers(cmd string) (int) {
 	}
 
 	if err != nil {
-		debugf("registers(): err = %s", err)
+		m.log.Printf("registers(): err = %s", err)
 	}
 	return ERROR
 }

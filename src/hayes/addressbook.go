@@ -11,6 +11,12 @@ import (
 
 const __ADDRESS_BOOK_FILE = "./phonebook"
 
+type ab_host struct {
+	host string
+	protocol string
+	stored int 		// if 0-3, useable by AT&Z
+}
+
 func sanitizeNumber(n string) string {
 	check := func(r rune) rune {
 		if (r >= '0' && r <= '9') {
@@ -49,7 +55,7 @@ func (m *Modem) loadAddressBook() {
 	// TODO: command line flag
 	f, err := os.Open(__ADDRESS_BOOK_FILE)
 	if err != nil {
-		panic(err)
+		m.log.Fatal("Fatal error: ", err)
 	}
 
 	r := csv.NewReader(f)
@@ -67,7 +73,7 @@ func (m *Modem) loadAddressBook() {
 			break
 		}
 		if err != nil {
-			panic(err)
+			m.log.Fatal("Fatal Error: ", err)
 		}
 		phone, ok := isNumber(record[0])
 		if !ok {	// is not a valid number
@@ -79,7 +85,7 @@ func (m *Modem) loadAddressBook() {
 		m.addressbook[phone] = &ab_host{record[1], record[2], i}
 		count++
 	}
-	debugf("Address book loaded, %d hosts", count)
+	m.log.Printf("Address book loaded, %d hosts", count)
 }
 
 func (m *Modem) storedNumber(n int) string {
@@ -92,7 +98,7 @@ func (m *Modem) storedNumber(n int) string {
 			return phone
 		}
 	}
-	debugf("No stored number at entry %d", n)
+	m.log.Printf("No stored number at entry %d", n)
 	return ""
 }
 

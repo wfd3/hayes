@@ -58,10 +58,10 @@ func (m *Modem) processCommands(commands []string) (int) {
 	var status int
 	var cmd string
 
-	debugf("entering PC: %v\n", commands)
+	m.log.Printf("entering PC: %v\n", commands)
 	status = OK
 	for _, cmd = range commands {
-		debugf("Processing: %s", cmd)
+		m.log.Printf("Processing: %s", cmd)
 		switch cmd[0] {
 		case '/':
 			status = m.processCommands(m.lastcmds) 
@@ -69,6 +69,9 @@ func (m *Modem) processCommands(commands []string) (int) {
 			status = m.answer()
 		case 'Z':
 			status = m.reset()
+			time.Sleep(250 * time.Millisecond)
+			m.raiseDSR()
+			m.raiseCTS()
 		case 'E':
 			if cmd[1] == '0' {
 				m.echo = false
@@ -223,7 +226,7 @@ func (m *Modem) command(cmd string) {
 		case 'X':
 			opts = "01234"
 		default:
-			debugf("Unknown command: %s", cmd)
+			m.log.Printf("Unknown command: %s", cmd)
 			m.prstatus(ERROR)
 			return
 		}

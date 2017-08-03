@@ -34,7 +34,8 @@ const (
 type Pins [_PIN_LEN]bool
 
 func (m *Modem) setupPins() {
-	debugf("Simulated Pins enabled on %s/%s\n", runtime.GOOS, runtime.GOARCH)
+	m.log.Printf("Simulated Pins enabled on %s/%s\n",
+		runtime.GOOS, runtime.GOARCH)
 
 	m.clearPins()
 
@@ -175,12 +176,12 @@ func (m *Modem) readCD() (bool) {
 func (m *Modem) raiseDSR() {
 	m.leds[MR_LED] = true
 	m.pins[DSR_PIN] = true
-	debugf("raiseDSR()")
+	m.log.Print("raiseDSR()")
 }
 func (m *Modem) lowerDSR() {
 	m.leds[MR_LED] = false
 	m.pins[DSR_PIN] = false
-	debugf("lowerDSR()")
+	m.log.Print("lowerDSR()")
 }
 func (m *Modem) readDSR() (bool) {
 	return m.pins[DSR_PIN] && m.leds[MR_LED]
@@ -190,12 +191,12 @@ func (m *Modem) readDSR() (bool) {
 func (m *Modem) raiseCTS() {
 	m.leds[CS_LED] = true
 	m.pins[CTS_PIN] = true
-	debugf("raiseCTS()")
+	m.log.Print("raiseCTS()")
 }
 func (m *Modem) lowerCTS() {
 	m.leds[CS_LED] = true
 	m.pins[CTS_PIN] = false
-	debugf("lowerCTS()")
+	m.log.Print("lowerCTS()")
 }
 func (m *Modem) readCTS() (bool) {
 	return m.pins[CTS_PIN] && m.leds[CS_LED]

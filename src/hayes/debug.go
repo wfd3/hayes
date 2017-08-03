@@ -2,20 +2,12 @@ package hayes
 
 import (
 	"fmt"
-	"os"
 	"sort"
 	"time"
 )
 
 var debug bool = false
 //var debug bool = true
-
-func debugf(format string, a ...interface{}) {
-	if debug {
-		format = "# " + format + "\n"
-		fmt.Fprintf(os.Stderr, format, a...)
-	}
-}
 
 func (m *Modem) setupDebug() {
 	for i := range m.d {
@@ -128,9 +120,9 @@ func (m *Modem) debug(cmd string) (int) {
 		case 0:		// Enable verbose debugging
 			if m.d[0] != 0 {
 				debug = true
-				debugf("Debugging enabled")
+				m.log.Print("Debugging enabled")
 			} else {
-				debugf("Debugging disabled")
+				m.log.Print("Debugging disabled")
 				debug = false
 			}
 		case 8:		// Toggle CD pin val times

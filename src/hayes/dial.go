@@ -6,11 +6,11 @@ import (
 	"strconv"
 	"net"
 	"io"
+	"time"
 	"golang.org/x/crypto/ssh"
-	"flag"
 )
-var user = flag.String("u", "", "username")
-var pw = flag.String("p", "", "password")
+
+const __CONNECT_TIMEOUT = __MAX_RINGS * 6 * time.Second
 
 // Implements io.ReadWriteCloser
 type myReadWriter struct {
@@ -38,23 +38,22 @@ func (m myReadWriter) Close() error {
 
 func (m *Modem) dialSSH(remote string) int {
 	config := &ssh.ClientConfig{
-		User: *user,
+		User: *_flags_user,
 		Auth: []ssh.AuthMethod{
-			ssh.Password(*pw),
+			ssh.Password(*_flags_pw),
 		},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // Danger?
 	}
 
 	client, err := ssh.Dial("tcp", remote, config)
 	if err != nil {
-		debugf("Dial(): %s", err)
-		panic(err)
+		m.log.Fatal("Fatal Error: ssh.Dial(): ", err)
 	}
 
 	// Create a session
 	session, err := client.NewSession()
 	if err != nil {
-    		debugf("unable to create session: %s", err)
+    		m.log.Print("unable to create session: ", err)
 		return ERROR
 	}
 
@@ -66,19 +65,19 @@ func (m *Modem) dialSSH(remote string) int {
 	}	
 	// Request pseudo terminal
 	if err := session.RequestPty("xterm", 40, 80, modes); err != nil {
-    		debugf("request for pseudo terminal failed: ", err)
+    		m.log.Print("request for pseudo terminal failed: ", err)
 		return ERROR
 	}
 
 	// Start remote shell
 	send, err :=  session.StdinPipe()
 	if err != nil {
-		debugf("StdinPipe(): %s", err)
+		m.log.Print("StdinPipe(): ", err)
 		return ERROR
 	}
 	recv, err := session.StdoutPipe()
 	if err != nil {
-		debugf("StdoutPipe(): %s", err)
+		m.log.Print("StdoutPipe(): ", err)
 		return ERROR
 	}
 
@@ -149,7 +148,7 @@ func (m *Modem) dial(to string) (int) {
 		ret = m.dialNumber(phone)
 	default:
 		fmt.Println(clean_to)
-		debugf("Dial mode '%c' not supported\n", cmd)
+		m.log.Printf("Dial mode '%c' not supported\n", cmd)
 		return ERROR
 	}
 

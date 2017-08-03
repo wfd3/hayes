@@ -44,7 +44,7 @@ const (
 func (m *Modem) setupPins() {
 
 	if err := rpio.Open(); err != nil {
-		panic(err)
+		m.log.Fatal("Fatal Error: ", err)
 	}
 
 	m.leds = make(Pins)

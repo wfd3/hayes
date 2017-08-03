@@ -4,10 +4,11 @@ import (
 	"io"
 	"net"
 	"time"
-	"fmt"
 	"golang.org/x/crypto/ssh"
 	"io/ioutil"
 )
+
+const __MAX_RINGS = 15		// How many rings before giving up
 
 var connection chan io.ReadWriteCloser
 var last_ring_time time.Time
@@ -28,14 +29,16 @@ func (m *Modem) acceptSSH() {
 	}
 
 	// You can generate a keypair with 'ssh-keygen -t rsa'
-	privateBytes, err := ioutil.ReadFile("id_rsa")
+	private_key := "id_rsa"
+	privateBytes, err := ioutil.ReadFile(private_key)
 	if err != nil {
-		panic("Failed to load private key (./id_rsa)")
+		m.log.Fatalf("Fatal Error: failed to load private key (%s)\n",
+			private_key)
 	}
 
 	private, err := ssh.ParsePrivateKey(privateBytes)
 	if err != nil {
-		panic("Failed to parse private key")
+		m.log.Fatal("Fatal Error: failed to parse private key")
 	}
 
 	config.AddHostKey(private)
@@ -43,7 +46,7 @@ func (m *Modem) acceptSSH() {
 	// Once a ServerConfig has been configured, connections can be accepted.
 	listener, err := net.Listen("tcp", "0.0.0.0:2200")
 	if err != nil {
-		panic(err)
+		m.log.Fatal("Fatal Error: ", err)
 	}
 
 	// Accept all connections
@@ -52,19 +55,19 @@ func (m *Modem) acceptSSH() {
 	for {
 		tcpConn, err := listener.Accept()
 		if err != nil {
-			debugf("Failed to accept incoming connection (%s)", err)
+			m.log.Print("Failed to accept incoming connection (%s)", err)
 			continue
 		}
 		// Before use, a handshake must be performed on the
 		// incoming net.Conn.
 		sshConn, chans, reqs, err := ssh.NewServerConn(tcpConn, config)
 		if err != nil {
-			debugf("Failed to handshake (%s)", err)
+			m.log.Print("Failed to handshake (%s)", err)
 			continue
 		}
 		go ssh.DiscardRequests(reqs)
 
-		debugf("New SSH connection from %s (%s)\n",
+		m.log.Printf("New SSH connection from %s (%s)\n",
 			sshConn.RemoteAddr(), sshConn.ClientVersion())
 
 		for newChannel = range chans {
@@ -77,7 +80,7 @@ func (m *Modem) acceptSSH() {
 
 			conn, _, err = newChannel.Accept()
 			if err != nil {
-				panic(err)
+				m.log.Fatal("Fatal Error: ", err)
 			}
 
 			if checkBusy(m, conn) {
@@ -93,14 +96,14 @@ func (m *Modem) acceptSSH() {
 func (m *Modem) acceptTelnet() {
 	l, err := net.Listen("tcp", ":20000")
 	if err != nil {
-		panic(err)
+		m.log.Fatal("Fatal Error: ", err)
 	}
 	defer l.Close()
 
 	for {
 		conn, err := l.Accept()
 		if err != nil {
-			debugf("l.Accept(): %s\n", err)
+			m.log.Print("l.Accept(): %s\n", err)
 			continue
 		}
 
@@ -131,16 +134,19 @@ func (m *Modem) handleConnection() {
 	buf := make([]byte, 1)
 
 	for m.getHook() == OFF_HOOK {
-		if _, err := m.conn.Read(buf); err != nil {//timeout
-			debugf("m.conn.Read(): %s", err)
+		if _, err := m.conn.Read(buf); err != nil {// TODO: timeout
+			m.log.Print("m.conn.Read(): ", err)
 			// carrier lost
 			break
 		}
-		m.led_RD_on()
+
+		// Send the byte to the DTE
 		if m.mode == DATAMODE {
-			fmt.Printf("%s", string(buf)) //  Send to DTE
+			// TODO: try 'go m.blinkRD()'
+			m.led_RD_on()
+			m.serial.Write(buf) 
+			m.led_RD_off()
 		}
-		m.led_RD_off()
 	}
 	
 	// If we're here, we lost "carrier" somehow.
@@ -153,6 +159,8 @@ func (m *Modem) handleConnection() {
 }
 
 func (m *Modem) answerIncomming(conn io.ReadWriteCloser) bool {
+	const __DELAY_MS = 20
+
 	zero := make([]byte, 1)
 	zero[0] = 0
 
