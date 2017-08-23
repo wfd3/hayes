@@ -112,9 +112,6 @@ func (m *Modem) debug(cmd string) (int) {
 	// *n=x - write x to n
 	_, err = fmt.Sscanf(cmd, "*%d=%d", &reg, &val)
 	if err == nil {
-		if reg > len(m.d) {
-			return ERROR
-		}
 		switch reg {
 		case 0:		// Enable verbose debugging
 			if val != 0 {
@@ -176,6 +173,9 @@ func (m *Modem) debug(cmd string) (int) {
 				time.Sleep(2 * time.Second)
 			}
 		default:	// Otherwise save the value in the register
+			if reg > len(m.d) {
+				return ERROR
+			}
 			m.d[reg] = val
 		}
 		return OK

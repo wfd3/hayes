@@ -51,7 +51,7 @@ type Modem struct {
 	serial *serialPort
 	pins Pins
 	leds Pins
-	d [100]int
+	d [10]int
 	connect_speed int
 	linebusy bool
 	linebusylock sync.RWMutex
