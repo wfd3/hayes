@@ -99,6 +99,7 @@ func (m *Modem) handlePINs() {
 		}
 			
 
+		// TODO: This should move to debug.go?
 		// debug
 		if m.d[1] == 2 {
 			m.raiseDSR()
