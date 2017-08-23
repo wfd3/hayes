@@ -1,4 +1,4 @@
-at// +build arm
+// +build arm
 
 package hayes
 
