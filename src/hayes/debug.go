@@ -117,8 +117,7 @@ func (m *Modem) debug(cmd string) (int) {
 		}
 		switch reg {
 		case 0:		// Enable verbose debugging
-			m.d[0] = val
-			if m.d[0] != 0 {
+			if val != 0 {
 				debug = true
 				m.log.Print("Debugging enabled")
 			} else {
@@ -163,24 +162,20 @@ func (m *Modem) debug(cmd string) (int) {
 			}
 		case 99: 		// All output
 			for i := 0; i < val; i++ {
-				fmt.Println(" -- CD")
+				fmt.Println("Rasising: CD, RI, DSR, CTS")
 				m.raiseCD()
-				fmt.Println(" -- RI")
 				m.raiseRI()
-				fmt.Println(" -- DSR")
 				m.raiseDSR()
-				fmt.Println(" -- CTS")
 				m.raiseCTS()
-				time.Sleep(5 * time.Second)
-				fmt.Println(" -- Lowering all pins")
+				time.Sleep(2 * time.Second)
+				fmt.Println("Lowering all pins")
 				m.lowerCD()
 				m.lowerRI()
 				m.lowerDSR()
 				m.lowerCTS()
-				fmt.Println(" -- Lowered")
-				time.Sleep(5 * time.Second)
+				time.Sleep(2 * time.Second)
 			}
-		default:
+		default:	// Otherwise save the value in the register
 			m.d[reg] = val
 		}
 		return OK
