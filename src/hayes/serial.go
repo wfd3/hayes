@@ -3,7 +3,6 @@ package hayes
 import (
 	"fmt"
 	"time"
-	"log"
 	"github.com/tarm/serial"
 )
 
@@ -37,22 +36,28 @@ func getByte() byte {
 type serialPort struct {
 	console bool
 	port *serial.Port
+	m *Modem
 }
 
-func setupSerialPort(console bool) (*serialPort) {
+func setupSerialPort(console bool, m *Modem) (*serialPort) {
 
 	var s serialPort
 	
 	s.console = console
+	s.m = m
+
 	if console {
+		m.log.Print("Using stdin/stdout as DTE")
 		return &s
 	}
 
+	// TODO: Command line option for serial port
 	c := &serial.Config{Name: "/dev/ttyAMA0", Baud: 115200}
 	p, err := serial.OpenPort(c)
         if err != nil {
-                log.Fatal(err)
+                m.log.Fatal(err)
         }
+	m.log.Print("Using /dev/ttyAMA0")
 	s.port = p
 	return &s
 }
@@ -70,9 +75,28 @@ func (s *serialPort) Read(p []byte) (int, error) {
 
 func (s *serialPort) Write(p []byte) (int, error) {
 	if s.console {
-		fmt.Printf("%s", string(p))
-		return len(p), nil
+		// If we're writing to stdout (console == true), some static
+		// key mapping is needed 
+
+		// Ignore anything above ASCII 127 or the ASCII escape
+		if p[0] > 127 || p[0] == 27 { 
+			return 0, nil
+		}
+		// ASCII DEL -> ASCII BS		
+		if p[0] == 127 {
+			p[0] = s.m.readReg(REG_BS_CH)
+		}
+		// end of key mappings
+
+		// Handle BS
+		str := string(p)
+		if p[0] == s.m.readReg(REG_BS_CH) {
+			str = fmt.Sprintf("%c %c", s.m.readReg(REG_BS_CH),
+				s.m.readReg(REG_BS_CH))
+		} 
+		return fmt.Printf("%s", str)
 	}
+
 	return s.port.Write(p)
 }
 
@@ -97,32 +121,15 @@ func (m *Modem) readSerial() {
 			m.log.Fatal("Fatal Error: ", err)
 		}
 
-		// TODO: All this needs to be written now that we're
-		// using the same io.ReadWriter interfaces for the
-		// serial port
+		if m.echo {	// Echo back to the DTE
+			m.serial.Write(in)
+		}
+
 		c = in[0]
-		
-		// XXX becuse this is not just a modem program yet, some static
-		// key mapping is needed 
-		if c == 127 {	// ASCII DEL -> ASCII BS
-			c = m.readReg(REG_BS_CH)
-		}
-		// Ignore anything above ASCII 127 or the ASCII escape
-		if c > 127 || c == 27 { 
-			continue
-		}
-		// end of key mappings
-
-		if m.echo {
-			fmt.Printf("%c", c)
-			// XXX: handle backspace
-			if c == m.readReg(REG_BS_CH) {
-				fmt.Printf(" %c", c)
-			}
-		}
-
 		switch m.mode {
 		case COMMANDMODE:
+			// Accumulate chars in s until we read a CR, then process
+			// s as a command.
 			if c == m.readReg(REG_LF_CH) && s != "" {
 				m.command(s)
 				s = ""
@@ -130,21 +137,16 @@ func (m *Modem) readSerial() {
 				// ignore naked CR's
 			} else if c == m.readReg(REG_BS_CH)  && len(s) > 0 {
 				s = s[0:len(s) - 1]
+			} else if c == m.readReg(REG_BS_CH) && len(s) == 0 {
+				// ignore BS if s is already empty
 			} else {
 				s += string(c)
 			}
 
 		case DATAMODE:
-			if m.getHook() == OFF_HOOK && m.conn != nil {
-				m.led_SD_on()
-				out[0] = c
-				m.conn.Write(out)
-				time.Sleep(10 *time.Millisecond) // HACK!
-				m.led_SD_off()	
-				// TODO: make sure the LED says on long enough
-			}
-
 			// Look for the command escape sequence
+			// TODO: This is wrong
+			// (see http://www.messagestick.net/modem/Hayes_Ch1-4.html)
 			lastthree[idx] = c
 			idx = (idx + 1) % 3
 			guard_time =
@@ -161,6 +163,15 @@ func (m *Modem) readSerial() {
 			}
 			if c != '+' {
 				sinceLastChar = time.Now()
+			}
+
+			// Send to remote
+			// TODO: make sure the LED says on long enough
+			if m.getHook() == OFF_HOOK && m.conn != nil {
+				m.led_SD_on()
+				out[0] = c
+				m.conn.Write(out)
+				m.led_SD_off()	
 			}
 		}
 	}

@@ -40,6 +40,10 @@ func isNumber(n string) (string, bool) {
 
 func (m *Modem) printAddressBook() {
 
+	if len(m.addressbook) == 0 {
+		fmt.Println("Address Book: empty")
+		return
+	}
 	fmt.Println("Address Book:")
 	for phone, h := range m.addressbook {
 		fmt.Printf(" -- Entry :%d, ph: %s, host: %s, proto: %s\n",
@@ -49,13 +53,14 @@ func (m *Modem) printAddressBook() {
 }
 
 func (m *Modem) loadAddressBook() {
+	m.addressbook = nil
 	// number host protocol
 	m.addressbook = make(map[string] *ab_host)
 
-	// TODO: command line flag
-	f, err := os.Open(__ADDRESS_BOOK_FILE)
+	f, err := os.Open(*_flags_addressbook)
 	if err != nil {
-		m.log.Fatal("Fatal error: ", err)
+		m.log.Printf("Address book file flag not set (%s)", err)
+		return
 	}
 
 	r := csv.NewReader(f)
@@ -85,6 +90,7 @@ func (m *Modem) loadAddressBook() {
 		m.addressbook[phone] = &ab_host{record[1], record[2], i}
 		count++
 	}
+	f.Close()
 	m.log.Printf("Address book loaded, %d hosts", count)
 }
 

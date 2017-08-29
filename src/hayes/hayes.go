@@ -51,7 +51,6 @@ type Modem struct {
 	serial *serialPort
 	pins Pins
 	leds Pins
-	d [10]int
 	connect_speed int
 	linebusy bool
 	linebusylock sync.RWMutex
@@ -98,25 +97,6 @@ func (m *Modem) handlePINs() {
 			m.led_HS_off()
 		}
 			
-
-		// TODO: This should move to debug.go?
-		// debug
-		if m.d[1] == 2 {
-			m.raiseDSR()
-			m.raiseCTS()
-			m.d[1] = 0
-		}
-		if m.d[1] == 1 {
-			m.lowerDSR()
-			m.lowerCTS()
-			m.d[1] = 0
-		}
-
-		if m.d[2] != 0 {
-			m.ledTest(m.d[2])
-			m.d[2] = 0
-		}
-
 		time.Sleep(250 * time.Millisecond)
 	}
 }
@@ -124,18 +104,19 @@ func (m *Modem) handlePINs() {
 // Catch ^C, reset the HW pins
 func (m *Modem) signalHandler() {
 	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
+	signal.Notify(c, syscall.SIGINT, syscall.SIGUSR1)
 
 	for {
 		// Block until a signal is received.
 		s := <-c
-		m.log.Print("Caught signal:", s)
-		if s == syscall.SIGINT {
+		m.log.Print("Caught signal: ", s)
+		switch s {
+		case syscall.SIGINT:
 			m.clearPins()
 			m.log.Print("Exiting")
 			os.Exit(0)
-		}
-		if s == syscall.SIGQUIT { // TODO: I don't think this works
+
+		case syscall.SIGUSR1:
 			pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
 		}
 	}
@@ -160,9 +141,8 @@ func (m *Modem) reset() (int) {
 	m.connect_speed = 0
 	m.setLineBusy(false)
 	m.setupRegs()
-	m.setupDebug()
-
 	m.loadAddressBook()
+
 	return OK
 }
 
@@ -188,7 +168,7 @@ func (m *Modem) PowerOn() {
 	m.log.Print("------------ Starting up")
 	m.setupPins()	      
 	m.reset()	      // Setup modem inital state (or reset initial state)
-	m.serial = setupSerialPort(true)
+	m.serial = setupSerialPort(*_flags_console, m)
 	
 	go m.signalHandler()	// Catch signals in a different thread
 	go m.handlePINs()       // Monitor input pins & internal registers

@@ -118,53 +118,42 @@ func (m *Modem) clearPins() {
 	m.pins[CD_PIN].Low()
 	m.pins[DSR_PIN].Low()
 	m.pins[CTS_PIN].Low()
-	// m.pins[RTS_PIN].Low()
-	// m.pins[DTR_PIN].Low()
-
+	// No need to do RTS and DTR
 }
 
 func (m *Modem) showPins() {
-
-	pp := func (n string, b bool) (string) {
-		var state string
-		if b {
-			state = "High"
-		} else {
-			state = "Low"
-		}
-		return fmt.Sprintf("%s:[%s] ", n, state)
-	}
-	s := "PINs: "
-	s += pp("CTS", m.readCTS())
-	s += pp("RI", m.readRI())
-	s += pp("CD", m.readCD())
-	s += pp("DSR", m.readDSR())
-	s += pp("RTS", m.readRTS())
-	s += pp("DTR", m.readDTR())
-	fmt.Println(s)
-
-	pl := func (n string, p int) (string) {
-		if m.leds[p].Read() == rpio.High {	// LED is on
+	pp := func (n string, pin rpio.Pin) (string) {
+		var s string
+		if pin.Read() == rpio.High {	
 			s = strings.ToUpper(n)
 		} else {
 			s = strings.ToLower(n)
 		}
-
 		s += " "
 		return s
 	}
-	s = "LEDs: [ "
-	s += pl("HS", HS_LED)
-	s += pl("AA", AA_LED)
-	s += pl("RI", RI_LED)
-	s += pl("CD", CD_LED)
-	s += pl("OH", OH_LED)
-	
-	s += pl("MR", MR_LED)
-	s += pl("CS", CS_LED)
-	s += pl("TR", TR_LED)
-	s += pl("SD", SD_LED)
-	s += pl("RD", RD_LED)
+
+	s := "PINs: ["
+	s += pp("CTS", m.pins[CTS_PIN])
+	s += pp("RI_", m.pins[RI_PIN])
+	s += pp("DCD", m.pins[CD_PIN])
+	s += pp("DSR", m.pins[DSR_PIN])
+	s += pp("RTS", m.pins[RTS_PIN])
+	s += pp("DTR", m.pins[DTR_PIN])
+	s += "]"
+	fmt.Println(s)
+
+	s = "LEDs: "
+	s += pp("HS", m.leds[HS_LED])
+	s += pp("AA", m.leds[AA_LED])
+	s += pp("RI", m.leds[RI_LED])
+	s += pp("CD", m.leds[CD_LED])
+	s += pp("OH", m.leds[OH_LED])
+	s += pp("MR", m.leds[MR_LED])
+	s += pp("CS", m.leds[ CS_LED])
+	s += pp("TR", m.leds[TR_LED])
+	s += pp("SD", m.leds[SD_LED])
+	s += pp("RD", m.leds[RD_LED])
 	s += "]"
 	fmt.Println(s)
 }

@@ -6,15 +6,6 @@ import (
 	"time"
 )
 
-var debug bool = false
-//var debug bool = true
-
-func (m *Modem) setupDebug() {
-	for i := range m.d {
-		m.d[i] = 0
-	}
-}
-
 func (m *Modem) printRegs() {
 	var s string
 	var i []int
@@ -113,13 +104,21 @@ func (m *Modem) debug(cmd string) (int) {
 	_, err = fmt.Sscanf(cmd, "*%d=%d", &reg, &val)
 	if err == nil {
 		switch reg {
-		case 0:		// Enable verbose debugging
-			if val != 0 {
-				debug = true
-				m.log.Print("Debugging enabled")
-			} else {
-				m.log.Print("Debugging disabled")
-				debug = false
+		case 1:		// Toggle DSR/CTS
+			switch val {
+			case 1:
+				m.lowerDSR()
+				m.lowerCTS()
+			case 2:
+				m.raiseDSR()
+				m.raiseCTS()
+			}
+		case 2:		// Run ledTest
+			m.ledTest(val)
+		case 3:
+			for i := 0; i < val; i++ {
+				m.showPins()
+				time.Sleep(500 * time.Millisecond)
 			}
 		case 8:		// Toggle CD pin val times
 			for i := 0; i < val; i++ {
@@ -165,26 +164,14 @@ func (m *Modem) debug(cmd string) (int) {
 				m.raiseDSR()
 				m.raiseCTS()
 				time.Sleep(2 * time.Second)
-				fmt.Println("Lowering all pins")
+				fmt.Println("Lowering: CD, RI, DSR, CTS")
 				m.lowerCD()
 				m.lowerRI()
 				m.lowerDSR()
 				m.lowerCTS()
 				time.Sleep(2 * time.Second)
 			}
-		default:	// Otherwise save the value in the register
-			if reg > len(m.d) {
-				return ERROR
-			}
-			m.d[reg] = val
 		}
-		return OK
-	}
-
-	// *n? - query register n
-	_, err = fmt.Sscanf(cmd, "*%d?", &reg)
-	if err == nil {
-		fmt.Printf("%d\n", m.d[reg])
 		return OK
 	}
 

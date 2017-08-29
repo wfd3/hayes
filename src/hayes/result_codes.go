@@ -23,8 +23,9 @@ const (
 	CONNECT_19200 = 14
 	CONNECT_38400 = 28
 )
+
 var status_codes = map[int]string{
-	OK:            "OK",  	// nil == OK
+	OK:            "OK",  	
 	CONNECT:       "CONNECT",
 	RING:          "RING",
 	NO_CARRIER:    "NO_CARRIER",
@@ -39,11 +40,6 @@ var status_codes = map[int]string{
 	CONNECT_14400: "CONNECT_14400",
 	CONNECT_19200: "CONNECT_19200",
 	CONNECT_38400: "CONNECT_38400",
-}
-
-type herror struct {
-	code int
-	description string
 }
 
 // Print command status, subject to quiet mode and verbose mode flags

@@ -170,6 +170,8 @@ func (m *Modem) command(cmd string) {
 	// hardware
 
 	cmd = strings.ToUpper(cmd)
+	m.log.Print("command: ", cmd)
+	
 	if len(cmd) < 2  || (!(cmd[0] == 'A' && cmd[1] == 'T')) {
 		m.prstatus(ERROR)
 		return
