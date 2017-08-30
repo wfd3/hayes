@@ -36,7 +36,8 @@ func (m myReadWriter) Close() error {
 	return err
 }
 
-func (m *Modem) dialSSH(remote string) int {
+// TODO: user:password entry in dial string?
+func (m *Modem) dialSSH(remote string) (*myReadWriter, error) {
 	config := &ssh.ClientConfig{
 		User: *_flags_user,
 		Auth: []ssh.AuthMethod{
@@ -47,14 +48,15 @@ func (m *Modem) dialSSH(remote string) int {
 
 	client, err := ssh.Dial("tcp", remote, config)
 	if err != nil {
-		m.log.Fatal("Fatal Error: ssh.Dial(): ", err)
+		m.log.Print("Fatal Error: ssh.Dial(): ", err)
+		return nil, fmt.Errorf("ssh.Dial() failed: ", err)
 	}
 
 	// Create a session
 	session, err := client.NewSession()
 	if err != nil {
     		m.log.Print("unable to create session: ", err)
-		return ERROR
+		return nil, fmt.Errorf("unable to create session: ", err)
 	}
 
 	// Set up terminal modes
@@ -66,57 +68,58 @@ func (m *Modem) dialSSH(remote string) int {
 	// Request pseudo terminal
 	if err := session.RequestPty("xterm", 40, 80, modes); err != nil {
     		m.log.Print("request for pseudo terminal failed: ", err)
-		return ERROR
+		return nil, fmt.Errorf("request for pty failed: ", err)
 	}
 
 	// Start remote shell
 	send, err :=  session.StdinPipe()
 	if err != nil {
 		m.log.Print("StdinPipe(): ", err)
-		return ERROR
+		return nil, fmt.Errorf("session.StdinPipe(): ", err)
 	}
 	recv, err := session.StdoutPipe()
 	if err != nil {
 		m.log.Print("StdoutPipe(): ", err)
-		return ERROR
+		return nil, fmt.Errorf("session.StdinOut(): ", err)
 	}
 
-	m.conn = &myReadWriter{recv, send, client, session}
         session.Shell()
 	
-	return CONNECT
+	return &myReadWriter{recv, send, client, session}
+
 }
 
-func (m *Modem) dialTelnet(remote string) int {
+func (m *Modem) dialTelnet(remote string) (net.Conn, error) {
 
-	conn, err := net.DialTimeout("tcp", remote, __CONNECT_TIMEOUT)
-	if err != nil {
-		return BUSY
-	}
-	m.conn = conn
-	return CONNECT
+	return net.DialTimeout("tcp", remote, __CONNECT_TIMEOUT)
 }
 
-func (m *Modem) dialNumber(remote string) int {
+// Using the addressbook mapping, fake out dialing a standard phone number
+// (ATDT5551212)
+func (m *Modem) dialNumber(remote string) (*myReadWriter, error) {
 	n := sanitizeNumber(remote)
 	host := m.addressbook[n]
 	if host == nil {
-		return ERROR
+		return nil, fmt.Errorf("number not in address book")
 	}
-	if strings.ToUpper(host.protocol) == "SSH" {
-		return m.dialSSH(host.host)
+	switch strings.ToUpper(host.protocol) {
+	case "SSH":
+		return m.dialSSH(host.host), nil
+	case "TELNET":
+		return myReadWriter(&m.dialTelnet(host.host)), nil
 	}
-	if strings.ToUpper(host.protocol) == "TELNET" {
-		return m.dialTelnet(host.host)
-	}
-
-	return ERROR
+	
+	return nil, fmt.Errorf("Unknown protocol")
 }
 
 // ATD...
 // See http://www.messagestick.net/modem/Hayes_Ch1-1.html on ATD... result codes
 func (m *Modem) dial(to string) (int) {
 	var ret int
+	var conn *myReadWriter
+	var err error
+
+	m.offHook()
 
 	cmd := to[1]
 	if cmd == 'L' {
@@ -133,9 +136,9 @@ func (m *Modem) dial(to string) (int) {
 	clean_to := r.Replace(to[2:])
 
 	switch cmd {
-	case 'H': ret = m.dialTelnet(clean_to)
-	case 'E': ret = m.dialSSH(clean_to)
-	case 'T', 'P': ret = m.dialNumber(clean_to)
+	case 'H': conn, err = m.dialTelnet(clean_to)
+	case 'E': conn, err = m.dialSSH(clean_to)
+	case 'T', 'P': conn, err = m.dialNumber(clean_to)
 	case 'S':
 		index, err := strconv.Atoi(clean_to[1:])
 		if err != nil {
@@ -145,7 +148,7 @@ func (m *Modem) dial(to string) (int) {
 		if phone == "" {
 			return ERROR
 		}
-		ret = m.dialNumber(phone)
+		conn, err = m.dialNumber(phone)
 	default:
 		fmt.Println(clean_to)
 		m.log.Printf("Dial mode '%c' not supported\n", cmd)
@@ -153,15 +156,18 @@ func (m *Modem) dial(to string) (int) {
 	}
 
 	// if we're connected, setup the connected state in the modem, otherwise
-	// return whatever error we have.
-	if ret != CONNECT {
-		return ret
+	// return a BUSY result code.
+	// TODO: Can we tell the difference between BUSY and NO_ANSWER?
+	if err != nil {
+		m.onHook()
+		return BUSY
 	}
 
-	// Remote answered, setup the modem
-	m.raiseCD()
-	m.offHook()
+	// Remote answered, set connection speed and signal CD.
+	m.conn = conn
 	m.connect_speed = 38400
+	m.raiseCD()
+
 	// Stay in command mode if ; present in the original command string
 	if strings.Contains(to, ";") {
 		return OK
@@ -184,7 +190,6 @@ func parseDial(cmd string) (string, int, error) {
 		s = fmt.Sprintf("DT%s", cmd[2:e+1])
 		return s, len(s), nil
 	case 'H', 'E':		// Host Dialing
-
 		s = fmt.Sprintf("D%c%s", cmd[c], cmd[c+1:])
 		return s, len(s), nil
 	case 'L':		// Dial last number
