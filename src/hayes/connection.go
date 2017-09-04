@@ -13,6 +13,16 @@ const __MAX_RINGS = 15		// How many rings before giving up
 var connection chan io.ReadWriteCloser
 var last_ring_time time.Time
 
+const (
+	IAC = 0377
+	DO = 0375
+	WILL = 0373
+	WONT = 0374
+	ECHO = 0001
+	LINEMODE = 0042
+)
+
+
 func (m *Modem) acceptSSH() {
 
 	// In the latest version of crypto/ssh (after Go 1.3), the SSH
@@ -55,7 +65,8 @@ func (m *Modem) acceptSSH() {
 	for {
 		tcpConn, err := listener.Accept()
 		if err != nil {
-			m.log.Print("Failed to accept incoming connection (%s)", err)
+			m.log.Print("Failed to accept incoming connection (%s)",
+				err)
 			continue
 		}
 		// Before use, a handshake must be performed on the
@@ -113,13 +124,6 @@ func (m *Modem) acceptTelnet() {
 		}
 		
 		// This is a telnet session, negotiate char-at-a-time
-		const (
-			IAC = 0377
-			DO = 0375
-			WILL = 0373
-			ECHO = 0001
-			LINEMODE = 0042
-		)
 		conn.Write([]byte{IAC, DO, LINEMODE, IAC, WILL, ECHO})
 
 		connection <- conn
@@ -133,12 +137,29 @@ func (m *Modem) handleConnection() {
 
 	buf := make([]byte, 1)
 
-	for m.getHook() == OFF_HOOK {
+	for {
+		if m.getHook() == ON_HOOK {
+			m.log.Print("ON_HOOK")
+			break
+		}
 		if _, err := m.conn.Read(buf); err != nil {// TODO: timeout
 			m.log.Print("m.conn.Read(): ", err)
 			// carrier lost
 			break
 		}
+
+		// Tell the telnet server we won't comply. 
+		if buf[0] == IAC {
+			cmd := make([]byte, 2)
+			if _, err := m.conn.Read(cmd); err != nil {
+				m.log.Print("m.conn.Read(): ", err)
+				break;
+			}
+			m.log.Print("Telnet negotiation command: %v", cmd)
+			m.conn.Write([]byte{IAC, WONT, cmd[1]})
+			continue
+		}
+		
 
 		// Send the byte to the DTE
 		if m.mode == DATAMODE {
@@ -150,6 +171,7 @@ func (m *Modem) handleConnection() {
 	}
 	
 	// If we're here, we lost "carrier" somehow.
+	m.log.Print("Lost carrier")
 	m.led_RD_off()
 	m.prstatus(NO_CARRIER)
 	m.onHook()
@@ -264,17 +286,29 @@ func (m *Modem) handleModem() {
 		}
 	}()
 
+	// If we have an incoming call, answer it.  If we have an outgoing call or
+	// an answered incoming call, service the connection
 	for {
-		conn = <- connection
-
-		m.setLineBusy(true)
-		if m.answerIncomming(conn) {
-			// if we're here, the computer answered.
-			m.conn = conn
-			m.conn.Write([]byte("Answered\n\r"))
-			go m.handleConnection()
+		conn = nil
+		select {
+		case conn = <- connection:
+			m.log.Print("Incomming call")
+		default: 
 		}
-		m.setLineBusy(false)
+
+		if conn != nil {
+			if m.answerIncomming(conn) {
+				// if we're here, the computer answered.
+				m.conn = conn
+				m.conn.Write([]byte("Answered\n\r"))
+			}
+		} 
+		if m.conn != nil {
+			m.log.Print("Setting Line Busy, serving connection")
+			m.setLineBusy(true)
+			m.handleConnection()
+			m.setLineBusy(false)
+		}
 	}
 }
 

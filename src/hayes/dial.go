@@ -13,22 +13,22 @@ import (
 const __CONNECT_TIMEOUT = __MAX_RINGS * 6 * time.Second
 
 // Implements io.ReadWriteCloser
-type myReadWriter struct {
+type myReadWriteCloser struct {
 	in io.Reader
 	out io.WriteCloser
 	client *ssh.Client
 	session *ssh.Session
 }
 
-func (m myReadWriter) Read(p []byte) (int, error) {
+func (m myReadWriteCloser) Read(p []byte) (int, error) {
 	return m.in.Read(p)
 }
 
-func (m myReadWriter) Write(p []byte) (int, error) {
+func (m myReadWriteCloser) Write(p []byte) (int, error) {
 	return m.out.Write(p)
 }
 
-func (m myReadWriter) Close() error {
+func (m myReadWriteCloser) Close() error {
 	// Remember, in is an io.Reader so it doesn't Close()
 	err := m.out.Close()
 	m.session.Close()
@@ -36,8 +36,11 @@ func (m myReadWriter) Close() error {
 	return err
 }
 
-// TODO: user:password entry in dial string?
-func (m *Modem) dialSSH(remote string) (*myReadWriter, error) {
+// Todo: user:password entry in dial string?
+func (m *Modem) dialSSH(remote string) (myReadWriteCloser, error) {
+
+	m.log.Printf("Connecting to %s", remote)
+
 	config := &ssh.ClientConfig{
 		User: *_flags_user,
 		Auth: []ssh.AuthMethod{
@@ -49,14 +52,14 @@ func (m *Modem) dialSSH(remote string) (*myReadWriter, error) {
 	client, err := ssh.Dial("tcp", remote, config)
 	if err != nil {
 		m.log.Print("Fatal Error: ssh.Dial(): ", err)
-		return nil, fmt.Errorf("ssh.Dial() failed: ", err)
+		return myReadWriteCloser{}, fmt.Errorf("ssh.Dial() failed: ", err)
 	}
 
 	// Create a session
 	session, err := client.NewSession()
 	if err != nil {
     		m.log.Print("unable to create session: ", err)
-		return nil, fmt.Errorf("unable to create session: ", err)
+		return myReadWriteCloser{}, fmt.Errorf("unable to create session: ", err)
 	}
 
 	// Set up terminal modes
@@ -68,35 +71,47 @@ func (m *Modem) dialSSH(remote string) (*myReadWriter, error) {
 	// Request pseudo terminal
 	if err := session.RequestPty("xterm", 40, 80, modes); err != nil {
     		m.log.Print("request for pseudo terminal failed: ", err)
-		return nil, fmt.Errorf("request for pty failed: ", err)
+		return myReadWriteCloser{}, fmt.Errorf("request for pty failed: ", err)
 	}
 
 	// Start remote shell
 	send, err :=  session.StdinPipe()
 	if err != nil {
 		m.log.Print("StdinPipe(): ", err)
-		return nil, fmt.Errorf("session.StdinPipe(): ", err)
+		return myReadWriteCloser{}, fmt.Errorf("session.StdinPipe(): ", err)
 	}
 	recv, err := session.StdoutPipe()
 	if err != nil {
 		m.log.Print("StdoutPipe(): ", err)
-		return nil, fmt.Errorf("session.StdinOut(): ", err)
+		return myReadWriteCloser{}, fmt.Errorf("session.StdinOut(): ", err)
 	}
 
         session.Shell()
+
+	m.log.Printf("Connected to remote host '%s', SSH Server version %s",
+		client.Conn.RemoteAddr(), client.Conn.ServerVersion())
 	
-	return &myReadWriter{recv, send, client, session}
+	return myReadWriteCloser{recv, send, client, session}, nil
 
 }
 
-func (m *Modem) dialTelnet(remote string) (net.Conn, error) {
+func (m *Modem) dialTelnet(remote string) (io.ReadWriteCloser, error) {
 
-	return net.DialTimeout("tcp", remote, __CONNECT_TIMEOUT)
+	if _, _, err := net.SplitHostPort(remote); err != nil {
+		remote += ":23"
+	}
+	m.log.Print("Connecting to: ", remote)
+	conn, err := net.DialTimeout("tcp", remote, __CONNECT_TIMEOUT)
+	if err != nil {
+		return nil, err
+	}
+	m.log.Printf("Connected to remote host '%s'", conn.RemoteAddr())
+	return conn, nil
 }
 
 // Using the addressbook mapping, fake out dialing a standard phone number
 // (ATDT5551212)
-func (m *Modem) dialNumber(remote string) (*myReadWriter, error) {
+func (m *Modem) dialNumber(remote string) (io.ReadWriteCloser, error) {
 	n := sanitizeNumber(remote)
 	host := m.addressbook[n]
 	if host == nil {
@@ -104,19 +119,19 @@ func (m *Modem) dialNumber(remote string) (*myReadWriter, error) {
 	}
 	switch strings.ToUpper(host.protocol) {
 	case "SSH":
-		return m.dialSSH(host.host), nil
+		return m.dialSSH(host.host)
 	case "TELNET":
-		return myReadWriter(&m.dialTelnet(host.host)), nil
+		return m.dialTelnet(host.host)
 	}
-	
+
+	m.log.Printf("Protocol '%s' not supported", host.protocol)
 	return nil, fmt.Errorf("Unknown protocol")
 }
 
 // ATD...
 // See http://www.messagestick.net/modem/Hayes_Ch1-1.html on ATD... result codes
 func (m *Modem) dial(to string) (int) {
-	var ret int
-	var conn *myReadWriter
+	var conn io.ReadWriteCloser
 	var err error
 
 	m.offHook()
@@ -136,16 +151,24 @@ func (m *Modem) dial(to string) (int) {
 	clean_to := r.Replace(to[2:])
 
 	switch cmd {
-	case 'H': conn, err = m.dialTelnet(clean_to)
-	case 'E': conn, err = m.dialSSH(clean_to)
-	case 'T', 'P': conn, err = m.dialNumber(clean_to)
+	case 'H':
+		m.log.Print("Opening telnet connection to: ", clean_to)
+		conn, err = m.dialTelnet(clean_to)
+	case 'E':
+		m.log.Print("Opening SSH connection to: ", clean_to)
+		conn, err = m.dialSSH(clean_to)
+	case 'T', 'P':
+		m.log.Print("Dialing fake number: ", clean_to)
+		conn, err = m.dialNumber(clean_to)
 	case 'S':
+		m.log.Print("Dialing stored number: ", clean_to)
 		index, err := strconv.Atoi(clean_to[1:])
 		if err != nil {
 			return ERROR
 		}
 		phone := m.storedNumber(index)
 		if phone == "" {
+			m.log.Print("Stored number not found")
 			return ERROR
 		}
 		conn, err = m.dialNumber(phone)

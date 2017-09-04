@@ -41,7 +41,12 @@ func (m *Modem) getHook() bool {
 
 // ATA
 func (m *Modem) answer() (int) {
-	if !m.getLineBusy()  || !m.getHook() {
+	if m.getLineBusy()  {
+		m.log.Print("Can't answer, line busy")
+		return ERROR
+	}
+	if m.getHook() == OFF_HOOK {
+		m.log.Print("Can't answer, line off hook already")
 		return ERROR
 	}
 	
