@@ -13,6 +13,7 @@ const __MAX_RINGS = 15		// How many rings before giving up
 var connection chan io.ReadWriteCloser
 var last_ring_time time.Time
 
+// Telnet negoitation commands
 const (
 	IAC = 0377
 	DO = 0375
@@ -21,7 +22,6 @@ const (
 	ECHO = 0001
 	LINEMODE = 0042
 )
-
 
 func (m *Modem) acceptSSH() {
 
@@ -172,7 +172,6 @@ func (m *Modem) handleConnection() {
 	
 	// If we're here, we lost "carrier" somehow.
 	m.log.Print("Lost carrier")
-	m.led_RD_off()
 	m.prstatus(NO_CARRIER)
 	m.onHook()
 	if m.conn != nil {
@@ -296,13 +295,17 @@ func (m *Modem) handleModem() {
 		default: 
 		}
 
+		// Answer if incoming call (m.conn == nil, conn != nil)
 		if conn != nil {
 			if m.answerIncomming(conn) {
 				// if we're here, the computer answered.
 				m.conn = conn
 				m.conn.Write([]byte("Answered\n\r"))
 			}
-		} 
+		}
+
+		// We now have an established connection (either answered or dialed)
+		// so service it.
 		if m.conn != nil {
 			m.log.Print("Setting Line Busy, serving connection")
 			m.setLineBusy(true)

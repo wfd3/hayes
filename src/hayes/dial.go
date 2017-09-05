@@ -12,22 +12,20 @@ import (
 
 const __CONNECT_TIMEOUT = __MAX_RINGS * 6 * time.Second
 
-// Implements io.ReadWriteCloser
+// Implements io.ReadWriteCloser, used to convert SSH ssh.Session into
+// io.ReadWriteCloser.
 type myReadWriteCloser struct {
 	in io.Reader
 	out io.WriteCloser
 	client *ssh.Client
 	session *ssh.Session
 }
-
 func (m myReadWriteCloser) Read(p []byte) (int, error) {
 	return m.in.Read(p)
 }
-
 func (m myReadWriteCloser) Write(p []byte) (int, error) {
 	return m.out.Write(p)
 }
-
 func (m myReadWriteCloser) Close() error {
 	// Remember, in is an io.Reader so it doesn't Close()
 	err := m.out.Close()
@@ -36,22 +34,27 @@ func (m myReadWriteCloser) Close() error {
 	return err
 }
 
-// Todo: user:password entry in dial string?
-func (m *Modem) dialSSH(remote string) (myReadWriteCloser, error) {
+// TODO: user:password entry in dial string?
+func (m *Modem) dialSSH(remote string, username string, pw string) (myReadWriteCloser, error) {
 
 	m.log.Printf("Connecting to %s", remote)
 
 	config := &ssh.ClientConfig{
-		User: *_flags_user,
+		User: username,
 		Auth: []ssh.AuthMethod{
-			ssh.Password(*_flags_pw),
+			ssh.Password(pw),
 		},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // Danger?
+		Timeout: time.Duration(__CONNECT_TIMEOUT),
 	}
 
 	client, err := ssh.Dial("tcp", remote, config)
 	if err != nil {
 		m.log.Print("Fatal Error: ssh.Dial(): ", err)
+		if err, ok := err.(net.Error); ok && err.Timeout() {
+			m.log.Print("ssh.Dial: Timed out")
+		}
+
 		return myReadWriteCloser{}, fmt.Errorf("ssh.Dial() failed: ", err)
 	}
 
@@ -59,7 +62,8 @@ func (m *Modem) dialSSH(remote string) (myReadWriteCloser, error) {
 	session, err := client.NewSession()
 	if err != nil {
     		m.log.Print("unable to create session: ", err)
-		return myReadWriteCloser{}, fmt.Errorf("unable to create session: ", err)
+		return myReadWriteCloser{},
+		fmt.Errorf("unable to create session: ", err)
 	}
 
 	// Set up terminal modes
@@ -71,7 +75,8 @@ func (m *Modem) dialSSH(remote string) (myReadWriteCloser, error) {
 	// Request pseudo terminal
 	if err := session.RequestPty("xterm", 40, 80, modes); err != nil {
     		m.log.Print("request for pseudo terminal failed: ", err)
-		return myReadWriteCloser{}, fmt.Errorf("request for pty failed: ", err)
+		return myReadWriteCloser{},
+		fmt.Errorf("request for pty failed: ", err)
 	}
 
 	// Start remote shell
@@ -92,7 +97,6 @@ func (m *Modem) dialSSH(remote string) (myReadWriteCloser, error) {
 		client.Conn.RemoteAddr(), client.Conn.ServerVersion())
 	
 	return myReadWriteCloser{recv, send, client, session}, nil
-
 }
 
 func (m *Modem) dialTelnet(remote string) (io.ReadWriteCloser, error) {
@@ -103,6 +107,9 @@ func (m *Modem) dialTelnet(remote string) (io.ReadWriteCloser, error) {
 	m.log.Print("Connecting to: ", remote)
 	conn, err := net.DialTimeout("tcp", remote, __CONNECT_TIMEOUT)
 	if err != nil {
+		if err, ok := err.(net.Error); ok && err.Timeout() {
+			m.log.Print("net.DialTimeout: Timed out")
+		}
 		return nil, err
 	}
 	m.log.Printf("Connected to remote host '%s'", conn.RemoteAddr())
@@ -119,7 +126,7 @@ func (m *Modem) dialNumber(remote string) (io.ReadWriteCloser, error) {
 	}
 	switch strings.ToUpper(host.protocol) {
 	case "SSH":
-		return m.dialSSH(host.host)
+		return m.dialSSH(host.host, *_flags_user, *_flags_pw)
 	case "TELNET":
 		return m.dialTelnet(host.host)
 	}
@@ -146,21 +153,27 @@ func (m *Modem) dial(to string) (int) {
 	m.lastdialed = to
 
 	// Strip out dial modifiers we don't need.
-	r := strings.NewReplacer(",", "","@", "", "W", "", " ", "", "!", "",
+	r := strings.NewReplacer(
+		",", "",
+		"@", "",
+		"W", "",
+		" ", "",
+		"!", "",
 		";", "")
+	
 	clean_to := r.Replace(to[2:])
 
 	switch cmd {
-	case 'H':
+	case 'H':		// Hostname (ATDH hostname)
 		m.log.Print("Opening telnet connection to: ", clean_to)
 		conn, err = m.dialTelnet(clean_to)
-	case 'E':
+	case 'E':		// Encrypted host (ATDE hostname)
 		m.log.Print("Opening SSH connection to: ", clean_to)
-		conn, err = m.dialSSH(clean_to)
-	case 'T', 'P':
+		conn, err = m.dialSSH(clean_to, *_flags_user, *_flags_pw)
+	case 'T', 'P':		// Fake number from address book (ATDT 5551212)
 		m.log.Print("Dialing fake number: ", clean_to)
 		conn, err = m.dialNumber(clean_to)
-	case 'S':
+	case 'S':		// Stored number (ATDS3)
 		m.log.Print("Dialing stored number: ", clean_to)
 		index, err := strconv.Atoi(clean_to[1:])
 		if err != nil {
