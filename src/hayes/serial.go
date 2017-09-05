@@ -150,7 +150,7 @@ func (m *Modem) readSerial() {
 			lastthree[idx] = c
 			idx = (idx + 1) % 3
 			guard_time =
-				time.Duration(float64(m.readReg(REG_ESC_CODE_GUARD))				* 0.02) * time.Second
+				time.Duration(float64(m.readReg(REG_ESC_CODE_GUARD_TIME))				* 0.02) * time.Second
 			
 			if lastthree[0] == m.readReg(REG_ESC_CH) &&
 				lastthree[1] == m.readReg(REG_ESC_CH) &&

@@ -46,7 +46,7 @@ type Modem struct {
 	lastdialed string
 	rlock sync.RWMutex	// Lock for registers map (r)
 	r map[byte]byte
-	curreg int
+	curreg byte
 	conn io.ReadWriteCloser
 	serial *serialPort
 	pins Pins
