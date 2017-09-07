@@ -3,18 +3,23 @@ package hayes
 import (
 	"strings"
 	"strconv"
-	"encoding/csv"
+	"encoding/json"
+	"encoding/csv"		// To remove.
 	"os"
 	"io"
+	"io/ioutil"
 	"fmt"
 )
 
 const __ADDRESS_BOOK_FILE = "./phonebook"
 
 type ab_host struct {
-	host string
-	protocol string
 	stored int 		// if 0-3, useable by AT&Z
+	phone string
+	host string
+	protocol string		// Telnet if blank
+	username string		// optional
+	password string		// optional
 }
 
 func sanitizeNumber(n string) string {
@@ -53,6 +58,25 @@ func (m *Modem) printAddressBook() {
 }
 
 func (m *Modem) loadAddressBook() {
+	var ab []ab_host
+	// number host protocol
+	m.addressbook = make(map[string] *ab_host)
+
+	b, err := ioutil.ReadFile(*_flags_addressbook)
+	if err != nil {
+		m.log.Printf("Address book file flag not set (%s)", err)
+		return
+	}
+
+	if err = json.Unmarshal(b, &ab); err != nil {
+		m.log.Print("Unmarshal error: ", err)
+		return
+	}
+
+
+}
+
+func (m *Modem) loadAddressBookCSV() {
 	m.addressbook = nil
 	// number host protocol
 	m.addressbook = make(map[string] *ab_host)
