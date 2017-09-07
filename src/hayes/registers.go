@@ -99,7 +99,7 @@ func (m *Modem) incReg(reg byte) byte {
 }
 
 // Given a parsed register command, execute it.
-func (m *Modem) registers(cmd string) (int) {
+func (m *Modem) registers(cmd string) error {
 	var err error
 	var reg, val int
 

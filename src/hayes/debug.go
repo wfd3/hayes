@@ -94,7 +94,7 @@ func parseDebug(cmd string) (string, int, error) {
 }
 
 // Given a parsed register command, execute it.
-func (m *Modem) debug(cmd string) (int) {
+func (m *Modem) debug(cmd string) error {
 	var err error
 	var reg, val int
 	

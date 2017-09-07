@@ -108,7 +108,7 @@ func (m *Modem) storedNumber(n int) string {
 	return ""
 }
 
-func (m *Modem) storeNumber(phone string, pos int) int {
+func (m *Modem) storeNumber(phone string, pos int) error {
 	// This can't be done in this implemenetation.  Return ERROR always.
 	return ERROR
 }

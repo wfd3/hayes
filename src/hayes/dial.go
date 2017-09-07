@@ -137,7 +137,7 @@ func (m *Modem) dialNumber(remote string) (io.ReadWriteCloser, error) {
 
 // ATD...
 // See http://www.messagestick.net/modem/Hayes_Ch1-1.html on ATD... result codes
-func (m *Modem) dial(to string) (int) {
+func (m *Modem) dial(to string) error {
 	var conn io.ReadWriteCloser
 	var err error
 

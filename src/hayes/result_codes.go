@@ -6,61 +6,67 @@ import (
 	"fmt"
 )
 
-const (
-	OK            = 0
-	CONNECT       = 1
-	RING          = 2
-	NO_CARRIER    = 3
-	ERROR         = 4
-	CONNECT_1200  = 5
-	NO_DIALTONE   = 6
-	BUSY          = 7
-	NO_ANSWER     = 8
-	CONNECT_2400  = 10
-	CONNECT_4800  = 11
-	CONNECT_9600  = 12
-	CONNECT_14400 = 13
-	CONNECT_19200 = 14
-	CONNECT_38400 = 28
-)
-
-var status_codes = map[int]string{
-	OK:            "OK",  	
-	CONNECT:       "CONNECT",
-	RING:          "RING",
-	NO_CARRIER:    "NO CARRIER",
-	ERROR:         "ERROR",
-	CONNECT_1200:  "CONNECT 1200",
-	NO_DIALTONE:   "NO DIALTONE",
-	BUSY:          "BUSY",
-	NO_ANSWER:     "NO ANSWER",
-	CONNECT_2400:  "CONNECT 2400",
-	CONNECT_4800:  "CONNECT 4800",
-	CONNECT_9600:  "CONNECT 9600",
-	CONNECT_14400: "CONNECT 14400",
-	CONNECT_19200: "CONNECT 19200",
-	CONNECT_38400: "CONNECT 38400",
+type MError struct {
+	code byte
+	text string
 }
 
+func NewMerror(c byte, s string) error {
+	return &MError{c, s}
+}
+
+var OK error            = nil
+var CONNECT error       = NewMerror(1,  "CONNECT")
+var RING error          = NewMerror(2,  "RING")
+var NO_CARRIER error    = NewMerror(3,  "NO CARRIER")
+var ERROR error         = NewMerror(4,  "ERROR")
+var CONNECT_1200 error  = NewMerror(5,  "CONNECT 1200")
+var NO_DIALTONE error   = NewMerror(6,  "NO DIALTONE")
+var BUSY error          = NewMerror(7,  "BUSY")
+var NO_ANSWER error     = NewMerror(8,  "NO ANSWER")
+var CONNECT_2400 error  = NewMerror(10, "CONNECT 2400")
+var CONNECT_4800 error  = NewMerror(11, "CONNECT 4800")
+var CONNECT_9600 error  = NewMerror(12, "CONNECT 9600")
+var CONNECT_14400 error = NewMerror(13, "CONNECT 14400")
+var CONNECT_19200 error = NewMerror(14, "CONNECT 19200")
+var CONNECT_38400 error = NewMerror(28, "CONNECT 38400")
+
+func (e *MError) Error() string {
+	if e == nil {
+		return "OK\n"
+	}
+	return fmt.Sprintf("%s\n",e.text)
+}
+
+func (e *MError) Code() string {
+	if e == nil {
+		return "0\n"
+	}
+	return fmt.Sprintf("%d\n", e.code)
+}
+
+
 // Print command status, subject to quiet mode and verbose mode flags
-func (m *Modem) prstatus(code int) {
+func (m *Modem) prstatus(e error) {
+	var ok bool
+	var merr *MError
+	
+	if e != nil { // nil is "OK", so that's OK.  
+		merr, ok = e.(*MError)
+		if !ok {
+			m.log.Print("Called prstatus with an error not of MError: ",
+				e)
+			m.prstatus(ERROR)
+			return
+		}
+	}
 	if m.quiet {
 		return
 	}
-	if code == CONNECT {
-		switch  m.connect_speed {
-		case 2400: code = CONNECT_2400
-		case 4800: code = CONNECT_4800
-		case 9600: code = CONNECT_9600
-		case 14400: code = CONNECT_14400
-		case 19200: code = CONNECT_19200
-		case 38400: code = CONNECT_38400
-		}
-	}
-			
+
 	if m.verbose {
-		fmt.Println(status_codes[code])
+		m.serial.Write([]byte(merr.Error()))
 	} else {
-		fmt.Println(code)
+		m.serial.Write([]byte(merr.Code()))
 	} 
 }

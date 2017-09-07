@@ -7,7 +7,7 @@ import (
 )
 
 // ATH0
-func (m *Modem) onHook() (int) {
+func (m *Modem) onHook() error {
 	m.lowerCD()
 
 	// It's OK to hang up the phone when there's no active network connection.
@@ -29,7 +29,7 @@ const ON_HOOK = true
 const OFF_HOOK = false
 
 // ATH1
-func (m *Modem) offHook() int {
+func (m *Modem) offHook() error {
 	m.onhook = OFF_HOOK
 	m.led_OH_on()
 	return OK
@@ -40,7 +40,7 @@ func (m *Modem) getHook() bool {
 }
 
 // ATA
-func (m *Modem) answer() (int) {
+func (m *Modem) answer() error {
 	if m.getLineBusy()  {
 		m.log.Print("Can't answer, line busy")
 		return ERROR
@@ -59,8 +59,8 @@ func (m *Modem) answer() (int) {
 }
 
 // process each command
-func (m *Modem) processCommands(commands []string) (int) {
-	var status int
+func (m *Modem) processCommands(commands []string) error {
+	var status error
 	var cmd string
 
 	m.log.Printf("entering PC: %v\n", commands)
@@ -164,7 +164,7 @@ func (m *Modem) command(cmd string) {
 	var commands []string
 	var s, opts string
 	var i int
-	var status int
+	var status error
 	var err error
 
 	// Process here is to parse the entire command string into

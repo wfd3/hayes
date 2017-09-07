@@ -115,7 +115,7 @@ func (m *Modem) signalHandler() {
 }
 
 // Setup/reset modem.  Also ATZ, conveniently.  Leaves RTS & CTS down.
-func (m *Modem) reset() (int) {
+func (m *Modem) reset() error {
 	m.log.Print("Resetting modem")
 
 	m.onHook()
