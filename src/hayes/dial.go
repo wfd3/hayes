@@ -37,7 +37,7 @@ func (m myReadWriteCloser) Close() error {
 // TODO: user:password entry in dial string?
 func (m *Modem) dialSSH(remote string, username string, pw string) (myReadWriteCloser, error) {
 
-	m.log.Printf("Connecting to %s", remote)
+	m.log.Printf("Connecting to %s [user '%s', pw '%s'", remote, username, pw)
 
 	config := &ssh.ClientConfig{
 		User: username,
@@ -118,25 +118,49 @@ func (m *Modem) dialTelnet(remote string) (io.ReadWriteCloser, error) {
 
 // Using the addressbook mapping, fake out dialing a standard phone number
 // (ATDT5551212)
-func (m *Modem) dialNumber(remote string) (io.ReadWriteCloser, error) {
-	n := sanitizeNumber(remote)
-	host := m.addressbook[n]
-	if host == nil {
-		return nil, fmt.Errorf("number not in address book")
-	}
-	switch strings.ToUpper(host.protocol) {
-	case "SSH":
-		return m.dialSSH(host.host, *_flags_user, *_flags_pw)
-	case "TELNET":
-		return m.dialTelnet(host.host)
+func (m *Modem) dialNumber(phone string) (io.ReadWriteCloser, error) {
+
+	host, err := m.lookupAddressbook(phone)
+	if err != nil {
+		return nil, err
 	}
 
-	m.log.Printf("Protocol '%s' not supported", host.protocol)
+	m.log.Printf("Dialing address book entry: %+v", host)
+	
+	switch strings.ToUpper(host.Protocol) {
+	case "SSH":
+		return m.dialSSH(host.Host, host.Username, host.Password)
+	case "TELNET":
+		return m.dialTelnet(host.Host)
+	}
+
+	m.log.Printf("Protocol '%s' not supported", host.Protocol)
 	return nil, fmt.Errorf("Unknown protocol")
+}
+
+func (m *Modem) dialStoredNumber(idxstr string) (io.ReadWriteCloser, error) {
+
+	index, err := strconv.Atoi(idxstr)
+	if err != nil {
+		m.log.Print(err)
+		return nil, err
+	}
+
+	phone, err := m.storedNumber(index)
+	if err != nil {
+		m.log.Print("Stored number not found")
+		return nil, err
+	}
+	m.log.Print("-- phone number ", phone)
+	return m.dialNumber(phone)
 }
 
 // ATD...
 // See http://www.messagestick.net/modem/Hayes_Ch1-1.html on ATD... result codes
+//
+// TODO:
+// - DTE character abort
+// - Result codes are wrong?  "OK" seems to always be the result code.
 func (m *Modem) dial(to string) error {
 	var conn io.ReadWriteCloser
 	var err error
@@ -175,16 +199,10 @@ func (m *Modem) dial(to string) error {
 		conn, err = m.dialNumber(clean_to)
 	case 'S':		// Stored number (ATDS3)
 		m.log.Print("Dialing stored number: ", clean_to)
-		index, err := strconv.Atoi(clean_to[1:])
-		if err != nil {
-			return ERROR
+		switch clean_to {
+		case "0", "1", "2", "3": conn, err = m.dialStoredNumber(clean_to)
+		default: return ERROR
 		}
-		phone := m.storedNumber(index)
-		if phone == "" {
-			m.log.Print("Stored number not found")
-			return ERROR
-		}
-		conn, err = m.dialNumber(phone)
 	default:
 		fmt.Println(clean_to)
 		m.log.Printf("Dial mode '%c' not supported\n", cmd)
@@ -192,11 +210,11 @@ func (m *Modem) dial(to string) error {
 	}
 
 	// if we're connected, setup the connected state in the modem, otherwise
-	// return a BUSY result code.
-	// TODO: Can we tell the difference between BUSY and NO_ANSWER?
+	// return an OK result code.
 	if err != nil {
 		m.onHook()
-		return BUSY
+		m.log.Print(err)
+		return OK
 	}
 
 	// Remote answered, set connection speed and signal CD.

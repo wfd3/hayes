@@ -54,7 +54,7 @@ type Modem struct {
 	connect_speed int
 	linebusy bool
 	linebusylock sync.RWMutex
-	addressbook map[string] *ab_host
+	addressbook []ab_host
 	log *log.Logger
 }
 
