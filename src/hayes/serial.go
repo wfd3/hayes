@@ -3,6 +3,7 @@ package hayes
 import (
 	"fmt"
 	"time"
+	"log"
 	"github.com/tarm/serial"
 )
 
@@ -36,18 +37,20 @@ func getByte() byte {
 type serialPort struct {
 	console bool
 	port *serial.Port
-	m *Modem
+	regs *Registers
+	log *log.Logger
 }
 
-func setupSerialPort(console bool, m *Modem) (*serialPort) {
+func setupSerialPort(console bool, regs *Registers, log *log.Logger) (*serialPort) {
 
 	var s serialPort
 	
 	s.console = console
-	s.m = m
+	s.regs = regs
+	s.log = log
 
 	if console {
-		m.log.Print("Using stdin/stdout as DTE")
+		s.log.Print("Using stdin/stdout as DTE")
 		return &s
 	}
 
@@ -55,9 +58,9 @@ func setupSerialPort(console bool, m *Modem) (*serialPort) {
 	c := &serial.Config{Name: "/dev/ttyAMA0", Baud: 115200}
 	p, err := serial.OpenPort(c)
         if err != nil {
-                m.log.Fatal(err)
+                s.log.Fatal(err)
         }
-	m.log.Print("Using /dev/ttyAMA0")
+	s.log.Print("Using /dev/ttyAMA0")
 	s.port = p
 	return &s
 }
@@ -84,22 +87,37 @@ func (s *serialPort) Write(p []byte) (int, error) {
 		}
 		// ASCII DEL -> ASCII BS		
 		if p[0] == 127 {
-			p[0] = s.m.readReg(REG_BS_CH)
+			p[0] = s.regs.Read(REG_BS_CH)
 		}
 		// end of key mappings
 
 		// Handle BS
 		str := string(p)
-		if p[0] == s.m.readReg(REG_BS_CH) {
-			str = fmt.Sprintf("%c %c", s.m.readReg(REG_BS_CH),
-				s.m.readReg(REG_BS_CH))
+		if p[0] == s.regs.Read(REG_BS_CH) {
+			str = fmt.Sprintf("%c %c", s.regs.Read(REG_BS_CH),
+				s.regs.Read(REG_BS_CH))
 		} 
-		return fmt.Printf("%s", str)
+		return fmt.Printf("%s", str) // This should be the
+					     // only fmt.Print* in the
+					     // codebase
 	}
 
 	return s.port.Write(p)
 }
 
+func (s *serialPort) Printf(format string, a ...interface{}) error {
+	str := fmt.Sprintf(format, a...)
+	_, err := s.Write([]byte(str))
+	return err
+}
+
+func (s *serialPort) Print(str string) error {
+	return s.Printf("%s", str)
+}
+
+func (s *serialPort) Println(str string) error {
+	return s.Printf("%s\n", str)
+}
 
 func (m *Modem) readSerial() {
 	
@@ -113,10 +131,12 @@ func (m *Modem) readSerial() {
 	var idx int
 	var guard_time time.Duration
 	var sinceLastChar time.Time
+	var regs *Registers
 
 	out = make([]byte, 1)
 	in  = make([]byte, 1)
 	for {
+		regs = m.registers // Reload a copy into r if we reset the modem
 		if _, err := m.serial.Read(in); err != nil {
 			m.log.Fatal("Fatal Error: ", err)
 		}
@@ -130,14 +150,14 @@ func (m *Modem) readSerial() {
 		case COMMANDMODE:
 			// Accumulate chars in s until we read a CR, then process
 			// s as a command.
-			if c == m.readReg(REG_LF_CH) && s != "" {
+			if c == regs.Read(REG_LF_CH) && s != "" {
 				m.command(s)
 				s = ""
-			} else if c == m.readReg(REG_LF_CH) {
+			} else if c == regs.Read(REG_LF_CH) {
 				// ignore naked CR's
-			} else if c == m.readReg(REG_BS_CH)  && len(s) > 0 {
+			} else if c == regs.Read(REG_BS_CH)  && len(s) > 0 {
 				s = s[0:len(s) - 1]
-			} else if c == m.readReg(REG_BS_CH) && len(s) == 0 {
+			} else if c == regs.Read(REG_BS_CH) && len(s) == 0 {
 				// ignore BS if s is already empty
 			} else {
 				s += string(c)
@@ -150,11 +170,11 @@ func (m *Modem) readSerial() {
 			lastthree[idx] = c
 			idx = (idx + 1) % 3
 			guard_time =
-				time.Duration(float64(m.readReg(REG_ESC_CODE_GUARD_TIME))				* 0.02) * time.Second
+				time.Duration(float64(regs.Read(REG_ESC_CODE_GUARD_TIME))				* 0.02) * time.Second
 			
-			if lastthree[0] == m.readReg(REG_ESC_CH) &&
-				lastthree[1] == m.readReg(REG_ESC_CH) &&
-				lastthree[2] == m.readReg(REG_ESC_CH) &&
+			if lastthree[0] == regs.Read(REG_ESC_CH) &&
+				lastthree[1] == regs.Read(REG_ESC_CH) &&
+				lastthree[2] == regs.Read(REG_ESC_CH) &&
 				time.Since(sinceLastChar) >
 				time.Duration(guard_time)  {
 				m.mode = COMMANDMODE

@@ -37,7 +37,11 @@ func (m myReadWriteCloser) Close() error {
 // TODO: user:password entry in dial string?
 func (m *Modem) dialSSH(remote string, username string, pw string) (myReadWriteCloser, error) {
 
-	m.log.Printf("Connecting to %s [user '%s', pw '%s'", remote, username, pw)
+	if _, _, err := net.SplitHostPort(remote); err != nil {
+		remote += ":22"
+	}
+	
+	m.log.Printf("Connecting to %s [user '%s', pw '%s']", remote, username, pw)
 
 	config := &ssh.ClientConfig{
 		User: username,
@@ -55,6 +59,7 @@ func (m *Modem) dialSSH(remote string, username string, pw string) (myReadWriteC
 			m.log.Print("ssh.Dial: Timed out")
 		}
 
+		// TODO: Fix me -- error msg emits "%!{EXTRA ... "
 		return myReadWriteCloser{}, fmt.Errorf("ssh.Dial() failed: ", err)
 	}
 
@@ -120,7 +125,7 @@ func (m *Modem) dialTelnet(remote string) (io.ReadWriteCloser, error) {
 // (ATDT5551212)
 func (m *Modem) dialNumber(phone string) (io.ReadWriteCloser, error) {
 
-	host, err := m.lookupAddressbook(phone)
+	host, err := m.addressbook.Lookup(phone)
 	if err != nil {
 		return nil, err
 	}
@@ -146,13 +151,22 @@ func (m *Modem) dialStoredNumber(idxstr string) (io.ReadWriteCloser, error) {
 		return nil, err
 	}
 
-	phone, err := m.storedNumber(index)
+	phone, err := m.addressbook.LookupStoredNumber(index)
 	if err != nil {
 		m.log.Print("Stored number not found")
 		return nil, err
 	}
 	m.log.Print("-- phone number ", phone)
 	return m.dialNumber(phone)
+}
+
+func splitATDE(cmd string) (string, string, string, error) {
+	s := strings.Split(cmd, "|")
+	if len(s) != 3 {
+		return "", "", "", fmt.Errorf("Malformated ATDE command")
+	}
+	fmt.Println("%+v\n", s)
+	return s[0], s[1], s[2], nil
 }
 
 // ATD...
@@ -192,8 +206,15 @@ func (m *Modem) dial(to string) error {
 		m.log.Print("Opening telnet connection to: ", clean_to)
 		conn, err = m.dialTelnet(clean_to)
 	case 'E':		// Encrypted host (ATDE hostname)
+		// TODO: Fix username/passwd to be passed over DTE
 		m.log.Print("Opening SSH connection to: ", clean_to)
-		conn, err = m.dialSSH(clean_to, *_flags_user, *_flags_pw)
+		host, user, pw, e := splitATDE(clean_to)
+		if e != nil {
+			conn = nil
+			err = e
+		} else {
+			conn, err = m.dialSSH(host, user, pw)
+		}
 	case 'T', 'P':		// Fake number from address book (ATDT 5551212)
 		m.log.Print("Dialing fake number: ", clean_to)
 		conn, err = m.dialNumber(clean_to)
@@ -204,7 +225,6 @@ func (m *Modem) dial(to string) error {
 		default: return ERROR
 		}
 	default:
-		fmt.Println(clean_to)
 		m.log.Printf("Dial mode '%c' not supported\n", cmd)
 		return ERROR
 	}
@@ -236,20 +256,23 @@ func parseDial(cmd string) (string, int, error) {
 	
 	c = 1			// Skip the 'D'
 	switch cmd[c] {
-	case 'T', 'P':		// Number dialing
+	case 'T', 't', 'P', 'p':	// Number dialing
 		e := strings.LastIndexAny(cmd, "0123456789,;@!")
 		if e == -1 {
 			return "", 0, fmt.Errorf("Bad phone number: %s", cmd)
 		}
 		s = fmt.Sprintf("DT%s", cmd[2:e+1])
 		return s, len(s), nil
-	case 'H', 'E':		// Host Dialing
-		s = fmt.Sprintf("D%c%s", cmd[c], cmd[c+1:])
+	case 'H', 'h':
+		s = fmt.Sprintf("DH%s", cmd[c+1:])
 		return s, len(s), nil
-	case 'L':		// Dial last number
+	case 'E', 'e':		// Host Dialing
+		s = fmt.Sprintf("DE%s", cmd[c+1:])
+		return s, len(s), nil
+	case 'L', 'l':		// Dial last number
 		s = fmt.Sprintf("DL")
 		return s, len(s), nil
-	case 'S': 		// Dial stored number
+	case 'S', 's': 		// Dial stored number
 		s = fmt.Sprintf("DS%s", cmd[c+1:])
 		return s, len(s), nil
 	}

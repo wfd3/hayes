@@ -23,8 +23,6 @@ import (
 	"syscall"
 )
 
-////////////////////////////////////////////////////////////////////////////////////
-
 const (
 	COMMANDMODE = iota
 	DATAMODE
@@ -44,17 +42,16 @@ type Modem struct {
 	quiet bool
 	lastcmds []string
 	lastdialed string
-	rlock sync.RWMutex	// Lock for registers map (r)
-	r map[byte]byte
-	curreg byte
+	connect_speed int
+	linebusy bool
+	linebusylock sync.RWMutex
+
 	conn io.ReadWriteCloser
 	serial *serialPort
 	pins Pins
 	leds Pins
-	connect_speed int
-	linebusy bool
-	linebusylock sync.RWMutex
-	addressbook []ab_host
+	addressbook *Addressbook
+	registers *Registers
 	log *log.Logger
 }
 
@@ -71,7 +68,8 @@ func (m *Modem) setLineBusy(b bool) {
 	m.linebusy = b
 }
 
-// Watch a subset of pins and act as apropriate Must be a goroutine
+// Watch a subset of pins and act as apropriate
+// Must be a goroutine
 func (m *Modem) handlePINs() {
 	for {
 		if m.readDTR() {
@@ -94,7 +92,8 @@ func (m *Modem) handlePINs() {
 }
 
 // Catch ^C, reset the HW pins
-func (m *Modem) signalHandler() {
+// Must be a goroutine
+func (m *Modem) handleSignals() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGINT, syscall.SIGUSR1)
 
@@ -114,57 +113,18 @@ func (m *Modem) signalHandler() {
 	}
 }
 
-// Setup/reset modem.  Also ATZ, conveniently.  Leaves RTS & CTS down.
-func (m *Modem) reset() error {
-	m.log.Print("Resetting modem")
-
-	m.onHook()
-	m.lowerDSR()
-	m.lowerCTS()
-	m.lowerRI()
-
-	m.echo = true		// Echo local keypresses
-	m.quiet = false		// Modem offers return status
-	m.verbose = true	// Text return codes
-	m.volume = 1		// moderate volume
-	m.speakermode = 1	// on until other modem heard
-	m.lastcmds = nil
-	m.lastdialed = ""
-	m.connect_speed = 0
-	m.setLineBusy(false)
-	m.setupRegs()
-	m.loadAddressBook()
-
-	return OK
-}
-
 // Boot the modem
-func (m *Modem) PowerOn() {
+func (m *Modem) PowerOn(log *log.Logger) {
 
-	var logger io.Writer
-	var err error
-
-	// TODO: should this be here or in the main
-	logger = os.Stdout
-	if *_flags_logfile != "" {
-		logger, err = os.OpenFile(*_flags_logfile,
-			os.O_RDWR|os.O_APPEND|os.O_CREATE, 0644)
-		if err != nil {
-			panic("Can't open logfile")
-		}
-	}
-	m.log = log.New(logger, "modem: ",
-		log.Ldate | log.Ltime | log.Lmicroseconds | log.Lshortfile)
-	// TODO: end
-	
+	m.log = log
 	m.log.Print("------------ Starting up")
+	m.registers = NewRegisters()
 	m.setupPins()	      
 	m.reset()	      // Setup modem inital state (or reset initial state)
-	m.serial = setupSerialPort(*_flags_console, m)
+	m.serial = setupSerialPort(*_flags_console, m.registers, m.log)
 	
-	go m.signalHandler()	// Catch signals in a different thread
+	go m.handleSignals()	// Catch signals in a different thread
 	go m.handlePINs()       // Monitor input pins & internal registers
-
 	go m.handleModem()	// Handle in-bound bytes in a seperate goroutine
 
 	// Signal to DTE that we're ready

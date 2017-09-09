@@ -58,12 +58,42 @@ func (m *Modem) answer() error {
 	return CONNECT
 }
 
+// ATZ
+// Setup/reset modem.  Leaves RTS & CTS down.
+func (m *Modem) reset() error {
+	var err error = OK
+
+	m.log.Print("Resetting modem")
+
+	m.onHook()
+	m.lowerDSR()
+	m.lowerCTS()
+	m.lowerRI()
+
+	m.echo = true		// Echo local keypresses
+	m.quiet = false		// Modem offers return status
+	m.verbose = true	// Text return codes
+	m.volume = 1		// moderate volume
+	m.speakermode = 1	// on until other modem heard
+	m.lastcmds = nil
+	m.lastdialed = ""
+	m.connect_speed = 0
+	m.setLineBusy(false)
+	m.resetRegs()
+	m.addressbook, err = LoadAddressBook()
+	if err != nil {
+		m.log.Print(err)
+	}
+
+	return err
+}
+
 // process each command
 func (m *Modem) processCommands(commands []string) error {
 	var status error
 	var cmd string
 
-	m.log.Printf("entering PC: %v\n", commands)
+	m.log.Printf("entering PC: %+v\n", commands)
 	status = OK
 	for _, cmd = range commands {
 		m.log.Printf("Processing: %s", cmd)
@@ -128,7 +158,7 @@ func (m *Modem) processCommands(commands []string) error {
 		case 'D':
 			status = m.dial(cmd)
 		case 'S':
-			status = m.registers(cmd)
+			status = m.registerCmd(cmd)
 		case '*':
 			status = m.debug(cmd)
 		default:
@@ -144,13 +174,14 @@ func (m *Modem) processCommands(commands []string) error {
 // Helper function to parse non-complex AT commands (everthing except ATS.., ATD...)
 func parse(cmd string, opts string) (string, int, error) {
 
+	cmd = strings.ToUpper(cmd)
 	if len(cmd) == 1 {
 		if cmd[0] == '/' {
 			// '/' is special as it's the only true one char command
 			return "/", 1, nil 
 		}
 		return cmd + "0", 1, nil
-	} 
+	}
 
 	if strings.ContainsAny(cmd[1:2], opts) {
 		return cmd[:2],  2, nil
@@ -172,16 +203,24 @@ func (m *Modem) command(cmd string) {
 	// the order they were given to us.  This makes syntax
 	// checking/failures happen before any commands are executed
 	// which is, if I recall correctly, how this works in the real
-	// hardware
+	// hardware.  Note that the command codes ("DT", "X", etc.)
+	// all must be upper case for the rest of the parsing system
+	// to work, but the entire command string should be left as it
+	// was handed to us.  This is so that we can embed passwords
+	// in the extended dial command (ATDE, specifically).
 
-	cmd = strings.ToUpper(cmd)
 	m.log.Print("command: ", cmd)
 	
-	if len(cmd) < 2  || (!(cmd[0] == 'A' && cmd[1] == 'T')) {
+	if len(cmd) < 2  {
 		m.prstatus(ERROR)
 		return
 	}
-	
+	AT := strings.ToUpper(cmd[:2])
+	if AT != "AT" {
+		m.prstatus(ERROR)
+		return
+	}
+
 	cmd = cmd[2:] 		// Skip the 'AT'
 	c := 0
 
@@ -190,16 +229,16 @@ func (m *Modem) command(cmd string) {
 	savecmds := true
 	for  c < len(cmd) && status == OK {
 		switch (cmd[c]) {
-		case 'D':
+		case 'D', 'd':
 			s, i, err = parseDial(cmd[c:])
 			if err != nil {
 				m.prstatus(ERROR)
 				return
-			} 
+			}
 			commands = append(commands, s)
 			c += i
 			continue
-		case 'S':
+		case 'S', 's':
 			s, i, err = parseRegisters(cmd[c:])
 			if err != nil {
 				m.prstatus(ERROR)
@@ -220,17 +259,17 @@ func (m *Modem) command(cmd string) {
 		case '/':
 			opts = ""
 			savecmds = false
-		case 'A':
+		case 'A', 'a':
 			opts = "0"
-		case 'E', 'H', 'Q', 'V', 'Z':
+		case 'E', 'e', 'H', 'h', 'Q', 'q', 'V', 'v', 'Z', 'z':
 			opts = "01"
-		case 'L':
+		case 'L', 'l':
 			opts = "0123"
-		case 'M':
+		case 'M', 'm':
 			opts = "012"
-		case 'O':
+		case 'O', 'o':
 			opts = "O"
-		case 'X':
+		case 'X', 'x':
 			opts = "01234"
 		default:
 			m.log.Printf("Unknown command: %s", cmd)

@@ -220,9 +220,9 @@ func (m *Modem) answerIncomming(conn io.ReadWriteCloser) bool {
 		// configured number of rings to wait before
 		// answering, answer the call.  We do this here before
 		// the 4s delay as I think it feels more correct.
-		if m.readReg(REG_AUTO_ANSWER) > 0 {
-			if m.incReg(REG_RING_COUNT) >=
-				m.readReg(REG_AUTO_ANSWER) {
+		if m.registers.Read(REG_AUTO_ANSWER) > 0 {
+			r := m.registers
+			if r.Inc(REG_RING_COUNT) >= r.Read(REG_AUTO_ANSWER) {
 				m.answer()
 			}
 		}
@@ -254,7 +254,7 @@ no_answer:
 	
 answered:
 	// if we're here, the computer answered.
-	m.writeReg(REG_RING_COUNT, 0)
+	m.registers.Write(REG_RING_COUNT, 0)
 	m.lowerRI()
 	return true
 }
@@ -280,7 +280,7 @@ func (m *Modem) handleModem() {
 	go func() {		
 		for range time.Tick(8 * time.Second) {
 			if time.Since(last_ring_time) >= 8 * time.Second {
-				m.writeReg(REG_RING_COUNT, 0) 
+				m.registers.Write(REG_RING_COUNT, 0) 
 			}
 		}
 	}()

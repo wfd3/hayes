@@ -2,7 +2,76 @@ package hayes
 
 import (
 	"fmt"
+	"sync"
+	"sort"
+	"strings"
 )
+
+type Registers struct {
+	regs map[byte]byte
+	current byte
+	rlock sync.RWMutex
+}
+
+func NewRegisters() *Registers {
+	var r Registers
+	r.regs = make(map[byte]byte)
+	r.current = 0
+
+	return &r
+}
+
+// Note the locks here.
+func ( r *Registers) SetCurrent(cur byte) {
+	r.rlock.Lock()
+	defer r.rlock.Unlock()
+	r.current = cur
+}
+
+func ( r *Registers) ReadCurrent() byte {
+	return r.Read(r.current)
+}
+
+func ( r *Registers) ShowCurrent() byte {
+	r.rlock.RLock()
+	defer r.rlock.RUnlock()
+	return r.current
+}
+
+func (r *Registers) Write(regnum, val byte) {
+	r.rlock.Lock()
+	defer r.rlock.Unlock()
+	r.regs[regnum] = val
+}
+
+func (r *Registers) Read(regnum byte) byte {
+	r.rlock.RLock()
+	defer r.rlock.RUnlock()
+	return r.regs[regnum]
+}
+
+func (r *Registers) Inc(regnum byte) byte {
+	r.rlock.Lock()
+	defer r.rlock.Unlock()
+	r.regs[regnum]++
+	return r.regs[regnum]
+}
+
+func (r *Registers) ActiveRegisters() (i []byte) {
+	r.rlock.RLock()
+	defer r.rlock.RUnlock()
+	for f := range r.regs {
+		i = append(i, f)
+	}
+	sort.Sort(byBytes(i))
+	return i
+}
+
+// Because sort.Bytes() doesn't exist.
+type byBytes []byte
+func (b byBytes) Len() int { return len(b) }
+func (b byBytes) Swap(i, j int) { b[i], b[j] = b[j], b[i] }
+func (b byBytes) Less(i, j int) bool { return b[i] < b[j] }
 
 // Register constants
 // TODO: Fill this out as per the manual
@@ -52,62 +121,18 @@ const (
 
 )
 
-func (m *Modem) setupRegs() {
-
-	m.curreg = 0		// current register selected (from ATSn)
-	m.r = make(map[byte]byte)
-
-	m.rlock.Lock()
-	defer m.rlock.Unlock()
-
-	// Defaultsn
-	m.r[REG_AUTO_ANSWER] = 0
-	m.r[REG_RING_COUNT] = 0
-	m.r[REG_ESC_CH] = byte('+')
-	m.r[REG_CR_CH] = byte('\r')	
-	m.r[REG_LF_CH] = byte('\n')
-	m.r[REG_BS_CH] = byte('\b')
-	m.r[REG_BLIND_DIAL_WAIT] = 2 
-	m.r[REG_WAIT_FOR_CARRIER_AFTER_DIAL] = 50
-	m.r[REG_COMMA_DELAY] = 2
-	m.r[REG_CARRIER_DETECT_RESPONSE_TIME] = 6 
-	m.r[REG_DELAY_BETWEEN_LOST_CARRIER_AND_HANGUP] = 14
-	m.r[REG_MULTIFREQ_TONE_DURATION] = 95
-	m.r[REG_ESC_CODE_GUARD_TIME] = 50 
-}
-
-
-// Note the locks here.
-func (m *Modem) readReg(reg byte) byte {
-	m.rlock.RLock()
-	defer m.rlock.RUnlock()
-	return m.r[reg]
-}
-
-func (m *Modem) writeReg(reg, val byte) {
-	m.rlock.Lock()
-	defer m.rlock.Unlock()
-	m.r[reg] = val
-}
-
-func (m *Modem) incReg(reg byte) byte {
-	m.rlock.RLock()
-	m.rlock.Lock()
-	defer m.rlock.Unlock()
-	m.r[reg]++
-	return m.r[reg]
-}
-
 // Given a parsed register command, execute it.
-func (m *Modem) registers(cmd string) error {
+func (m *Modem) registerCmd(cmd string) error {
 	var err error
 	var reg, val int
+
+	r := m.registers
 
 	// NOTE: The order of these stanzas is critical.
 
 	// S? - query selected register
 	if cmd[:2] == "S?" {
-		fmt.Printf("%d\n", m.readReg(m.curreg))
+		m.serial.Printf("%d\n", r.ReadCurrent())
 		return OK
 	}
 
@@ -122,7 +147,7 @@ func (m *Modem) registers(cmd string) error {
 			m.log.Printf("Register value over/underflow: %d", val)
 			return ERROR
 		}
-		m.writeReg(byte(reg), byte(val))
+		r.Write(byte(reg), byte(val))
 		if reg == REG_AUTO_ANSWER { // Turn on AA led
 			if val == 0 {
 				m.led_AA_off()
@@ -141,7 +166,7 @@ func (m *Modem) registers(cmd string) error {
 			return ERROR
 		}
 		
-		fmt.Printf("%d\n", m.readReg(byte(reg)))
+		m.serial.Printf("%d\n", r.ReadCurrent())
 		return OK
 	}
 
@@ -152,7 +177,7 @@ func (m *Modem) registers(cmd string) error {
 			m.log.Printf("Register index over/underflow: %d", reg)
 			return ERROR
 		}
-		m.curreg = byte(reg)
+		r.SetCurrent(byte(reg))
 		return OK
 	}
 
@@ -175,28 +200,30 @@ func parseRegisters(cmd string) (string, int, error) {
 		return "", 0, fmt.Errorf("Bad command: %s", cmd)
 	}
 
+	c := strings.ToUpper(cmd)
+
 	// S? - query selected register
-	if cmd[:2] == "S?" {
+	if c[:2] == "S?" {
 		s = "S?"
 		return s, 2, nil
 	}
 
 	// Sn=x - write x to n
-	_, err = fmt.Sscanf(cmd, "S%d=%d", &reg, &val)
+	_, err = fmt.Sscanf(c, "S%d=%d", &reg, &val)
 	if err == nil {
 		s = fmt.Sprintf("S%d=%d", reg, val)
 		return s, len(s), nil
 	}
 
 	// Sn? - query register n
-	_, err = fmt.Sscanf(cmd, "S%d?", &reg)
+	_, err = fmt.Sscanf(c, "S%d?", &reg)
 	if err == nil {
 		s = fmt.Sprintf("S%d?", reg)
 		return s, len(s), nil
 	}
 
 	// Sn - slect register
-	_, err = fmt.Sscanf(cmd, "S%d", &reg)
+	_, err = fmt.Sscanf(c, "S%d", &reg)
 	if err == nil {
 		s = fmt.Sprintf("S%d", reg)
 		return s, len(s), nil
@@ -205,3 +232,22 @@ func parseRegisters(cmd string) (string, int, error) {
 	return "", 0, fmt.Errorf("Bad S command: %s", cmd)
 }
 
+// Setup register defaults for the modem
+func (m *Modem) resetRegs() {
+
+	m.log.Print("Initializing registers")
+
+	m.registers.Write(REG_AUTO_ANSWER, 0)
+	m.registers.Write(REG_RING_COUNT, 0)
+	m.registers.Write(REG_ESC_CH, byte('+'))
+	m.registers.Write(REG_CR_CH, byte('\r'))
+	m.registers.Write(REG_LF_CH, byte('\n'))
+	m.registers.Write(REG_BS_CH, byte('\b'))
+	m.registers.Write(REG_BLIND_DIAL_WAIT, 2)
+	m.registers.Write(REG_WAIT_FOR_CARRIER_AFTER_DIAL, 50)
+	m.registers.Write(REG_COMMA_DELAY, 2)
+	m.registers.Write(REG_CARRIER_DETECT_RESPONSE_TIME, 6)
+	m.registers.Write(REG_DELAY_BETWEEN_LOST_CARRIER_AND_HANGUP, 14)
+	m.registers.Write(REG_MULTIFREQ_TONE_DURATION, 95)
+	m.registers.Write(REG_ESC_CODE_GUARD_TIME, 50)
+}

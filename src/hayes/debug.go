@@ -2,57 +2,52 @@ package hayes
 
 import (
 	"fmt"
-	"sort"
 	"time"
 )
 
 func (m *Modem) printRegs() {
 	var s string
-	var i []int
-	
-	for f := range m.r {
-		i = append(i, int(f))
-	}
-	sort.Ints(i)
 
-	fmt.Println("Registers:")
+	r := m.registers
+	i := r.ActiveRegisters()
+	m.serial.Println("Registers:")
 	for _, f := range i {
-		s += fmt.Sprintf("S%02d:%03d ", f, m.r[byte(f)])
+		s += fmt.Sprintf("S%02d:%03d ", f, r.Read(f))
 		if (len(s) + 6) >80  {
-			fmt.Println(s)
+			m.serial.Println(s)
 			s = ""
 		}
 	}
-	fmt.Println(s)
+	m.serial.Println(s)
 }
 
 // Debug function
 func (m *Modem) printState() {
-	fmt.Printf("Hook     : ")
+	m.serial.Printf("Hook     : ")
 	if m.getHook() == ON_HOOK {
-		fmt.Println("ON HOOK")
+		m.serial.Println("ON HOOK")
 	} else {
-		fmt.Println("OFF HOOK")
+		m.serial.Println("OFF HOOK")
 	}
-	fmt.Printf("Echo     : %t\n", m.echo)
-	fmt.Print( "Mode     : ")
+	m.serial.Printf("Echo     : %t\n", m.echo)
+	m.serial.Print( "Mode     : ")
 	if m.mode == COMMANDMODE {
-		fmt.Println("Command")
+		m.serial.Println("Command")
 	} else {
-		fmt.Println("Data")
+		m.serial.Println("Data")
 	}
-	fmt.Printf("Quiet    : %t\n", m.quiet)
-	fmt.Printf("Verbose  : %t\n", m.verbose)
-	fmt.Printf("Line Busy: %t\n", m.getLineBusy())
-	fmt.Printf("Speed    : %d\n", m.connect_speed)
-	fmt.Printf("Volume   : %d\n", m.volume)
-	fmt.Printf("SpkrMode : %d\n", m.speakermode)
-	fmt.Printf("Last Cmd : %v\n", m.lastcmds)
-	fmt.Printf("Last num : %s\n", m.lastdialed)
-	m.printAddressBook()
-	fmt.Printf("Cur reg  : %d\n", m.curreg)
+	m.serial.Printf("Quiet    : %t\n", m.quiet)
+	m.serial.Printf("Verbose  : %t\n", m.verbose)
+	m.serial.Printf("Line Busy: %t\n", m.getLineBusy())
+	m.serial.Printf("Speed    : %d\n", m.connect_speed)
+	m.serial.Printf("Volume   : %d\n", m.volume)
+	m.serial.Printf("SpkrMode : %d\n", m.speakermode)
+	m.serial.Printf("Last Cmd : %v\n", m.lastcmds)
+	m.serial.Printf("Last num : %s\n", m.lastdialed)
+	m.serial.Println(m.addressbook.String())
+	m.serial.Printf("Cur reg  : %d\n", m.registers.ShowCurrent())
 	m.printRegs()
-	fmt.Printf("Connection: %v\n", m.conn)
+	m.serial.Printf("Connection: %v\n", m.conn)
 	m.showPins()
 }
 
@@ -122,49 +117,49 @@ func (m *Modem) debug(cmd string) error {
 			}
 		case 8:		// Toggle CD pin val times
 			for i := 0; i < val; i++ {
-				fmt.Println("Toggling CD up")
+				m.serial.Println("Toggling CD up")
 				m.raiseCD()
 				time.Sleep(2 * time.Second)
-				fmt.Println("Toggling CD down")
+				m.serial.Println("Toggling CD down")
 				m.lowerCD()
 				time.Sleep(2 * time.Second)
 			}
 		case 9:		// Toggle RI pin val times
 			for i := 0; i < val; i++ {
-				fmt.Println("Toggling RI up")
+				m.serial.Println("Toggling RI up")
 				m.raiseRI()
 				time.Sleep(2 * time.Second)
-				fmt.Println("Toggling RI down")
+				m.serial.Println("Toggling RI down")
 				m.lowerRI()
 				time.Sleep(2 * time.Second)
 			}
 		case 10: 	// Toggle DSR
 			for i := 0; i < val; i++ {
-				fmt.Println("Toggling DSR up")
+				m.serial.Println("Toggling DSR up")
 				m.raiseDSR()
 				time.Sleep(2 * time.Second)
-				fmt.Println("Toggling DSR down")
+				m.serial.Println("Toggling DSR down")
 				m.lowerDSR()
 				time.Sleep(2 * time.Second)
 			}
 		case 11: 	// Toggle CTS
 			for i := 0; i < val; i++ {
-				fmt.Println("Toggling CTS up")
+				m.serial.Println("Toggling CTS up")
 				m.raiseCTS()
 				time.Sleep(2 * time.Second)
-				fmt.Println("Toggling CTS down")
+				m.serial.Println("Toggling CTS down")
 				m.lowerCTS()
 				time.Sleep(2 * time.Second)
 			}
 		case 99: 		// All output
 			for i := 0; i < val; i++ {
-				fmt.Println("Rasising: CD, RI, DSR, CTS")
+				m.serial.Println("Rasising: CD, RI, DSR, CTS")
 				m.raiseCD()
 				m.raiseRI()
 				m.raiseDSR()
 				m.raiseCTS()
 				time.Sleep(2 * time.Second)
-				fmt.Println("Lowering: CD, RI, DSR, CTS")
+				m.serial.Println("Lowering: CD, RI, DSR, CTS")
 				m.lowerCD()
 				m.lowerRI()
 				m.lowerDSR()

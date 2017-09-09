@@ -7,7 +7,7 @@ import (
 	"fmt"
 )
 
-type abList []ab_host
+type Addressbook []ab_host
 type ab_host struct {
 	Stored   int    `json:"Stored"`
 	Phone    string `json:"Phone"`
@@ -48,36 +48,34 @@ func sanitizeNumber(n string) (string, error) {
 	return strings.Map(check, n), nil
 }
 
-func (m *Modem) printAddressBook() {
+func (a Addressbook) String() string {
 
-	if len(m.addressbook) == 0 {
-		fmt.Println("Address Book: empty")
-		return
+	if len(a) == 0 {
+		return "Address Book is empty"
 	}
-	fmt.Println("Address Book:")
-	for _, h := range m.addressbook {
-		fmt.Printf(" -- %+v\n", h)
+	s := "Address Book:\n"
+	for _, h := range a {
+		s += fmt.Sprintf(" -- %+v\n", h)
 	}
+	return s
 }
 
-func (m *Modem) loadAddressBook() {
-	var ab abList
+func LoadAddressBook() (*Addressbook, error) {
+	var ab Addressbook
 
 	b, err := ioutil.ReadFile(*_flags_addressbook)
 	if err != nil {
-		m.log.Printf("Address book file flag not set (%s)", err)
-		return
+		return nil, fmt.Errorf("Address book file flag not set (%s)", err)
 	}
 
 	if err = json.Unmarshal(b, &ab); err != nil {
-		m.log.Print("Unmarshal error: ", err)
-		return
+		return nil, err
 	}
 
-	m.addressbook = ab
+	return &ab, nil
 }
 
-func (m *Modem) lookupAddressbook(number string) (*ab_host, error) {
+func (a Addressbook) Lookup(number string) (*ab_host, error) {
 	err := isValidPhoneNumber(number)
 	if err != nil {
 		return nil, err
@@ -86,28 +84,26 @@ func (m *Modem) lookupAddressbook(number string) (*ab_host, error) {
 	if err != nil {
 		return nil, err
 	}
-	for _, h := range m.addressbook {
+	for _, h := range a {
 		sanitized_n, _ := sanitizeNumber(h.Phone)
 		if sanitized_index == sanitized_n {
 			return &h, nil
 		}
 	}
 	err = fmt.Errorf("Number '%s' not in address book", number)
-	m.log.Print(err)
 	return nil, err
 }
 
-func (m *Modem) storedNumber(n int) (string, error) {
-	for _, h := range m.addressbook {
+func (a Addressbook) LookupStoredNumber(n int) (string, error) {
+	for _, h := range a {
 		if h.Stored == n {
 			return h.Phone, OK
 		}
 	}
-	m.log.Printf("No stored number at entry %d", n)
 	return "", fmt.Errorf("No stored number at entry %d", n)
 }
 
-func (m *Modem) storeNumber(phone string, pos int) error {
+func (a Addressbook) storeNumber(phone string, pos int) error {
 	// This can't be done in this implemenetation.  Return ERROR always.
 	return fmt.Errorf("Storing numbers not yet implemented")
 }

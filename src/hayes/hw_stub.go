@@ -71,7 +71,7 @@ func (m *Modem) showPins() {
 	s += pp("DSR", DSR_PIN)
 	s += pp("RTS", RTS_PIN)
 	s += pp("DTR", DTR_PIN)
-	fmt.Println(s)
+	m.serial.Println(s)
 
 	pl := func (n string, p int) (string) {
 		var s string
@@ -96,7 +96,7 @@ func (m *Modem) showPins() {
 	s += pl("CS", CS_LED)
 	s += pl("MR", MR_LED)
 	s += "]"
-	fmt.Println(s)
+	m.serial.Println(s)
 }
 
 // LED functions
