@@ -70,7 +70,7 @@ func (m *Modem) reset() error {
 	m.lowerCTS()
 	m.lowerRI()
 
-	m.echo = true		// Echo local keypresses
+	m.echoInCmdMode = true // Echo local keypresses
 	m.quiet = false		// Modem offers return status
 	m.verbose = true	// Text return codes
 	m.volume = 1		// moderate volume
@@ -109,9 +109,9 @@ func (m *Modem) processCommands(commands []string) error {
 			m.raiseCTS()
 		case 'E':
 			if cmd[1] == '0' {
-				m.echo = false
+				m.echoInCmdMode = false
 			} else {
-				m.echo = true
+				m.echoInCmdMode = true
 			}
 		case 'F':	// Online Echo mode, F1 assumed for backwards
 			        // compatability after Hayes 1200

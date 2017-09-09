@@ -141,7 +141,8 @@ func (m *Modem) readSerial() {
 			m.log.Fatal("Fatal Error: ", err)
 		}
 
-		if m.echo {	// Echo back to the DTE
+		// Echo back to the DTE
+		if m.echoInCmdMode && m.mode == COMMANDMODE {
 			m.serial.Write(in)
 		}
 

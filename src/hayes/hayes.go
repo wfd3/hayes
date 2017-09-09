@@ -35,7 +35,7 @@ const ONHOOK = true
 type Modem struct {
 	mode int
 	onhook bool
-	echo bool
+	echoInCmdMode bool
 	speakermode int
 	volume int
 	verbose bool

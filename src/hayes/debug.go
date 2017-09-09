@@ -29,7 +29,7 @@ func (m *Modem) printState() {
 	} else {
 		m.serial.Println("OFF HOOK")
 	}
-	m.serial.Printf("Echo     : %t\n", m.echo)
+	m.serial.Printf("Echo     : %t\n", m.echoInCmdMode)
 	m.serial.Print( "Mode     : ")
 	if m.mode == COMMANDMODE {
 		m.serial.Println("Command")
