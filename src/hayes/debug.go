@@ -5,24 +5,9 @@ import (
 	"time"
 )
 
-func (m *Modem) printRegs() {
-	var s string
-
-	r := m.registers
-	i := r.ActiveRegisters()
-	m.serial.Println("Registers:")
-	for _, f := range i {
-		s += fmt.Sprintf("S%02d:%03d ", f, r.Read(f))
-		if (len(s) + 6) >80  {
-			m.serial.Println(s)
-			s = ""
-		}
-	}
-	m.serial.Println(s)
-}
 
 // Debug function
-func (m *Modem) printState() {
+func (m *Modem) showState() {
 	m.serial.Printf("Hook     : ")
 	if m.getHook() == ON_HOOK {
 		m.serial.Println("ON HOOK")
@@ -46,7 +31,8 @@ func (m *Modem) printState() {
 	m.serial.Printf("Last num : %s\n", m.lastdialed)
 	m.serial.Println(m.addressbook.String())
 	m.serial.Printf("Cur reg  : %d\n", m.registers.ShowCurrent())
-	m.printRegs()
+	m.serial.Println("Registers:")
+	m.serial.Println(m.registers.String())
 	m.serial.Printf("Connection: %v\n", m.conn)
 	m.showPins()
 }
@@ -61,6 +47,10 @@ func parseDebug(cmd string) (string, int, error) {
 
 	// NOTE: The order of these stanzas is critical.
 
+	if len(cmd) == 1 && cmd[0] == '*' {
+		return "*", 1, nil
+	}
+	
 	if  len(cmd) < 2  {
 		return "", 0, fmt.Errorf("Bad command: %s", cmd)
 	}
@@ -95,80 +85,88 @@ func (m *Modem) debug(cmd string) error {
 	
 	// NOTE: The order of these stanzas is critical.
 
-	// *n=x - write x to n
-	_, err = fmt.Sscanf(cmd, "*%d=%d", &reg, &val)
-	if err == nil {
-		switch reg {
-		case 1:		// Toggle DSR/CTS
-			switch val {
-			case 1:
-				m.lowerDSR()
-				m.lowerCTS()
-			case 2:
-				m.raiseDSR()
-				m.raiseCTS()
-			}
-		case 2:		// Run ledTest
-			m.ledTest(val)
-		case 3:
-			for i := 0; i < val; i++ {
-				m.showPins()
-				time.Sleep(500 * time.Millisecond)
-			}
-		case 8:		// Toggle CD pin val times
-			for i := 0; i < val; i++ {
-				m.serial.Println("Toggling CD up")
-				m.raiseCD()
-				time.Sleep(2 * time.Second)
-				m.serial.Println("Toggling CD down")
-				m.lowerCD()
-				time.Sleep(2 * time.Second)
-			}
-		case 9:		// Toggle RI pin val times
-			for i := 0; i < val; i++ {
-				m.serial.Println("Toggling RI up")
-				m.raiseRI()
-				time.Sleep(2 * time.Second)
-				m.serial.Println("Toggling RI down")
-				m.lowerRI()
-				time.Sleep(2 * time.Second)
-			}
-		case 10: 	// Toggle DSR
-			for i := 0; i < val; i++ {
-				m.serial.Println("Toggling DSR up")
-				m.raiseDSR()
-				time.Sleep(2 * time.Second)
-				m.serial.Println("Toggling DSR down")
-				m.lowerDSR()
-				time.Sleep(2 * time.Second)
-			}
-		case 11: 	// Toggle CTS
-			for i := 0; i < val; i++ {
-				m.serial.Println("Toggling CTS up")
-				m.raiseCTS()
-				time.Sleep(2 * time.Second)
-				m.serial.Println("Toggling CTS down")
-				m.lowerCTS()
-				time.Sleep(2 * time.Second)
-			}
-		case 99: 		// All output
-			for i := 0; i < val; i++ {
-				m.serial.Println("Rasising: CD, RI, DSR, CTS")
-				m.raiseCD()
-				m.raiseRI()
-				m.raiseDSR()
-				m.raiseCTS()
-				time.Sleep(2 * time.Second)
-				m.serial.Println("Lowering: CD, RI, DSR, CTS")
-				m.lowerCD()
-				m.lowerRI()
-				m.lowerDSR()
-				m.lowerCTS()
-				time.Sleep(2 * time.Second)
-			}
-		}
-		return OK
+	m.log.Printf("cmd = '%s'", cmd)
+
+	if cmd == "*" {
+		m.showState()
+		return nil
 	}
 
-	return ERROR
+	// *n=x - write x to n
+	_, err = fmt.Sscanf(cmd, "*%d=%d", &reg, &val)
+	if err != nil {
+		m.log.Print(err)
+		return err
+	}
+
+	switch reg {
+	case 1:		// Toggle DSR/CTS
+		switch val {
+		case 1:
+			m.lowerDSR()
+			m.lowerCTS()
+		case 2:
+			m.raiseDSR()
+			m.raiseCTS()
+		}
+	case 2:		// Run ledTest
+		m.ledTest(val)
+	case 3:
+		for i := 0; i < val; i++ {
+			m.showPins()
+			time.Sleep(500 * time.Millisecond)
+		}
+	case 8:		// Toggle CD pin val times
+		for i := 0; i < val; i++ {
+			m.serial.Println("Toggling CD up")
+			m.raiseCD()
+			time.Sleep(2 * time.Second)
+			m.serial.Println("Toggling CD down")
+			m.lowerCD()
+			time.Sleep(2 * time.Second)
+		}
+	case 9:		// Toggle RI pin val times
+		for i := 0; i < val; i++ {
+			m.serial.Println("Toggling RI up")
+			m.raiseRI()
+			time.Sleep(2 * time.Second)
+			m.serial.Println("Toggling RI down")
+			m.lowerRI()
+			time.Sleep(2 * time.Second)
+		}
+	case 10: 	// Toggle DSR
+		for i := 0; i < val; i++ {
+			m.serial.Println("Toggling DSR up")
+			m.raiseDSR()
+			time.Sleep(2 * time.Second)
+			m.serial.Println("Toggling DSR down")
+			m.lowerDSR()
+			time.Sleep(2 * time.Second)
+		}
+	case 11: 	// Toggle CTS
+		for i := 0; i < val; i++ {
+			m.serial.Println("Toggling CTS up")
+			m.raiseCTS()
+			time.Sleep(2 * time.Second)
+			m.serial.Println("Toggling CTS down")
+			m.lowerCTS()
+			time.Sleep(2 * time.Second)
+		}
+	case 99: 		// All output
+		for i := 0; i < val; i++ {
+			m.serial.Println("Rasising: CD, RI, DSR, CTS")
+			m.raiseCD()
+			m.raiseRI()
+			m.raiseDSR()
+			m.raiseCTS()
+			time.Sleep(2 * time.Second)
+			m.serial.Println("Lowering: CD, RI, DSR, CTS")
+			m.lowerCD()
+			m.lowerRI()
+			m.lowerDSR()
+			m.lowerCTS()
+			time.Sleep(2 * time.Second)
+		}
+	}
+	return nil
 }

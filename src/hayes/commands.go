@@ -88,6 +88,34 @@ func (m *Modem) reset() error {
 	return err
 }
 
+// AT&...
+// Only support &V for now
+func (m *Modem) ampersand(cmd string) error {
+	var s string
+	
+	if cmd != "&V" {
+		return ERROR
+	}
+
+	f := func(b bool) (t string) {
+		if b {
+			t += "1 "
+		} else {
+			t += "0 "
+		}
+		return t
+	};
+
+	s += "E" + f(m.echoInCmdMode)
+	s += "V" + f(m.verbose)
+	s += "Q" + f(m.quiet)
+	s += fmt.Sprintf("M%d ", m.speakermode)
+	s += "\n"
+	s += m.registers.String()
+	m.serial.Println(s)
+	return nil
+}
+
 // process each command
 func (m *Modem) processCommands(commands []string) error {
 	var status error
@@ -152,13 +180,14 @@ func (m *Modem) processCommands(commands []string) error {
 		case 'O':
 			m.mode = DATAMODE
 			status = OK
-		case 'X':
-			m.printState()
+		case 'X':	// Change result codes displayed
 			status = OK
 		case 'D':
 			status = m.dial(cmd)
 		case 'S':
 			status = m.registerCmd(cmd)
+		case '&':
+			status = m.ampersand(cmd)
 		case '*':
 			status = m.debug(cmd)
 		default:
@@ -220,6 +249,10 @@ func (m *Modem) command(cmd string) {
 		m.prstatus(ERROR)
 		return
 	}
+	if AT == cmd {		// Naked 'AT' returns OK.
+		m.prstatus(OK)
+		return
+	}
 
 	cmd = cmd[2:] 		// Skip the 'AT'
 	c := 0
@@ -271,6 +304,8 @@ func (m *Modem) command(cmd string) {
 			opts = "O"
 		case 'X', 'x':
 			opts = "01234"
+		case '&':
+			opts = "V"
 		default:
 			m.log.Printf("Unknown command: %s", cmd)
 			m.prstatus(ERROR)

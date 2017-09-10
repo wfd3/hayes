@@ -33,13 +33,14 @@ const ONHOOK = true
 
 //Basic modem struct
 type Modem struct {
-	mode int
-	onhook bool
 	echoInCmdMode bool
 	speakermode int
 	volume int
 	verbose bool
 	quiet bool
+
+	mode int
+	onhook bool
 	lastcmds []string
 	lastdialed string
 	connect_speed int

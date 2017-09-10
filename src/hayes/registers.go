@@ -67,6 +67,17 @@ func (r *Registers) ActiveRegisters() (i []byte) {
 	return i
 }
 
+func (r *Registers) String() string {
+	var s string
+	for _, f := range r.ActiveRegisters() {
+		s += fmt.Sprintf("S%03d:%03d ", f, r.Read(f))
+		if (len(s) % 80) + 9 > 80 {
+			s += "\n"
+		}
+	}
+	return s
+}
+
 // Because sort.Bytes() doesn't exist.
 type byBytes []byte
 func (b byBytes) Len() int { return len(b) }
