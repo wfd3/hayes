@@ -115,7 +115,7 @@ func (s *serialPort) Print(str string) error {
 	return s.Printf("%s", str)
 }
 
-func (s *serialPort) Println(str string) error {
+func (s *serialPort) Println(a ...interface{}) error {
 	return s.Printf("%s\n", str)
 }
 
@@ -156,7 +156,13 @@ func (m *Modem) readSerial() {
 		case COMMANDMODE:
 			// Accumulate chars in s until we read a CR, then process
 			// s as a command.
-			if c == regs.Read(REG_LF_CH) && s != "" {
+
+			// 'A/' command, immediately exec.
+			if (s == "A" || s == "a") && c == '/' && m.lastcmd != "" {
+				m.serial.Println()
+				m.command(m.lastcmd)
+				s = ""
+			} else if c == regs.Read(REG_LF_CH) && s != "" {
 				m.command(s)
 				s = ""
 			} else if c == regs.Read(REG_LF_CH) {

@@ -41,7 +41,7 @@ type Modem struct {
 
 	mode int
 	onhook bool
-	lastcmds []string
+	lastcmd string
 	lastdialed string
 	connect_speed int
 	linebusy bool

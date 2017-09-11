@@ -75,7 +75,7 @@ func (m *Modem) reset() error {
 	m.verbose = true	// Text return codes
 	m.volume = 1		// moderate volume
 	m.speakermode = 1	// on until other modem heard
-	m.lastcmds = nil
+	m.lastcmd = ""
 	m.lastdialed = ""
 	m.connect_speed = 0
 	m.setLineBusy(false)
@@ -126,8 +126,6 @@ func (m *Modem) processCommands(commands []string) error {
 	for _, cmd = range commands {
 		m.log.Printf("Processing: %s", cmd)
 		switch cmd[0] {
-		case '/':
-			status = m.processCommands(m.lastcmds) 
 		case 'A':
 			status = m.answer()
 		case 'Z':
@@ -220,7 +218,7 @@ func parse(cmd string, opts string) (string, int, error) {
 }
 
 // +++ 
-func (m *Modem) command(cmd string) {
+func (m *Modem) command(cmdstring string) {
 	var commands []string
 	var s, opts string
 	var i int
@@ -238,23 +236,27 @@ func (m *Modem) command(cmd string) {
 	// was handed to us.  This is so that we can embed passwords
 	// in the extended dial command (ATDE, specifically).
 
-	m.log.Print("command: ", cmd)
+
+	m.log.Print("command: ", cmdstring)
 	
-	if len(cmd) < 2  {
+	if len(cmdstring) < 2  {
+		m.log.Print("Cmd too short")
 		m.prstatus(ERROR)
-		return
-	}
-	AT := strings.ToUpper(cmd[:2])
-	if AT != "AT" {
-		m.prstatus(ERROR)
-		return
-	}
-	if AT == cmd {		// Naked 'AT' returns OK.
-		m.prstatus(OK)
 		return
 	}
 
-	cmd = cmd[2:] 		// Skip the 'AT'
+	if strings.ToUpper(cmdstring) == "AT" {
+		m.prstatus(OK)
+		return
+	}
+	
+	if strings.ToUpper(cmdstring[:2]) != "AT" {
+		m.log.Print("Malformed command")
+		m.prstatus(ERROR)
+		return
+	}
+
+	cmd := cmdstring[2:] 		// Skip the 'AT'
 	c := 0
 
 	commands = nil
@@ -289,9 +291,6 @@ func (m *Modem) command(cmd string) {
 			commands = append(commands, s)
 			c += i
 			continue
-		case '/':
-			opts = ""
-			savecmds = false
 		case 'A', 'a':
 			opts = "0"
 		case 'E', 'e', 'H', 'h', 'Q', 'q', 'V', 'v', 'Z', 'z':
@@ -319,11 +318,12 @@ func (m *Modem) command(cmd string) {
 		commands = append(commands, s)
 		c += i
 	}
-	
+
+	m.log.Print("Command array: %+v", commands)
 	status = m.processCommands(commands)
 	m.prstatus(status)
 
-	if savecmds {
-		m.lastcmds = commands
+	if savecmds && status == OK {
+		m.lastcmd = cmdstring
 	}
 }
