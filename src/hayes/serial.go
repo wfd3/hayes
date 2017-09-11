@@ -137,6 +137,11 @@ func (m *Modem) readSerial() {
 	in  = make([]byte, 1)
 	for {
 		regs = m.registers // Reload a copy into r if we reset the modem
+
+		//TODO: make this a select{} with a channel for the
+		//serial characters and a timer for the 1 second guard
+		//time for the escape sequence.
+		
 		if _, err := m.serial.Read(in); err != nil {
 			m.log.Fatal("Fatal Error: ", err)
 		}
