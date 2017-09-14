@@ -64,6 +64,7 @@ func (m *Modem) prstatus(e error) {
 		return
 	}
 
+	// TODO: Add support for ATXn return codes.
 	if m.verbose {
 		m.serial.Write([]byte(merr.Error()))
 	} else {
