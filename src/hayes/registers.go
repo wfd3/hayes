@@ -57,7 +57,7 @@ func (r *Registers) Inc(regnum byte) byte {
 	return r.regs[regnum]
 }
 
-func (r *Registers) ActiveRegisters() (i []byte) {
+func (r *Registers) activeRegisters() (i []byte) {
 	r.rlock.RLock()
 	defer r.rlock.RUnlock()
 	for f := range r.regs {
@@ -69,7 +69,7 @@ func (r *Registers) ActiveRegisters() (i []byte) {
 
 func (r *Registers) String() string {
 	var s string
-	for _, f := range r.ActiveRegisters() {
+	for _, f := range r.activeRegisters() {
 		s += fmt.Sprintf("S%03d:%03d ", f, r.Read(f))
 		if (len(s) % 80) + 9 > 80 {
 			s += "\n"
