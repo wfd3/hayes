@@ -29,10 +29,11 @@ func (m *Modem) showState() {
 	m.serial.Printf("SpkrMode : %d\n", m.speakermode)
 	m.serial.Printf("Last Cmd : %s\n", m.lastcmd)
 	m.serial.Printf("Last num : %s\n", m.lastdialed)
-	m.serial.Println(m.addressbook.String())
+	m.serial.Println("Address Book:")
+	m.serial.Println(m.addressbook)
 	m.serial.Printf("Cur reg  : %d\n", m.registers.ShowCurrent())
 	m.serial.Println("Registers:")
-	m.serial.Println(m.registers.String())
+	m.serial.Println(m.registers)
 	m.serial.Printf("Connection: %v\n", m.conn)
 	m.showPins()
 }

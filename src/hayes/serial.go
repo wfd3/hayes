@@ -116,7 +116,7 @@ func (s *serialPort) Print(str string) error {
 }
 
 func (s *serialPort) Println(a ...interface{}) error {
-	return s.Printf("%s\n", str)
+	return s.Printf("%s\n", a...)
 }
 
 func (m *Modem) readSerial() {
