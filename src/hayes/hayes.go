@@ -54,6 +54,7 @@ type Modem struct {
 	addressbook *Addressbook
 	registers *Registers
 	log *log.Logger
+	timer *time.Ticker
 }
 
 // Is the phone line busy?
@@ -139,3 +140,5 @@ func (m *Modem) PowerOn(log *log.Logger) {
 
 	m.readSerial()		// never returns
 }
+
+

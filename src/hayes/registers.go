@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+var escSequence [3]byte = [3]byte{'+','+','+'}
+
 type Registers struct {
 	regs map[byte]byte
 	current byte
@@ -159,12 +161,21 @@ func (m *Modem) registerCmd(cmd string) error {
 			return ERROR
 		}
 		r.Write(byte(reg), byte(val))
-		if reg == REG_AUTO_ANSWER { // Turn on AA led
+
+		// Update modem state
+		switch reg {
+		case REG_AUTO_ANSWER: 
 			if val == 0 {
 				m.led_AA_off()
 			} else {
 				m.led_AA_on()
 			}
+		case REG_ESC_CODE_GUARD_TIME:
+			m.resetTimer()
+		case REG_ESC_CH:
+			escSequence[0] = byte(val)
+			escSequence[1] = byte(val)
+			escSequence[2] = byte(val)
 		}
 		return OK
 	}

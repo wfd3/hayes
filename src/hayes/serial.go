@@ -68,6 +68,10 @@ func setupSerialPort(console bool, regs *Registers, log *log.Logger) (*serialPor
 func (s *serialPort) Read(p []byte) (int, error) {
 	if s.console {
 		c := byte(C.getch())
+		// mapping
+		if c == 127 {
+			c = s.regs.Read(REG_BS_CH)
+		}
 		p[0] = c;
 		return 1, nil
 	}
@@ -105,6 +109,12 @@ func (s *serialPort) Write(p []byte) (int, error) {
 	return s.port.Write(p)
 }
 
+func (s *serialPort) WriteByte(p byte) (int, error) {
+	out := make([]byte, 1)
+	out[0] = p
+	return s.Write(out)
+}
+
 func (s *serialPort) Printf(format string, a ...interface{}) error {
 	str := fmt.Sprintf(format, a...)
 	_, err := s.Write([]byte(str))
@@ -119,39 +129,54 @@ func (s *serialPort) Println(a ...interface{}) error {
 	return s.Printf("%s\n", a...)
 }
 
-func (m *Modem) readSerial() {
+func (m *Modem) getChars() {
+
+	in := make([]byte, 1)
+	for {
+		if _, err := m.serial.Read(in); err != nil {
+			m.log.Print("Read(): ", err)
+		}
+
+		charchannel <- in[0]
+	}
 	
-	// Consume bytes from the serial port and process or send to remote
-	// as per m.mode
+}
+
+var charchannel chan byte
+
+// Consume bytes from the serial port and process or send to
+// remote as per m.mode
+func (m *Modem) readSerial() {
 	var c byte
 	var s string
 	var lastthree [3]byte
-	var out []byte
-	var in []byte
 	var idx int
-	var guard_time time.Duration
 	var sinceLastChar time.Time
 	var regs *Registers
 
-	out = make([]byte, 1)
-	in  = make([]byte, 1)
-	for {
-		regs = m.registers // Reload a copy into r if we reset the modem
+	charchannel = make(chan byte, 1)
+	go m.getChars()
 
-		//TODO: make this a select{} with a channel for the
-		//serial characters and a timer for the 1 second guard
-		//time for the escape sequence.
-		
-		if _, err := m.serial.Read(in); err != nil {
-			m.log.Fatal("Fatal Error: ", err)
+	for {
+		regs = m.registers // Reload a regs in case we reset the modem
+
+		// TODO: Guard time detection isn't working yet
+		select {
+		case c = <- charchannel:
+		case <- m.timer.C:
+			if m.mode == DATAMODE && lastthree == escSequence &&
+				time.Since(sinceLastChar) > m.getGuardTime() {
+				m.mode = COMMANDMODE
+				m.prstatus(OK) // signal that we're in command mode
+			}
+			continue
 		}
 
 		// Echo back to the DTE
 		if m.echoInCmdMode && m.mode == COMMANDMODE {
-			m.serial.Write(in)
+			m.serial.WriteByte(c)
 		}
 
-		c = in[0]
 		switch m.mode {
 		case COMMANDMODE:
 			// Accumulate chars in s until we read a CR, then process
@@ -181,18 +206,7 @@ func (m *Modem) readSerial() {
 			// (see http://www.messagestick.net/modem/Hayes_Ch1-4.html)
 			lastthree[idx] = c
 			idx = (idx + 1) % 3
-			guard_time =
-				time.Duration(float64(regs.Read(REG_ESC_CODE_GUARD_TIME))				* 0.02) * time.Second
 			
-			if lastthree[0] == regs.Read(REG_ESC_CH) &&
-				lastthree[1] == regs.Read(REG_ESC_CH) &&
-				lastthree[2] == regs.Read(REG_ESC_CH) &&
-				time.Since(sinceLastChar) >
-				time.Duration(guard_time)  {
-				m.mode = COMMANDMODE
-				m.prstatus(OK) // signal that we're in command mode
-				continue
-			}
 			if c != '+' {
 				sinceLastChar = time.Now()
 			}
@@ -201,6 +215,7 @@ func (m *Modem) readSerial() {
 			// TODO: make sure the LED says on long enough
 			if m.getHook() == OFF_HOOK && m.conn != nil {
 				m.led_SD_on()
+				out := make([]byte, 1)
 				out[0] = c
 				m.conn.Write(out)
 				m.led_SD_off()	

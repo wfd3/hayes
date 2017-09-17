@@ -68,6 +68,7 @@ func (m *Modem) reset() error {
 	m.onHook()
 	m.lowerDSR()
 	m.lowerCTS()
+	m.stopTimer()
 	m.lowerRI()
 
 	m.echoInCmdMode = true // Echo local keypresses
@@ -80,6 +81,7 @@ func (m *Modem) reset() error {
 	m.connect_speed = 0
 	m.setLineBusy(false)
 	m.resetRegs()
+	m.resetTimer()
 	m.addressbook, err = LoadAddressBook()
 	if err != nil {
 		m.log.Print(err)

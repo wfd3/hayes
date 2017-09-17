@@ -1,7 +1,0 @@
-#number host protocol stored_number_index
-968-2612 macallan:30000 telnet 0
-271-3040 localhost:22 ssh 2
-555-1212! localhost:1212 ssh -1
-"(650) 253-6725" drummond telnet -1
-1-415-555-1234 walt pigeon -1
-123-4567 home.drummond.us:22 ssh -1
