@@ -41,7 +41,6 @@ type serialPort struct {
 }
 
 func setupSerialPort(console bool, regs *Registers, log *log.Logger) (*serialPort) {
-
 	var s serialPort
 	
 	s.console = console
@@ -67,7 +66,7 @@ func setupSerialPort(console bool, regs *Registers, log *log.Logger) (*serialPor
 func (s *serialPort) Read(p []byte) (int, error) {
 	if s.console {
 		c := byte(C.getch())
-		// mapping
+		// mapping -- TODO: I think this can be removed
 		if c == 127 {
 			c = s.regs.Read(REG_BS_CH)
 		}
