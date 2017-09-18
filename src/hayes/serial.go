@@ -52,13 +52,12 @@ func setupSerialPort(console bool, regs *Registers, log *log.Logger) (*serialPor
 		return &s
 	}
 
-	// TODO: Command line option for serial port
-	c := &serial.Config{Name: "/dev/ttyAMA0", Baud: 115200}
+	c := &serial.Config{Name: *_flags_port, Baud: 115200}
 	p, err := serial.OpenPort(c)
         if err != nil {
                 s.log.Fatal(err)
         }
-	s.log.Print("Using /dev/ttyAMA0")
+	s.log.Printf("Using %s", *_flags_port)
 	s.port = p
 	return &s
 }
