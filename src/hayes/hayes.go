@@ -23,13 +23,23 @@ import (
 	"syscall"
 )
 
+// What mode is the modem in?
 const (
 	COMMANDMODE = iota
 	DATAMODE
 )
 
-const OFFHOOK = false
-const ONHOOK = true
+// Is the phone on or off hook?
+const (
+	OFFHOOK bool = false
+	ONHOOK  bool = true
+)
+
+// Is the network connection SSH or Telnet?
+const (
+	TELNET = iota
+	SSH
+)
 
 //Basic modem struct
 type Modem struct {
