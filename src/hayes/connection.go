@@ -2,133 +2,11 @@ package hayes
 
 import (
 	"io"
-	"net"
 	"time"
-	"golang.org/x/crypto/ssh"
-	"io/ioutil"
 )
 
 const __MAX_RINGS = 15		// How many rings before giving up
-
-var connection chan io.ReadWriteCloser
 var last_ring_time time.Time
-
-// Telnet negoitation commands
-const (
-	IAC = 0377
-	DO = 0375
-	WILL = 0373
-	WONT = 0374
-	ECHO = 0001
-	LINEMODE = 0042
-)
-
-func (m *Modem) acceptSSH() {
-
-	// In the latest version of crypto/ssh (after Go 1.3), the SSH
-	// server type has been removed in favour of an SSH connection
-	// type. A ssh.ServerConn is created by passing an existing
-	// net.Conn and a ssh.ServerConfig to ssh.NewServerConn, in
-	// effect, upgrading the net.Conn into an ssh.ServerConn
-
-	config := &ssh.ServerConfig{
-		// You may also explicitly allow anonymous client
-		// authentication, though anon bash sessions may not
-		// be a wise idea
-		NoClientAuth: true,
-	}
-
-	// You can generate a keypair with 'ssh-keygen -t rsa'
-	private_key := "id_rsa"
-	privateBytes, err := ioutil.ReadFile(private_key)
-	if err != nil {
-		m.log.Fatalf("Fatal Error: failed to load private key (%s)\n",
-			private_key)
-	}
-
-	private, err := ssh.ParsePrivateKey(privateBytes)
-	if err != nil {
-		m.log.Fatal("Fatal Error: failed to parse private key")
-	}
-
-	config.AddHostKey(private)
-
-	// Once a ServerConfig has been configured, connections can be accepted.
-	listener, err := net.Listen("tcp", "0.0.0.0:2200")
-	if err != nil {
-		m.log.Fatal("Fatal Error: ", err)
-	}
-
-	// Accept all connections
-	var conn ssh.Channel
-	var newChannel ssh.NewChannel
-	for {
-		tcpConn, err := listener.Accept()
-		if err != nil {
-			m.log.Print("Failed to accept incoming connection (%s)",
-				err)
-			continue
-		}
-		// Before use, a handshake must be performed on the
-		// incoming net.Conn.
-		sshConn, chans, reqs, err := ssh.NewServerConn(tcpConn, config)
-		if err != nil {
-			m.log.Print("Failed to handshake (%s)", err)
-			continue
-		}
-		go ssh.DiscardRequests(reqs)
-
-		m.log.Printf("New SSH connection from %s (%s)\n",
-			sshConn.RemoteAddr(), sshConn.ClientVersion())
-
-		for newChannel = range chans {
-
-			if newChannel.ChannelType() != "session" {
-				newChannel.Reject(ssh.UnknownChannelType,
-					"unknown channel type")
-				continue
-			} 
-
-			conn, _, err = newChannel.Accept()
-			if err != nil {
-				m.log.Fatal("Fatal Error: ", err)
-			}
-
-			if checkBusy(m, conn) {
-				conn.Close()
-				continue
-			}
-			connection <- conn
-			break
-		}
-	}
-}
-	
-func (m *Modem) acceptTelnet() {
-	l, err := net.Listen("tcp", ":20000")
-	if err != nil {
-		m.log.Fatal("Fatal Error: ", err)
-	}
-	defer l.Close()
-
-	for {
-		conn, err := l.Accept()
-		if err != nil {
-			m.log.Print("l.Accept(): %s\n", err)
-			continue
-		}
-
-		if checkBusy(m, conn) {
-			conn.Close()
-			continue
-		}
-		
-		// This is a telnet session, negotiate char-at-a-time
-		conn.Write([]byte{IAC, DO, LINEMODE, IAC, WILL, ECHO})
-
-		connection <- conn
-	}
-}
 
 // Pass bytes from the remote dialer to the serial port (for now,
 // stdout) as long as we're offhook, we're in DATA MODE and we have
@@ -148,7 +26,8 @@ func (m *Modem) handleConnection() {
 			break
 		}
 
-		// Tell the telnet server we won't comply. 
+		// Tell the telnet server we won't comply.
+		// TODO: Only do this if connetion is telnet.
 		if buf[0] == IAC {
 			cmd := make([]byte, 2)
 			if _, err := m.conn.Read(cmd); err != nil {
@@ -185,8 +64,10 @@ func (m *Modem) answerIncomming(conn io.ReadWriteCloser) bool {
 	zero := make([]byte, 1)
 	zero[0] = 0
 
+	r := m.registers
 	for i := 0; i < __MAX_RINGS; i++ {
 		last_ring_time = time.Now()
+		r.Inc(REG_RING_COUNT)
 		m.prstatus(RING)
 		conn.Write([]byte("Ringing...\n\r"))
 		if m.getHook() == OFF_HOOK { // computer has issued 'ATA' 
@@ -221,8 +102,7 @@ func (m *Modem) answerIncomming(conn io.ReadWriteCloser) bool {
 		// answering, answer the call.  We do this here before
 		// the 4s delay as I think it feels more correct.
 		if m.registers.Read(REG_AUTO_ANSWER) > 0 {
-			r := m.registers
-			if r.Inc(REG_RING_COUNT) >= r.Read(REG_AUTO_ANSWER) {
+			if r.Read(REG_RING_COUNT) >= r.Read(REG_AUTO_ANSWER) {
 				m.answer()
 			}
 		}
@@ -268,22 +148,29 @@ func checkBusy(m *Modem, conn io.ReadWriteCloser) bool {
 	return false
 }
 
+// Clear the ring counter after 8s
+// Must be a goroutine
+func (m *Modem) clearRingCounter() {
+	var delay time.Duration = 8 * time.Second
+
+	for _ = range time.Tick(delay) {
+		if time.Since(last_ring_time) >= delay &&
+			m.registers.Read(REG_RING_COUNT) != 0 {
+			m.registers.Write(REG_RING_COUNT, 0)
+			m.log.Print("Cleared ring count")
+		}
+	}
+}
+
 func (m *Modem) handleModem() {
 	var conn io.ReadWriteCloser
 
-	connection = make(chan io.ReadWriteCloser, 1)
-	go m.acceptTelnet()
-	go m.acceptSSH()
-
-	// Clear the ring counter if there's been no rings for at least 8 seconds
+	connection := make(chan io.ReadWriteCloser, 1)
+	go m.acceptTelnet(connection)
+	go m.acceptSSH(connection)
 	last_ring_time = time.Now()
-	go func() {		
-		for range time.Tick(8 * time.Second) {
-			if time.Since(last_ring_time) >= 8 * time.Second {
-				m.registers.Write(REG_RING_COUNT, 0) 
-			}
-		}
-	}()
+	go m.clearRingCounter()
+
 
 	// If we have an incoming call, answer it.  If we have an outgoing call or
 	// an answered incoming call, service the connection
@@ -292,7 +179,6 @@ func (m *Modem) handleModem() {
 		select {
 		case conn = <- connection:
 			m.log.Print("Incomming call")
-		default: 
 		}
 
 		// Answer if incoming call (m.conn == nil, conn != nil)
