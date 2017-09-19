@@ -184,6 +184,7 @@ func (m *Modem) handleModem() {
 		// so service it.
 		if m.conn != nil {
 			m.log.Print("Setting Line Busy, serving connection")
+			m.log.Print("Remote: %s: ", m.conn.RemoteAddr())
 			m.setLineBusy(true)
 			m.handleConnection()
 			m.setLineBusy(false)

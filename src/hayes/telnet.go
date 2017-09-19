@@ -2,7 +2,6 @@ package hayes
 
 import (
 	"net"
-	"io"
 )
 
 // Telnet negoitation commands
@@ -17,9 +16,10 @@ const (
 
 // Implements connection for in- and out-bound telnet
 type telnetReadWriteCloser struct {
-	c io.ReadWriteCloser
 	contype int
+	c net.Conn
 }
+
 func (m telnetReadWriteCloser) Read(p []byte) (int, error) {
 	return m.c.Read(p)
 }
@@ -32,6 +32,9 @@ func (m telnetReadWriteCloser) Close() error {
 }
 func (m telnetReadWriteCloser) Type() int {
 	return m.contype
+}
+func (m telnetReadWriteCloser) RemoteAddr() net.Addr {
+	return m.c.RemoteAddr()
 }
 
 func (m *Modem) acceptTelnet(channel chan connection) {
@@ -58,7 +61,7 @@ func (m *Modem) acceptTelnet(channel chan connection) {
 		
 		// This is a telnet session, negotiate char-at-a-time
 		conn.Write([]byte{IAC, DO, LINEMODE, IAC, WILL, ECHO})
-		channel <- telnetReadWriteCloser{conn, TELNET}
+		channel <- telnetReadWriteCloser{TELNET, conn}
 	}
 }
 
@@ -76,6 +79,6 @@ func (m *Modem) dialTelnet(remote string) (connection, error) {
 		return nil, err
 	}
 	m.log.Printf("Connected to remote host '%s'", conn.RemoteAddr())
-	return telnetReadWriteCloser{conn, TELNET}, nil
+	return telnetReadWriteCloser{TELNET, conn}, nil
 }
 
