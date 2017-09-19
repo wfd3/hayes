@@ -20,6 +20,7 @@ import (
 	"sync"
 	"runtime/pprof"
 	"syscall"
+	"net"
 )
 
 // What mode is the modem in?
@@ -46,6 +47,7 @@ type connection interface {
 	Write(p []byte) (int, error)
 	Close() error
 	Type() int
+	RemoteAddr() net.Addr
 }
 
 //Basic modem struct

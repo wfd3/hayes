@@ -9,7 +9,7 @@ import (
 	"fmt"
 )
 
-
+// Implements connection for in-bound ssh
 type sshAcceptReadWriteCloser struct {
 	c io.ReadWriteCloser
 	contype int
@@ -27,7 +27,6 @@ func (m sshAcceptReadWriteCloser) Close() error {
 func (m sshAcceptReadWriteCloser) Type() int {
 	return m.contype
 }
-
 
 func (m *Modem) acceptSSH(channel chan connection) {
 
@@ -113,8 +112,7 @@ func (m *Modem) acceptSSH(channel chan connection) {
 	}
 }
 
-// Implements io.ReadWriteCloser, used to convert SSH ssh.Session into
-// io.ReadWriteCloser.
+// Implements connection, used to convert SSH ssh.Session for outbound SSH 
 type sshDialReadWriteCloser struct {
 	in io.Reader
 	out io.WriteCloser

@@ -15,6 +15,7 @@ const (
 	LINEMODE = 0042
 )
 
+// Implements connection for in- and out-bound telnet
 type telnetReadWriteCloser struct {
 	c io.ReadWriteCloser
 	contype int
@@ -32,7 +33,6 @@ func (m telnetReadWriteCloser) Close() error {
 func (m telnetReadWriteCloser) Type() int {
 	return m.contype
 }
-
 
 func (m *Modem) acceptTelnet(channel chan connection) {
 	// TODO: Cmdline option for port
@@ -61,7 +61,6 @@ func (m *Modem) acceptTelnet(channel chan connection) {
 		channel <- telnetReadWriteCloser{conn, TELNET}
 	}
 }
-
 
 func (m *Modem) dialTelnet(remote string) (connection, error) {
 
