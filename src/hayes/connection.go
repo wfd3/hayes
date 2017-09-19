@@ -152,6 +152,14 @@ func (m *Modem) clearRingCounter() {
 	}
 }
 
+// TODO: This isn't as clean as I'd like it.  Also, the if conn != nil
+// {} stansa doesn't match the comment.  Where does m.conn get set
+// when we're dialing out?
+//
+// I bet I broke this for dial out -- I removed the default case from
+// the select {}, meaning that we'll block.  I'll bet that m.conn
+// get's set directly in the outbound dial path.  I wonder if I need
+// to send the connection over the channel to here in the dial path?
 func (m *Modem) handleModem() {
 	var conn connection
 
