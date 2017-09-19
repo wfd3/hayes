@@ -9,7 +9,27 @@ import (
 	"fmt"
 )
 
-func (m *Modem) acceptSSH(channel chan io.ReadWriteCloser) {
+
+type sshAcceptReadWriteCloser struct {
+	c io.ReadWriteCloser
+	contype int
+}
+func (m sshAcceptReadWriteCloser) Read(p []byte) (int, error) {
+	return m.c.Read(p)
+}
+func (m sshAcceptReadWriteCloser) Write(p []byte) (int, error) {
+	return m.c.Write(p)
+}
+func (m sshAcceptReadWriteCloser) Close() error {
+	err := m.c.Close()
+	return err
+}
+func (m sshAcceptReadWriteCloser) Type() int {
+	return m.contype
+}
+
+
+func (m *Modem) acceptSSH(channel chan connection) {
 
 	// In the latest version of crypto/ssh (after Go 1.3), the SSH
 	// server type has been removed in favour of an SSH connection
@@ -82,11 +102,12 @@ func (m *Modem) acceptSSH(channel chan io.ReadWriteCloser) {
 				m.log.Fatal("Fatal Error: ", err)
 			}
 
-			if checkBusy(m, conn) {
+			if m.checkBusy() {
+				conn.Write([]byte("Busy..."))
 				conn.Close()
 				continue
 			}
-			channel <- conn
+			channel <- sshAcceptReadWriteCloser{conn, SSH}
 			break
 		}
 	}
@@ -94,28 +115,31 @@ func (m *Modem) acceptSSH(channel chan io.ReadWriteCloser) {
 
 // Implements io.ReadWriteCloser, used to convert SSH ssh.Session into
 // io.ReadWriteCloser.
-type myReadWriteCloser struct {
+type sshDialReadWriteCloser struct {
 	in io.Reader
 	out io.WriteCloser
 	client *ssh.Client
 	session *ssh.Session
+	contype int
 }
-func (m myReadWriteCloser) Read(p []byte) (int, error) {
+func (m sshDialReadWriteCloser) Read(p []byte) (int, error) {
 	return m.in.Read(p)
 }
-func (m myReadWriteCloser) Write(p []byte) (int, error) {
+func (m sshDialReadWriteCloser) Write(p []byte) (int, error) {
 	return m.out.Write(p)
 }
-func (m myReadWriteCloser) Close() error {
+func (m sshDialReadWriteCloser) Close() error {
 	// Remember, in is an io.Reader so it doesn't Close()
 	err := m.out.Close()
 	m.session.Close()
 	m.client.Close()
 	return err
 }
+func (m sshDialReadWriteCloser) Type() int {
+	return m.contype
+}
 
-
-func (m *Modem) dialSSH(remote string, username string, pw string) (myReadWriteCloser, error) {
+func (m *Modem) dialSSH(remote string, username string, pw string) (sshDialReadWriteCloser, error) {
 
 	if _, _, err := net.SplitHostPort(remote); err != nil {
 		remote += ":22"
@@ -138,14 +162,15 @@ func (m *Modem) dialSSH(remote string, username string, pw string) (myReadWriteC
 		if err, ok := err.(net.Error); ok && err.Timeout() {
 			m.log.Print("ssh.Dial: Timed out")
 		}
-		return myReadWriteCloser{}, fmt.Errorf("ssh.Dial() failed: %s", err)
+		return sshDialReadWriteCloser{},
+		fmt.Errorf("ssh.Dial() failed: %s", err)
 	}
 
 	// Create a session
 	session, err := client.NewSession()
 	if err != nil {
     		m.log.Print("unable to create session: ", err)
-		return myReadWriteCloser{},
+		return sshDialReadWriteCloser{},
 		fmt.Errorf("unable to create session: ", err)
 	}
 
@@ -158,7 +183,7 @@ func (m *Modem) dialSSH(remote string, username string, pw string) (myReadWriteC
 	// Request pseudo terminal
 	if err := session.RequestPty("xterm", 40, 80, modes); err != nil {
     		m.log.Print("request for pseudo terminal failed: ", err)
-		return myReadWriteCloser{},
+		return sshDialReadWriteCloser{},
 		fmt.Errorf("request for pty failed: ", err)
 	}
 
@@ -166,12 +191,14 @@ func (m *Modem) dialSSH(remote string, username string, pw string) (myReadWriteC
 	send, err :=  session.StdinPipe()
 	if err != nil {
 		m.log.Print("StdinPipe(): ", err)
-		return myReadWriteCloser{}, fmt.Errorf("session.StdinPipe(): ", err)
+		return sshDialReadWriteCloser{},
+		fmt.Errorf("session.StdinPipe(): ", err)
 	}
 	recv, err := session.StdoutPipe()
 	if err != nil {
 		m.log.Print("StdoutPipe(): ", err)
-		return myReadWriteCloser{}, fmt.Errorf("session.StdinOut(): ", err)
+		return sshDialReadWriteCloser{},
+		fmt.Errorf("session.StdinOut(): ", err)
 	}
 
         session.Shell()
@@ -179,5 +206,5 @@ func (m *Modem) dialSSH(remote string, username string, pw string) (myReadWriteC
 	m.log.Printf("Connected to remote host '%s', SSH Server version %s",
 		client.Conn.RemoteAddr(), client.Conn.ServerVersion())
 	
-	return myReadWriteCloser{recv, send, client, session}, nil
+	return sshDialReadWriteCloser{recv, send, client, session, SSH}, nil
 }

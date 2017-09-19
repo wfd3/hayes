@@ -1,7 +1,6 @@
 package hayes
 
 import (
-	"io"
 	"time"
 )
 
@@ -27,8 +26,8 @@ func (m *Modem) handleConnection() {
 		}
 
 		// Tell the telnet server we won't comply.
-		// TODO: Only do this if connetion is telnet.
-		if buf[0] == IAC {
+		// TODO: Clean this up
+		if m.conn.Type() == TELNET && buf[0] == IAC {
 			cmd := make([]byte, 2)
 			if _, err := m.conn.Read(cmd); err != nil {
 				m.log.Print("m.conn.Read(): ", err)
@@ -58,7 +57,7 @@ func (m *Modem) handleConnection() {
 	}
 }
 
-func (m *Modem) answerIncomming(conn io.ReadWriteCloser) bool {
+func (m *Modem) answerIncomming(conn connection) bool {
 	const __DELAY_MS = 20
 
 	zero := make([]byte, 1)
@@ -139,15 +138,6 @@ answered:
 	return true
 }
 
-// "Busy" signal.
-func checkBusy(m *Modem, conn io.ReadWriteCloser) bool {
-	if m.getHook() == OFF_HOOK || m.getLineBusy() {	
-		conn.Write([]byte("BUSY\n\r"))
-		return true
-	}
-	return false
-}
-
 // Clear the ring counter after 8s
 // Must be a goroutine
 func (m *Modem) clearRingCounter() {
@@ -163,11 +153,11 @@ func (m *Modem) clearRingCounter() {
 }
 
 func (m *Modem) handleModem() {
-	var conn io.ReadWriteCloser
+	var conn connection
 
-	connection := make(chan io.ReadWriteCloser, 1)
-	go m.acceptTelnet(connection)
-	go m.acceptSSH(connection)
+	connChannel := make(chan connection, 1)
+	go m.acceptTelnet(connChannel)
+	go m.acceptSSH(connChannel)
 	last_ring_time = time.Now()
 	go m.clearRingCounter()
 
@@ -177,7 +167,7 @@ func (m *Modem) handleModem() {
 	for {
 		conn = nil
 		select {
-		case conn = <- connection:
+		case conn = <- connChannel:
 			m.log.Print("Incomming call")
 		}
 

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 	"strconv"
-	"io"
 	"time"
 )
 
@@ -12,7 +11,7 @@ const __CONNECT_TIMEOUT = __MAX_RINGS * 6 * time.Second
 
 // Using the addressbook mapping, fake out dialing a standard phone number
 // (ATDT5551212)
-func (m *Modem) dialNumber(phone string) (io.ReadWriteCloser, error) {
+func (m *Modem) dialNumber(phone string) (connection, error) {
 
 	host, err := m.addressbook.Lookup(phone)
 	if err != nil {
@@ -32,7 +31,7 @@ func (m *Modem) dialNumber(phone string) (io.ReadWriteCloser, error) {
 	return nil, fmt.Errorf("Unknown protocol")
 }
 
-func (m *Modem) dialStoredNumber(idxstr string) (io.ReadWriteCloser, error) {
+func (m *Modem) dialStoredNumber(idxstr string) (connection, error) {
 
 	index, err := strconv.Atoi(idxstr)
 	if err != nil {
@@ -65,7 +64,7 @@ func splitATDE(cmd string) (string, string, string, error) {
 // - DTE character abort
 // - Result codes are wrong?  "OK" seems to always be the result code.
 func (m *Modem) dial(to string) error {
-	var conn io.ReadWriteCloser
+	var conn connection
 	var err error
 
 	m.offHook()

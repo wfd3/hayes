@@ -14,8 +14,27 @@ const (
 	ECHO = 0001
 	LINEMODE = 0042
 )
-	
-func (m *Modem) acceptTelnet(channel chan io.ReadWriteCloser) {
+
+type telnetReadWriteCloser struct {
+	c io.ReadWriteCloser
+	contype int
+}
+func (m telnetReadWriteCloser) Read(p []byte) (int, error) {
+	return m.c.Read(p)
+}
+func (m telnetReadWriteCloser) Write(p []byte) (int, error) {
+	return m.c.Write(p)
+}
+func (m telnetReadWriteCloser) Close() error {
+	err := m.c.Close()
+	return err
+}
+func (m telnetReadWriteCloser) Type() int {
+	return m.contype
+}
+
+
+func (m *Modem) acceptTelnet(channel chan connection) {
 	// TODO: Cmdline option for port
 	l, err := net.Listen("tcp", ":20000")
 	if err != nil {
@@ -31,19 +50,20 @@ func (m *Modem) acceptTelnet(channel chan io.ReadWriteCloser) {
 			continue
 		}
 
-		if checkBusy(m, conn) {
+		if m.checkBusy() {
+			conn.Write([]byte("Busy..."))
 			conn.Close()
 			continue
 		}
 		
 		// This is a telnet session, negotiate char-at-a-time
 		conn.Write([]byte{IAC, DO, LINEMODE, IAC, WILL, ECHO})
-		channel <- conn
+		channel <- telnetReadWriteCloser{conn, TELNET}
 	}
 }
 
 
-func (m *Modem) dialTelnet(remote string) (io.ReadWriteCloser, error) {
+func (m *Modem) dialTelnet(remote string) (connection, error) {
 
 	if _, _, err := net.SplitHostPort(remote); err != nil {
 		remote += ":23"
@@ -57,6 +77,6 @@ func (m *Modem) dialTelnet(remote string) (io.ReadWriteCloser, error) {
 		return nil, err
 	}
 	m.log.Printf("Connected to remote host '%s'", conn.RemoteAddr())
-	return conn, nil
+	return telnetReadWriteCloser{conn, TELNET}, nil
 }
 

@@ -17,7 +17,6 @@ import (
 	"os/signal"
 	"log"
 	"time"
-	"io"
 	"sync"
 	"runtime/pprof"
 	"syscall"
@@ -41,6 +40,14 @@ const (
 	SSH
 )
 
+// Interface specification for a connection
+type connection interface {
+	Read(p []byte) (int, error) 
+	Write(p []byte) (int, error)
+	Close() error
+	Type() int
+}
+
 //Basic modem struct
 type Modem struct {
 	echoInCmdMode bool
@@ -57,7 +64,7 @@ type Modem struct {
 	linebusy bool
 	linebusylock sync.RWMutex
 
-	conn io.ReadWriteCloser
+	conn connection
 	serial *serialPort
 	pins Pins
 	leds Pins
@@ -79,6 +86,12 @@ func (m *Modem) setLineBusy(b bool) {
 	defer m.linebusylock.Unlock()
 	m.linebusy = b
 }
+
+// "Busy" signal.
+func (m *Modem) checkBusy() bool {
+	return  m.getHook() == OFF_HOOK || m.getLineBusy()
+}
+
 
 // Watch a subset of pins and act as apropriate
 // Must be a goroutine
