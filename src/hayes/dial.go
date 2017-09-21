@@ -117,25 +117,26 @@ func (m *Modem) dial(to string) error {
 		return ERROR
 	}
 
-	// if we're connected, setup the connected state in the modem, otherwise
-	// return an OK result code.
+	// if we're connected, setup the connected state in the modem,
+	// otherwise return an OK result code.
 	if err != nil {
 		m.onHook()
 		m.log.Print(err)
 		return OK
 	}
 
-	// Remote answered, set connection speed and signal CD.
-	m.conn = conn
-	m.connect_speed = 38400
-	m.raiseCD()
-
-	// Stay in command mode if ; present in the original command string
+	// By default, conn.Mode() will return DATAMODE here.
+	// Override and stay in command mode if ; present in the
+	// original command string
+	ret := CONNECT
 	if strings.Contains(to, ";") {
-		return OK
+		conn.SetMode(COMMANDMODE)
+		ret = OK
 	}
-	m.mode = DATAMODE
-	return CONNECT
+	
+	// Remote answered, hand off conneciton to handleModem()
+	callChannel <- conn
+	return ret
 }
 
 func parseDial(cmd string) (string, int, error) {

@@ -35,20 +35,23 @@ const (
 	ONHOOK  bool = true
 )
 
-// Is the network connection SSH or Telnet?
+// Is the network connection inbound or outbound
 const (
-	TELNET = iota
-	SSH
+	INBOUND = iota
+	OUTBOUND
 )
-
 // Interface specification for a connection
 type connection interface {
 	Read(p []byte) (int, error) 
 	Write(p []byte) (int, error)
 	Close() error
-	Type() int
 	RemoteAddr() net.Addr
+	Direction() int
+	Mode() int
+	SetMode(int) 
 }
+
+var callChannel chan connection
 
 //Basic modem struct
 type Modem struct {
@@ -146,7 +149,10 @@ func (m *Modem) PowerOn(log *log.Logger) {
 	m.log = log
 	m.log.Print("------------ Starting up")
 	m.registers = NewRegisters()
-	m.setupPins()	      
+	m.setupPins()
+
+	callChannel = make(chan connection, 1)
+
 	m.reset()	      // Setup modem inital state (or reset initial state)
 	m.serial = setupSerialPort(*_flags_console, m.registers, m.log)
 	

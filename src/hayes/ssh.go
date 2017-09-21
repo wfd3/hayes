@@ -11,7 +11,8 @@ import (
 
 // Implements connection for in-bound ssh
 type sshAcceptReadWriteCloser struct {
-	contype int
+	direction int
+	mode int
 	c io.ReadWriteCloser
 	remoteAddr net.Addr
 }
@@ -25,11 +26,20 @@ func (m sshAcceptReadWriteCloser) Close() error {
 	err := m.c.Close()
 	return err
 }
-func (m sshAcceptReadWriteCloser) Type() int {
-	return m.contype
+func (m sshAcceptReadWriteCloser) Mode() int {
+	return m.mode
 }
 func (m sshAcceptReadWriteCloser) RemoteAddr() net.Addr {
 	return m.remoteAddr
+}
+func (m sshAcceptReadWriteCloser) Direction() int {
+	return m.direction
+}
+func (m sshAcceptReadWriteCloser) SetMode(mode int) {
+	if mode != DATAMODE || mode != COMMANDMODE {
+		panic("bad mode")
+	}
+	m.mode = mode
 }
 
 func (m *Modem) acceptSSH(channel chan connection) {
@@ -110,8 +120,8 @@ func (m *Modem) acceptSSH(channel chan connection) {
 				conn.Close()
 				continue
 			}
-			channel <- sshAcceptReadWriteCloser{SSH, conn, 
-				sshConn.RemoteAddr()}
+			channel <- sshAcceptReadWriteCloser{INBOUND, DATAMODE,
+				conn, sshConn.RemoteAddr()}
 			break
 		}
 	}
@@ -119,7 +129,8 @@ func (m *Modem) acceptSSH(channel chan connection) {
 
 // Implements connection, used to convert SSH ssh.Session for outbound SSH 
 type sshDialReadWriteCloser struct {
-	contype int
+	direction int
+	mode int
 	in io.Reader
 	out io.WriteCloser
 	client *ssh.Client
@@ -139,11 +150,20 @@ func (m sshDialReadWriteCloser) Close() error {
 	m.client.Close()
 	return err
 }
-func (m sshDialReadWriteCloser) Type() int {
-	return m.contype
+func (m sshDialReadWriteCloser) Direction() int {
+	return m.direction
 }
 func (m sshDialReadWriteCloser) RemoteAddr() net.Addr {
 	return m.remoteAddr
+}
+func (m sshDialReadWriteCloser) Mode() int {
+	return m.mode
+}
+func (m sshDialReadWriteCloser) SetMode(mode int) {
+	if mode != DATAMODE || mode != COMMANDMODE {
+		panic("bad mode")
+	}
+	m.mode = mode
 }
 
 func (m *Modem) dialSSH(remote string, username string, pw string) (sshDialReadWriteCloser, error) {
@@ -212,7 +232,7 @@ func (m *Modem) dialSSH(remote string, username string, pw string) (sshDialReadW
 
 	m.log.Printf("Connected to remote host '%s', SSH Server version %s",
 		client.Conn.RemoteAddr(), client.Conn.ServerVersion())
-	
-	return sshDialReadWriteCloser{SSH, recv, send, client, session,
-		client.Conn.RemoteAddr()}, nil
+
+	return sshDialReadWriteCloser{OUTBOUND, DATAMODE, recv, send, client,
+		session, client.Conn.RemoteAddr()}, nil
 }

@@ -25,20 +25,6 @@ func (m *Modem) handleConnection() {
 			break
 		}
 
-		// Tell the telnet server we won't comply.
-		// TODO: Clean this up
-		if m.conn.Type() == TELNET && buf[0] == IAC {
-			cmd := make([]byte, 2)
-			if _, err := m.conn.Read(cmd); err != nil {
-				m.log.Print("m.conn.Read(): ", err)
-				break;
-			}
-			m.log.Print("Telnet negotiation command: %v", cmd)
-			m.conn.Write([]byte{IAC, WONT, cmd[1]})
-			continue
-		}
-		
-
 		// Send the byte to the DTE
 		if m.mode == DATAMODE {
 			// TODO: try 'go m.blinkRD()'
@@ -125,9 +111,6 @@ func (m *Modem) answerIncomming(conn connection) bool {
 no_answer:
 	// At this point we've not answered and have timed out, or the
 	// caller hung up before we answered.
-	if m.getHook() == ON_HOOK {	
-		conn.Close()
-	}
 	m.lowerRI()
 	return false
 	
@@ -152,51 +135,39 @@ func (m *Modem) clearRingCounter() {
 	}
 }
 
-// TODO: This isn't as clean as I'd like it.  Also, the if conn != nil
-// {} stansa doesn't match the comment.  Where does m.conn get set
-// when we're dialing out?
-//
-// I bet I broke this for dial out -- I removed the default case from
-// the select {}, meaning that we'll block.  I'll bet that m.conn
-// get's set directly in the outbound dial path.  I wonder if I need
-// to send the connection over the channel to here in the dial path?
+// Accept connection's from dial*() and accept*() functions.
 func (m *Modem) handleModem() {
 	var conn connection
-
-	connChannel := make(chan connection, 1)
-	go m.acceptTelnet(connChannel)
-	go m.acceptSSH(connChannel)
-	last_ring_time = time.Now()
+	
+	go m.acceptTelnet(callChannel)
+	go m.acceptSSH(callChannel)
 	go m.clearRingCounter()
-
 
 	// If we have an incoming call, answer it.  If we have an outgoing call or
 	// an answered incoming call, service the connection
 	for {
-		conn = nil
-		select {
-		case conn = <- connChannel:
-			m.log.Print("Incomming call")
-		}
+		m.setLineBusy(false)
+		conn = <- callChannel
+		m.setLineBusy(true)
 
-		// Answer if incoming call (m.conn == nil, conn != nil)
-		if conn != nil {
-			if m.answerIncomming(conn) {
-				// if we're here, the computer answered.
-				m.conn = conn
-				m.conn.Write([]byte("Answered\n\r"))
+		if conn.Direction() == INBOUND {
+			m.log.Printf("Incomming call from %s", conn.RemoteAddr())
+			if !m.answerIncomming(conn) {
+				conn.Close()
+				continue
 			}
+			m.conn.Write([]byte("Answered\n\r"))
+		} else {
+			m.log.Printf("Outgoing call to %s ", m.conn.RemoteAddr())
 		}
 
 		// We now have an established connection (either answered or dialed)
 		// so service it.
-		if m.conn != nil {
-			m.log.Print("Setting Line Busy, serving connection")
-			m.log.Print("Remote: %s: ", m.conn.RemoteAddr())
-			m.setLineBusy(true)
-			m.handleConnection()
-			m.setLineBusy(false)
-		}
+		m.conn = conn
+		m.connect_speed = 38400
+		m.mode = conn.Mode()
+		m.raiseCD()
+		m.handleConnection()
 	}
 }
 
