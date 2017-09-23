@@ -238,6 +238,8 @@ func (m *Modem) parseAmpersand(cmdstring string) (string, int, error) {
 		opts = "0"
 	case "&C":
 		opts = "01"
+	case "&Z":
+		//todo
 	default:
 		m.log.Printf("Unknown command: %s", cmd)
 		return "", 0, ERROR
