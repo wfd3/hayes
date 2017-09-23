@@ -73,22 +73,22 @@ func (m *Modem) ampersand(cmd string) error {
 		if p {
 			return"1 "
 		} 
-		return "0"
+		return "0 "
 	};
 	i := func(p int) (string) {
-		return fmt.Sprintf("%d", p)
+		return fmt.Sprintf("%d ", p)
 	};
 	x := func(r, b bool) (string) {
 		if (r == false && b == false) {
-			return "0"
+			return "0 "
 		}
 		if (r == true && b == false) {
-			return "1"
+			return "1 "
 		}
 		if (r == true && b == true) {
-			return "7"
+			return "7 "
 		}
-		return "0"
+		return "0 "
 	};
 
 	s += "E" + b(m.echoInCmdMode)
