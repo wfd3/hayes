@@ -2,46 +2,30 @@ package hayes
 
 import (
 	"time"
+	"net"
 )
 
 const __MAX_RINGS = 15		// How many rings before giving up
 var last_ring_time time.Time
 
-// Pass bytes from the remote dialer to the serial port (for now,
-// stdout) as long as we're offhook, we're in DATA MODE and we have
-// valid carrier (m.comm != nil)
-func (m *Modem) handleConnection() {
 
-	buf := make([]byte, 1)
+// Is the network connection inbound or outbound
+const (
+	INBOUND = iota
+	OUTBOUND
+)
 
-	for {
-		if m.getHook() == ON_HOOK {
-			m.log.Print("ON_HOOK")
-			break
-		}
-		if _, err := m.conn.Read(buf); err != nil {// TODO: timeout
-			m.log.Print("m.conn.Read(): ", err)
-			// carrier lost
-			break
-		}
-
-		// Send the byte to the DTE
-		if m.mode == DATAMODE {
-			// TODO: try 'go m.blinkRD()'
-			m.led_RD_on()
-			m.serial.Write(buf) 
-			m.led_RD_off()
-		}
-	}
-	
-	// If we're here, we lost "carrier" somehow.
-	m.log.Print("Lost carrier")
-	m.prstatus(NO_CARRIER)
-	m.onHook()
-	if m.conn != nil {
-		m.conn.Close() // just to be safe?
-	}
+// Interface specification for a connection
+type connection interface {
+	Read(p []byte) (int, error) 
+	Write(p []byte) (int, error)
+	Close() error
+	RemoteAddr() net.Addr
+	Direction() int		// INBOUND or OUTBOUND
+	Mode() int		// What command mode to be in after connection 
+	SetMode(int) 
 }
+
 
 func (m *Modem) answerIncomming(conn connection) bool {
 	const __DELAY_MS = 20
@@ -55,7 +39,7 @@ func (m *Modem) answerIncomming(conn connection) bool {
 		r.Inc(REG_RING_COUNT)
 		m.prstatus(RING)
 		conn.Write([]byte("Ringing...\n\r"))
-		if m.getHook() == OFF_HOOK { // computer has issued 'ATA' 
+		if m.offHook() { // computer has issued 'ATA' 
 			m.conn = conn
 			conn = nil
 			goto answered
@@ -68,13 +52,13 @@ func (m *Modem) answerIncomming(conn connection) bool {
 		// Ring for 2s
 		d := 0
 		m.raiseRI()
-		for m.getHook() == ON_HOOK  && d < 2000 {
+		for m.onHook() && d < 2000 {
 			if _, err := conn.Write(zero); err != nil {
 				goto no_answer
 			}
 			time.Sleep(__DELAY_MS * time.Millisecond)
 			d += __DELAY_MS
-			if m.getHook() == OFF_HOOK { // computer has issued 'ATA' 
+			if m.offHook() { // computer has issued 'ATA' 
 				m.conn = conn
 				conn = nil
 				goto answered
@@ -94,7 +78,7 @@ func (m *Modem) answerIncomming(conn connection) bool {
 		
 		// Silence for 4s
 		d = 0
-		for m.getHook() == ON_HOOK && d < 4000 {
+		for m.onHook() && d < 4000 {
 			// Test for closed connection
 			if _, err := conn.Write(zero); err != nil {
 				goto no_answer
@@ -102,7 +86,7 @@ func (m *Modem) answerIncomming(conn connection) bool {
 			
 			time.Sleep(__DELAY_MS * time.Millisecond)
 			d += __DELAY_MS
-			if m.getHook() == OFF_HOOK { // computer has issued 'ATA' 
+			if m.offHook() { // computer has issued 'ATA' 
 				goto answered
 			}
 		}
@@ -135,6 +119,34 @@ func (m *Modem) clearRingCounter() {
 	}
 }
 
+// Pass bytes from the remote dialer to the serial port (for now,
+// stdout) as long as we're offhook, we're in DATA MODE and we have
+// valid carrier (m.comm != nil)
+func (m *Modem) handleConnection() {
+
+	buf := make([]byte, 1)
+
+	for {
+		if m.onHook() {
+			m.log.Print("ON_HOOK")
+			break
+		}
+		if _, err := m.conn.Read(buf); err != nil {// TODO: timeout
+			m.log.Print("m.conn.Read(): ", err)
+			// carrier lost
+			break
+		}
+
+		// Send the byte to the DTE
+		if m.mode == DATAMODE {
+			// TODO: try 'go m.blinkRD()'
+			m.led_RD_on()
+			m.serial.Write(buf) 
+			m.led_RD_off()
+		}
+	}
+}
+
 // Accept connection's from dial*() and accept*() functions.
 func (m *Modem) handleModem() {
 	var conn connection
@@ -146,7 +158,6 @@ func (m *Modem) handleModem() {
 	// If we have an incoming call, answer it.  If we have an outgoing call or
 	// an answered incoming call, service the connection
 	for {
-		m.setLineBusy(false)
 		conn = <- callChannel
 		m.setLineBusy(true)
 
@@ -156,9 +167,8 @@ func (m *Modem) handleModem() {
 				conn.Close()
 				continue
 			}
-			m.conn.Write([]byte("Answered\n\r"))
 		} else {
-			m.log.Printf("Outgoing call to %s ", m.conn.RemoteAddr())
+			m.log.Printf("Outgoing call to %s ", conn.RemoteAddr())
 		}
 
 		// We now have an established connection (either answered or dialed)
@@ -168,6 +178,12 @@ func (m *Modem) handleModem() {
 		m.mode = conn.Mode()
 		m.raiseCD()
 		m.handleConnection()
+
+		// If we're here, we lost "carrier" somehow.
+		m.log.Print("Lost carrier")
+		m.prstatus(NO_CARRIER)
+		m.goOnHook()
+		m.setLineBusy(false)
 	}
 }
 

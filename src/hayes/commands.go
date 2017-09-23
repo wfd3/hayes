@@ -6,51 +6,18 @@ import (
 	"fmt"
 )
 
-// ATH0
-func (m *Modem) onHook() error {
-	m.lowerCD()
-
-	// It's OK to hang up the phone when there's no active network connection.
-	// But if there is, close it.
-	if m.conn != nil {
-		m.conn.Close()
-		m.conn = nil
-	}
-
-	m.onhook = true
-	m.mode = COMMANDMODE
-	m.connect_speed = 0
-	m.led_HS_off()
-	m.led_OH_off()
-	return OK
-}
-
-const ON_HOOK = true
-const OFF_HOOK = false
-
-// ATH1
-func (m *Modem) offHook() error {
-	m.onhook = OFF_HOOK
-	m.led_OH_on()
-	return OK
-}
-
-func (m *Modem) getHook() bool {
-	return m.onhook
-}
-
 // ATA
 func (m *Modem) answer() error {
-	if m.getLineBusy()  {
-		m.log.Print("Can't answer, line busy")
+	if !m.getLineBusy()  {
+		m.log.Print("Can't answer, line isn't ringing (not busy)")
 		return ERROR
 	}
-	if m.getHook() == OFF_HOOK {
+	if m.offHook() {
 		m.log.Print("Can't answer, line off hook already")
 		return ERROR
 	}
 	
-	m.offHook()
+	m.goOffHook()
 	time.Sleep(400 * time.Millisecond) // Simulate Carrier Detect delay
 	m.raiseCD()
 	m.mode = DATAMODE
@@ -65,13 +32,14 @@ func (m *Modem) reset() error {
 
 	m.log.Print("Resetting modem")
 
-	m.onHook()
+	m.goOnHook()
+	m.setLineBusy(false)
 	m.lowerDSR()
 	m.lowerCTS()
-	m.stopTimer()
 	m.lowerRI()
+	m.stopTimer()
 
-	m.echoInCmdMode = true // Echo local keypresses
+	m.echoInCmdMode = true  // Echo local keypresses
 	m.quiet = false		// Modem offers return status
 	m.verbose = true	// Text return codes
 	m.volume = 1		// moderate volume
@@ -79,7 +47,9 @@ func (m *Modem) reset() error {
 	m.lastcmd = ""
 	m.lastdialed = ""
 	m.connect_speed = 0
-	m.setLineBusy(false)
+	m.connectMsgSpeed = true
+	m.busyDetect = true
+	m.extendedResultCodes = true
 	m.resetRegs()
 	m.resetTimer()
 	m.addressbook, err = LoadAddressBook()
@@ -99,19 +69,36 @@ func (m *Modem) ampersand(cmd string) error {
 		return ERROR
 	}
 
-	f := func(b bool) (t string) {
-		if b {
-			t += "1 "
-		} else {
-			t += "0 "
+	b := func(p bool) (string) {
+		if p {
+			return"1 "
+		} 
+		return "0"
+	};
+	i := func(p int) (string) {
+		return fmt.Sprintf("%d", p)
+	};
+	x := func(r, b bool) (string) {
+		if (r == false && b == false) {
+			return "0"
 		}
-		return t
+		if (r == true && b == false) {
+			return "1"
+		}
+		if (r == true && b == true) {
+			return "7"
+		}
+		return "0"
 	};
 
-	s += "E" + f(m.echoInCmdMode)
-	s += "V" + f(m.verbose)
-	s += "Q" + f(m.quiet)
-	s += fmt.Sprintf("M%d ", m.speakermode)
+	s += "E" + b(m.echoInCmdMode)
+	s += "F1"		// For Hayes 1200 compatability 
+	s += "L" + i(m.volume)
+	s += "M" + i(m.speakermode)
+	s += "Q" + b(m.quiet)
+	s += "V" + b(m.verbose)
+	s += "W" + b(m.connectMsgSpeed)
+	s += "X" + x(m.extendedResultCodes, m.busyDetect)
 	s += "\n"
 	s += m.registers.String()
 	m.serial.Println(s)
@@ -146,9 +133,9 @@ func (m *Modem) processCommands(commands []string) error {
 			status = OK 
 		case 'H':
 			if cmd[1] == '0' { 
-				status = m.onHook()
+				status = m.goOnHook()
 			} else if cmd[1] == '1' {
-				status = m.offHook()
+				status = m.goOffHook()
 			} else {
 				status = ERROR
 			}
@@ -180,8 +167,23 @@ func (m *Modem) processCommands(commands []string) error {
 		case 'O':
 			m.mode = DATAMODE
 			status = OK
+		case 'W':
+			switch cmd[1] {
+			case '0': m.connectMsgSpeed = false
+			case '1', '2': m.connectMsgSpeed = true
+			}
 		case 'X':	// Change result codes displayed
-			status = OK
+			switch cmd[1] {
+			case '0':
+				m.extendedResultCodes = false
+				m.busyDetect = false
+			case '1', '2':
+				m.extendedResultCodes = true
+				m.busyDetect = false
+			case '3', '4', '5', '6', '7':
+				m.extendedResultCodes = true
+				m.busyDetect = true
+			}
 		case 'D':
 			status = m.dial(cmd)
 		case 'S':
@@ -205,10 +207,6 @@ func parse(cmd string, opts string) (string, int, error) {
 
 	cmd = strings.ToUpper(cmd)
 	if len(cmd) == 1 {
-		if cmd[0] == '/' {
-			// '/' is special as it's the only true one char command
-			return "/", 1, nil 
-		}
 		return cmd + "0", 1, nil
 	}
 
@@ -299,12 +297,12 @@ func (m *Modem) command(cmdstring string) {
 			opts = "01"
 		case 'L', 'l':
 			opts = "0123"
-		case 'M', 'm':
+		case 'M', 'm', 'W', 'w':
 			opts = "012"
 		case 'O', 'o':
 			opts = "O"
 		case 'X', 'x':
-			opts = "01234"
+			opts = "01234567"
 		case '&':
 			opts = "V"
 		default:

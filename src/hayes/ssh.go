@@ -74,12 +74,12 @@ func (m *Modem) acceptSSH(channel chan connection) {
 	config.AddHostKey(private)
 
 	// Once a ServerConfig has been configured, connections can be accepted.
-	// TODO: Cmdline option for SSH port
-	listener, err := net.Listen("tcp", "0.0.0.0:2200")
+	address := "0.0.0.0:" + fmt.Sprintf("%d", *_flags_sshdPort)
+	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		m.log.Fatal("Fatal Error: ", err)
 	}
-	m.log.Print("Listening: ssh/2200")
+	m.log.Printf("Listening: ssh/%s", address)
 
 	// Accept all connections
 	var conn ssh.Channel

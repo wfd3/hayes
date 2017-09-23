@@ -52,24 +52,23 @@ func setupSerialPort(console bool, regs *Registers, log *log.Logger) (*serialPor
 		return &s
 	}
 
-	c := &serial.Config{Name: *_flags_port, Baud: 115200}
+	c := &serial.Config{Name: *_flags_serialPort, Baud: 115200}
 	p, err := serial.OpenPort(c)
         if err != nil {
                 s.log.Fatal(err)
         }
-	s.log.Printf("Using %s", *_flags_port)
+	s.log.Printf("Using %s", *_flags_serialPort)
 	s.port = p
 	return &s
 }
 
 func (s *serialPort) Read(p []byte) (int, error) {
 	if s.console {
-		c := byte(C.getch())
-		// mapping -- TODO: I think this can be removed
-		if c == 127 {
-			c = s.regs.Read(REG_BS_CH)
+		p[0] = byte(C.getch())
+		// mapping 
+		if p[0] == 127 {
+			p[0] = s.regs.Read(REG_BS_CH)
 		}
-		p[0] = c;
 		return 1, nil
 	}
 	b := make([]byte, 1)
@@ -171,7 +170,8 @@ func (m *Modem) readSerial() {
 			// So, count the incoming chars between ticks, saving
 			// the previous tick's count.  If you see
 			// countAtTick == 3 && CountAtLastTick == 0 && the last
-			// three characters are "+++", wait one more tick.
+			// three characters are "+++", wait one more tick.  If
+			// countAtTick == 0, the guard sequence was detected.
 			
 			if countAtTick == 3 && countAtLastTick == 0 &&
 				lastThree == escSequence { 
@@ -191,7 +191,6 @@ func (m *Modem) readSerial() {
 
 		}
 
-
 		switch m.mode {
 		case COMMANDMODE:
 			regs = m.registers // Reload regs in case we reset the modem
@@ -210,12 +209,11 @@ func (m *Modem) readSerial() {
 			} else if c == regs.Read(REG_LF_CH) && s != "" {
 				m.command(s)
 				s = ""
-			} else if c == regs.Read(REG_LF_CH) {
-				// ignore naked CR's
 			} else if c == regs.Read(REG_BS_CH)  && len(s) > 0 {
 				s = s[0:len(s) - 1]
-			} else if c == regs.Read(REG_BS_CH) && len(s) == 0 {
-				// ignore BS if s is already empty
+			} else if c == regs.Read(REG_LF_CH)  ||
+				c == regs.Read(REG_BS_CH) && len(s) == 0 {
+				// ignore naked CR's & BS if s is already empty
 			} else {
 				s += string(c)
 			}
@@ -232,7 +230,7 @@ func (m *Modem) readSerial() {
 			
 			// Send to remote
 			// TODO: make sure the LED says on long enough
-			if m.getHook() == OFF_HOOK && m.conn != nil {
+			if m.offHook() && m.conn != nil {
 				m.led_SD_on()
 				out := make([]byte, 1)
 				out[0] = c

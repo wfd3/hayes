@@ -2,6 +2,7 @@ package hayes
 
 import (
 	"net"
+	"fmt"
 )
 
 // Telnet negoitation commands
@@ -60,13 +61,14 @@ func (m telnetReadWriteCloser) SetMode(mode int) {
 }
 
 func (m *Modem) acceptTelnet(channel chan connection) {
-	// TODO: Cmdline option for port
-	l, err := net.Listen("tcp", ":20000")
+
+	port := ":" + fmt.Sprintf("%d", *_flags_telnetPort)
+	l, err := net.Listen("tcp", port)
 	if err != nil {
 		m.log.Fatal("Fatal Error: ", err)
 	}
 	defer l.Close()
-	m.log.Print("Listening: tcp/2000")
+	m.log.Printf("Listening: telnet tcp/%s", port)
 
 	for {
 		conn, err := l.Accept()

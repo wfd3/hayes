@@ -5,6 +5,7 @@ import (
 	"strings"
 	"strconv"
 	"time"
+	"net"
 )
 
 const __CONNECT_TIMEOUT = __MAX_RINGS * 6 * time.Second
@@ -59,15 +60,11 @@ func splitATDE(cmd string) (string, string, string, error) {
 
 // ATD...
 // See http://www.messagestick.net/modem/Hayes_Ch1-1.html on ATD... result codes
-//
-// TODO:
-// - DTE character abort
-// - Result codes are wrong?  "OK" seems to always be the result code.
 func (m *Modem) dial(to string) error {
 	var conn connection
 	var err error
 
-	m.offHook()
+	m.goOffHook()
 
 	cmd := to[1]
 	if cmd == 'L' {
@@ -94,7 +91,6 @@ func (m *Modem) dial(to string) error {
 		m.log.Print("Opening telnet connection to: ", clean_to)
 		conn, err = m.dialTelnet(clean_to)
 	case 'E':		// Encrypted host (ATDE hostname)
-		// TODO: Fix username/passwd to be passed over DTE
 		m.log.Print("Opening SSH connection to: ", clean_to)
 		host, user, pw, e := splitATDE(clean_to)
 		if e != nil {
@@ -109,20 +105,26 @@ func (m *Modem) dial(to string) error {
 	case 'S':		// Stored number (ATDS3)
 		m.log.Print("Dialing stored number: ", clean_to)
 		switch clean_to {
-		case "0", "1", "2", "3": conn, err = m.dialStoredNumber(clean_to)
-		default: return ERROR
+		case "0", "1", "2", "3":
+			conn, err = m.dialStoredNumber(clean_to)
+		default:
+			err = ERROR
 		}
 	default:
 		m.log.Printf("Dial mode '%c' not supported\n", cmd)
-		return ERROR
+		m.goOnHook()
+		err = ERROR
 	}
 
 	// if we're connected, setup the connected state in the modem,
-	// otherwise return an OK result code.
+	// otherwise return a BUSY or NO_ANSWER result code.
 	if err != nil {
-		m.onHook()
+		m.goOnHook()
 		m.log.Print(err)
-		return OK
+		if err, ok := err.(net.Error); ok && err.Timeout() {
+			return NO_ANSWER
+		}
+		return BUSY
 	}
 
 	// By default, conn.Mode() will return DATAMODE here.

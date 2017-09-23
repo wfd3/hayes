@@ -20,7 +20,6 @@ import (
 	"sync"
 	"runtime/pprof"
 	"syscall"
-	"net"
 )
 
 // What mode is the modem in?
@@ -29,45 +28,29 @@ const (
 	DATAMODE
 )
 
-// Is the phone on or off hook?
-const (
-	OFFHOOK bool = false
-	ONHOOK  bool = true
-)
-
-// Is the network connection inbound or outbound
-const (
-	INBOUND = iota
-	OUTBOUND
-)
-// Interface specification for a connection
-type connection interface {
-	Read(p []byte) (int, error) 
-	Write(p []byte) (int, error)
-	Close() error
-	RemoteAddr() net.Addr
-	Direction() int
-	Mode() int
-	SetMode(int) 
-}
-
 var callChannel chan connection
 
 //Basic modem struct
 type Modem struct {
+	mode int
 	echoInCmdMode bool
 	speakermode int
 	volume int
 	verbose bool
 	quiet bool
+	connectMsgSpeed bool
+	busyDetect bool
+	extendedResultCodes bool
 
-	mode int
-	onhook bool
+
 	lastcmd string
 	lastdialed string
 	connect_speed int
+
 	linebusy bool
 	linebusylock sync.RWMutex
+	hook int
+	hooklock sync.RWMutex
 
 	conn connection
 	serial *serialPort
@@ -79,25 +62,6 @@ type Modem struct {
 	timer *time.Ticker
 }
 
-// Is the phone line busy?
-func (m *Modem) getLineBusy() bool {
-	m.linebusylock.RLock()
-	defer m.linebusylock.RUnlock()
-	return m.linebusy
-}	
-
-func (m *Modem) setLineBusy(b bool) {
-	m.linebusylock.Lock()
-	defer m.linebusylock.Unlock()
-	m.linebusy = b
-}
-
-// "Busy" signal.
-func (m *Modem) checkBusy() bool {
-	return  m.getHook() == OFF_HOOK || m.getLineBusy()
-}
-
-
 // Watch a subset of pins and act as apropriate
 // Must be a goroutine
 func (m *Modem) handlePINs() {
@@ -105,9 +69,7 @@ func (m *Modem) handlePINs() {
 		if m.readDTR() {
 			m.led_TR_on()
 		} else { 
-			if m.getHook() == OFF_HOOK && m.conn != nil {
-				m.onHook()
-			}
+			m.goOnHook()
 			m.led_TR_off()
 		}
 

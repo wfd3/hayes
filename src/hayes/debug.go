@@ -9,7 +9,7 @@ import (
 // Debug function
 func (m *Modem) showState() {
 	m.serial.Printf("Hook     : ")
-	if m.getHook() == ON_HOOK {
+	if m.onHook() {
 		m.serial.Println("ON HOOK")
 	} else {
 		m.serial.Println("OFF HOOK")
