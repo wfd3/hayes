@@ -40,14 +40,18 @@ type serialPort struct {
 	log *log.Logger
 }
 
-func setupSerialPort(console bool, regs *Registers, log *log.Logger) (*serialPort) {
+func setupSerialPort(regs *Registers, log *log.Logger) (*serialPort) {
 	var s serialPort
-	
-	s.console = console
+
+	if *_flags_serialPort == "" {
+		s.console = true
+	} else {
+		s.console = false
+	}
 	s.regs = regs
 	s.log = log
 
-	if console {
+	if s.console {
 		s.log.Print("Using stdin/stdout as DTE")
 		return &s
 	}

@@ -176,7 +176,7 @@ func (m *Modem) handleModem() {
 		m.conn = conn
 		m.connect_speed = 38400
 		m.mode = conn.Mode()
-		m.raiseCD()
+		m.dcd = true
 		m.handleConnection()
 
 		// If we're here, we lost "carrier" somehow.

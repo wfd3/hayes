@@ -11,7 +11,7 @@ const (
 
 // ATH0
 func (m *Modem) goOnHook() error {
-	m.lowerCD()
+	m.dcd = false
 
 	// It's OK to hang up the phone when there's no active network connection.
 	// But if there is, close it.

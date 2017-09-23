@@ -92,8 +92,7 @@ func (m *Modem) prstatus(e error) {
 	if e != nil { // nil is "OK", so that's OK.  
 		merr, ok = e.(*MError)
 		if !ok {
-			m.log.Print("Called prstatus with an error not of MError: ",
-				e)
+			m.log.Print("Underlying error: ", e)
 			m.prstatus(ERROR)
 			return
 		}

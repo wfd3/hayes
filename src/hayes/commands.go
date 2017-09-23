@@ -8,18 +8,18 @@ import (
 
 // ATA
 func (m *Modem) answer() error {
-	if !m.getLineBusy()  {
-		m.log.Print("Can't answer, line isn't ringing (not busy)")
-		return ERROR
-	}
 	if m.offHook() {
 		m.log.Print("Can't answer, line off hook already")
 		return ERROR
 	}
 	
 	m.goOffHook()
-	time.Sleep(400 * time.Millisecond) // Simulate Carrier Detect delay
-	m.raiseCD()
+
+	// Simulate Carrier Detect delay
+	delay := time.Duration(m.registers.Read(REG_CARRIER_DETECT_RESPONSE_TIME))
+	delay = delay * 100 * time.Millisecond
+	time.Sleep(delay)
+	m.dcd = true
 	m.mode = DATAMODE
 	m.connect_speed = 38400	// We only go fast...
 	return CONNECT
@@ -50,6 +50,7 @@ func (m *Modem) reset() error {
 	m.connectMsgSpeed = true
 	m.busyDetect = true
 	m.extendedResultCodes = true
+	m.dcdControl = false
 	m.resetRegs()
 	m.resetTimer()
 	m.addressbook, err = LoadAddressBook()
@@ -60,15 +61,8 @@ func (m *Modem) reset() error {
 	return err
 }
 
-// AT&...
-// Only support &V for now
-func (m *Modem) ampersand(cmd string) error {
-	var s string
-	
-	if cmd != "&V" {
-		return ERROR
-	}
-
+// AT&V
+func (m *Modem) amperV() error {
 	b := func(p bool) (string) {
 		if p {
 			return"1 "
@@ -91,18 +85,36 @@ func (m *Modem) ampersand(cmd string) error {
 		return "0 "
 	};
 
+	var s string
 	s += "E" + b(m.echoInCmdMode)
-	s += "F1"		// For Hayes 1200 compatability 
+	s += "F1 "		// For Hayes 1200 compatability 
 	s += "L" + i(m.volume)
 	s += "M" + i(m.speakermode)
 	s += "Q" + b(m.quiet)
 	s += "V" + b(m.verbose)
 	s += "W" + b(m.connectMsgSpeed)
 	s += "X" + x(m.extendedResultCodes, m.busyDetect)
+	s += "&C" + b(m.dcdControl)
 	s += "\n"
 	s += m.registers.String()
 	m.serial.Println(s)
-	return nil
+	return OK
+}
+
+// AT&...
+// Only support &V and &C for now
+func (m *Modem) ampersand(cmd string) error {
+
+	switch cmd {
+	case "&C0":
+		m.dcdControl = false
+		return OK
+	case "&C1":
+		m.dcdControl = true
+		return OK
+	case "&V0": return m.amperV()
+	}
+	return ERROR
 }
 
 // process each command
@@ -217,6 +229,28 @@ func parse(cmd string, opts string) (string, int, error) {
 	return "", 0, fmt.Errorf("Bad command: %s", cmd)
 }
 
+func (m *Modem) parseAmpersand(cmdstring string) (string, int, error) {
+	var opts string
+
+	cmd := strings.ToUpper(cmdstring)
+	switch cmd[:2] {
+	case "&V":
+		opts = "0"
+	case "&C":
+		opts = "01"
+	default:
+		m.log.Printf("Unknown command: %s", cmd)
+		return "", 0, ERROR
+	}
+	
+	s, i, err := parse(cmd[1:], opts)
+	s = "&" + s
+	i++
+	return s, i, err
+
+
+}
+
 // +++ 
 func (m *Modem) command(cmdstring string) {
 	var commands []string
@@ -267,7 +301,7 @@ func (m *Modem) command(cmdstring string) {
 		case 'D', 'd':
 			s, i, err = parseDial(cmd[c:])
 			if err != nil {
-				m.prstatus(ERROR)
+				m.prstatus(err)
 				return
 			}
 			commands = append(commands, s)
@@ -276,7 +310,7 @@ func (m *Modem) command(cmdstring string) {
 		case 'S', 's':
 			s, i, err = parseRegisters(cmd[c:])
 			if err != nil {
-				m.prstatus(ERROR)
+				m.prstatus(err)
 				return
 			}
 			commands = append(commands, s)
@@ -285,7 +319,16 @@ func (m *Modem) command(cmdstring string) {
 		case '*': 	// Custom debug registers
 			s, i, err = parseDebug(cmd[c:])
 			if err != nil {
-				m.prstatus(ERROR)
+				m.prstatus(err)
+				return
+			}
+			commands = append(commands, s)
+			c += i
+			continue
+		case '&':
+			s, i, err = m.parseAmpersand(cmd)
+			if err != nil {
+				m.prstatus(err)
 				return
 			}
 			commands = append(commands, s)
@@ -303,8 +346,6 @@ func (m *Modem) command(cmdstring string) {
 			opts = "O"
 		case 'X', 'x':
 			opts = "01234567"
-		case '&':
-			opts = "V"
 		default:
 			m.log.Printf("Unknown command: %s", cmd)
 			m.prstatus(ERROR)

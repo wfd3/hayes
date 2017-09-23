@@ -42,6 +42,8 @@ type Modem struct {
 	busyDetect bool
 	extendedResultCodes bool
 
+	dcdControl bool
+	dcd bool
 
 	lastcmd string
 	lastdialed string
@@ -78,7 +80,12 @@ func (m *Modem) handlePINs() {
 		} else {
 			m.led_HS_off()
 		}
-			
+
+		if m.dcd || m.dcdControl {
+			m.raiseCD()
+		} else {
+			m.lowerCD()
+		}
 		time.Sleep(250 * time.Millisecond)
 	}
 }
@@ -116,7 +123,7 @@ func (m *Modem) PowerOn(log *log.Logger) {
 	callChannel = make(chan connection, 1)
 
 	m.reset()	      // Setup modem inital state (or reset initial state)
-	m.serial = setupSerialPort(*_flags_console, m.registers, m.log)
+	m.serial = setupSerialPort(m.registers, m.log)
 	
 	go m.handleSignals()	// Catch signals in a different thread
 	go m.handlePINs()       // Monitor input pins & internal registers

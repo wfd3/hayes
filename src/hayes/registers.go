@@ -17,10 +17,24 @@ type Registers struct {
 
 func NewRegisters() *Registers {
 	var r Registers
-	r.regs = make(map[byte]byte)
+	r.regs = make(map[byte]byte, __NUM_REGS)
 	r.current = 0
 
+	// fill in the existing registers so valid() works
+	for i := byte(0); i < __NUM_REGS; i++ {
+		r.regs[i] = 0
+	}
+
 	return &r
+}
+
+func (r *Registers) valid(regnum byte) bool {
+	_, ok := r.regs[regnum]
+	return ok
+}
+
+func ( r *Registers) ReadCurrent() byte {
+	return r.Read(r.current)
 }
 
 // Note the locks here.
@@ -30,10 +44,6 @@ func ( r *Registers) SetCurrent(cur byte) {
 	r.current = cur
 }
 
-func ( r *Registers) ReadCurrent() byte {
-	return r.Read(r.current)
-}
-
 func ( r *Registers) ShowCurrent() byte {
 	r.rlock.RLock()
 	defer r.rlock.RUnlock()
@@ -41,18 +51,27 @@ func ( r *Registers) ShowCurrent() byte {
 }
 
 func (r *Registers) Write(regnum, val byte) {
+	if !r.valid(regnum) {
+		panic("Writing to a non-existant register")
+	}
 	r.rlock.Lock()
 	defer r.rlock.Unlock()
 	r.regs[regnum] = val
 }
 
 func (r *Registers) Read(regnum byte) byte {
+	if !r.valid(regnum) {
+		panic("Writing to a non-existant register")
+	}
 	r.rlock.RLock()
 	defer r.rlock.RUnlock()
 	return r.regs[regnum]
 }
 
 func (r *Registers) Inc(regnum byte) byte {
+	if _, ok := r.regs[regnum]; !ok {
+		panic("Writing to a non-existant register")
+	}
 	r.rlock.Lock()
 	defer r.rlock.Unlock()
 	r.regs[regnum]++
@@ -132,6 +151,8 @@ const (
 	// second.  Factory default is 50 (1 second)
 	REG_ESC_CODE_GUARD_TIME			  // 12
 
+	__NUM_REGS		// This must be last
+
 )
 
 // Given a parsed register command, execute it.
@@ -152,7 +173,7 @@ func (m *Modem) registerCmd(cmd string) error {
 	// Sn=x - write x to n
 	_, err = fmt.Sscanf(cmd, "S%d=%d", &reg, &val)
 	if err == nil {
-		if reg > 255 || reg < 0 {
+		if reg > __NUM_REGS || reg < 0 {
 			m.log.Printf("Register index over/underflow: %d", reg)
 			return ERROR
 		}
@@ -160,30 +181,46 @@ func (m *Modem) registerCmd(cmd string) error {
 			m.log.Printf("Register value over/underflow: %d", val)
 			return ERROR
 		}
-		r.Write(byte(reg), byte(val))
 
 		// Update modem state
 		switch reg {
-		case REG_AUTO_ANSWER: 
+		case REG_AUTO_ANSWER:
 			if val == 0 {
 				m.led_AA_off()
 			} else {
 				m.led_AA_on()
 			}
 		case REG_ESC_CODE_GUARD_TIME:
+			if val > 255 {
+				return ERROR
+			}
 			m.resetTimer()
 		case REG_ESC_CH:
 			escSequence[0] = byte(val)
 			escSequence[1] = byte(val)
 			escSequence[2] = byte(val)
+		case REG_BLIND_DIAL_WAIT:
+			if val < 2 || val > 255 {
+				return ERROR
+			}
+		case REG_COMMA_DELAY:
+			if val > 65 {
+				return ERROR
+			}
+		case REG_BS_CH, REG_LF_CH, REG_CR_CH:
+			if val > 127 {
+				return ERROR
+			}
 		}
+
+		r.Write(byte(reg), byte(val))
 		return OK
 	}
 
 	// Sn? - query register n
 	_, err = fmt.Sscanf(cmd, "S%d?", &reg)
 	if err == nil {
-		if reg > 255 || reg < 0 {	
+		if reg > __NUM_REGS || reg < 0 {	
 			m.log.Printf("Register index over/underflow: %d", reg)
 			return ERROR
 		}
@@ -195,7 +232,7 @@ func (m *Modem) registerCmd(cmd string) error {
 	// Sn - slect register
 	_, err = fmt.Sscanf(cmd, "S%d", &reg)
 	if err == nil {
-		if reg > 255 || reg < 0 {	
+		if reg > __NUM_REGS || reg < 0 {	
 			m.log.Printf("Register index over/underflow: %d", reg)
 			return ERROR
 		}
