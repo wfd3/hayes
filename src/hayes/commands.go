@@ -53,7 +53,7 @@ func (m *Modem) reset() error {
 	m.dcdControl = false
 	m.resetRegs()
 	m.resetTimer()
-	m.addressbook, err = LoadAddressBook()
+	m.phonebook, err = LoadPhoneBook()
 	if err != nil {
 		m.log.Print(err)
 	}

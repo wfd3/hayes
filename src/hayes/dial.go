@@ -10,11 +10,11 @@ import (
 
 const __CONNECT_TIMEOUT = __MAX_RINGS * 6 * time.Second
 
-// Using the addressbook mapping, fake out dialing a standard phone number
+// Using the phonebook mapping, fake out dialing a standard phone number
 // (ATDT5551212)
 func (m *Modem) dialNumber(phone string) (connection, error) {
 
-	host, err := m.addressbook.Lookup(phone)
+	host, err := m.phonebook.Lookup(phone)
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +40,7 @@ func (m *Modem) dialStoredNumber(idxstr string) (connection, error) {
 		return nil, err
 	}
 
-	phone, err := m.addressbook.LookupStoredNumber(index)
+	phone, err := m.phonebook.LookupStoredNumber(index)
 	if err != nil {
 		m.log.Print("Stored number not found")
 		return nil, err

@@ -7,8 +7,8 @@ import (
 	"fmt"
 )
 
-type Addressbook []ab_host
-type ab_host struct {
+type Phonebook []pb_host
+type pb_host struct {
 	Stored   int    `json:"Stored"`
 	Phone    string `json:"Phone"`
 	Host     string `json:"Host"`
@@ -48,24 +48,24 @@ func sanitizeNumber(n string) (string, error) {
 	return strings.Map(check, n), nil
 }
 
-func (a Addressbook) String() string {
+func (a Phonebook) String() string {
 
 	if len(a) == 0 {
-		return "Address Book is empty"
+		return "Phone Book is empty"
 	}
-	s := "Address Book:\n"
+	s := "Phone Book:\n"
 	for _, h := range a {
 		s += fmt.Sprintf(" -- %+v\n", h)
 	}
 	return s
 }
 
-func LoadAddressBook() (*Addressbook, error) {
-	var ab Addressbook
+func LoadPhoneBook() (*Phonebook, error) {
+	var ab Phonebook
 
-	b, err := ioutil.ReadFile(*_flags_addressbook)
+	b, err := ioutil.ReadFile(*_flags_phoneBook)
 	if err != nil {
-		return nil, fmt.Errorf("Address book file flag not set (%s)", err)
+		return nil, fmt.Errorf("Phone book file flag not set (%s)", err)
 	}
 
 	if err = json.Unmarshal(b, &ab); err != nil {
@@ -75,7 +75,7 @@ func LoadAddressBook() (*Addressbook, error) {
 	return &ab, nil
 }
 
-func (a Addressbook) Lookup(number string) (*ab_host, error) {
+func (a Phonebook) Lookup(number string) (*pb_host, error) {
 	err := isValidPhoneNumber(number)
 	if err != nil {
 		return nil, err
@@ -90,11 +90,11 @@ func (a Addressbook) Lookup(number string) (*ab_host, error) {
 			return &h, nil
 		}
 	}
-	err = fmt.Errorf("Number '%s' not in address book", number)
+	err = fmt.Errorf("Number '%s' not in phone book", number)
 	return nil, err
 }
 
-func (a Addressbook) LookupStoredNumber(n int) (string, error) {
+func (a Phonebook) LookupStoredNumber(n int) (string, error) {
 	for _, h := range a {
 		if h.Stored == n {
 			return h.Phone, OK
@@ -103,7 +103,7 @@ func (a Addressbook) LookupStoredNumber(n int) (string, error) {
 	return "", fmt.Errorf("No stored number at entry %d", n)
 }
 
-func (a Addressbook) storeNumber(phone string, pos int) error {
+func (a Phonebook) storeNumber(phone string, pos int) error {
 	// This can't be done in this implemenetation.  Return ERROR always.
 	return fmt.Errorf("Storing numbers not yet implemented")
 }

@@ -121,8 +121,8 @@ func (s *serialPort) Printf(format string, a ...interface{}) error {
 	return err
 }
 
-func (s *serialPort) Print(str string) error {
-	return s.Printf("%s", str)
+func (s *serialPort) Print(a ...interface{}) error {
+	return s.Printf("%s", a...)
 }
 
 func (s *serialPort) Println(a ...interface{}) error {

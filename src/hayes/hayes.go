@@ -58,7 +58,7 @@ type Modem struct {
 	serial *serialPort
 	pins Pins
 	leds Pins
-	addressbook *Addressbook
+	phonebook *Phonebook
 	registers *Registers
 	log *log.Logger
 	timer *time.Ticker
