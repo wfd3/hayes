@@ -8,6 +8,7 @@ import (
 const __MAX_RINGS = 15		// How many rings before giving up
 var last_ring_time time.Time
 
+type busyFunc func() bool
 
 // Is the network connection inbound or outbound
 const (
@@ -151,8 +152,8 @@ func (m *Modem) handleConnection() {
 func (m *Modem) handleModem() {
 	var conn connection
 	
-	go m.acceptTelnet(callChannel)
-	go m.acceptSSH(callChannel)
+	go acceptTelnet(callChannel, m.checkBusy, m.log)
+	go acceptSSH(callChannel, m.checkBusy, m.log)
 	go m.clearRingCounter()
 
 	// If we have an incoming call, answer it.  If we have an outgoing call or

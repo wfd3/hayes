@@ -3,16 +3,17 @@ package hayes
 import (
 	"net"
 	"fmt"
+	"log"
 )
 
 // Telnet negoitation commands
 const (
-	IAC = 0377
-	DO = 0375
-	WILL = 0373
-	WONT = 0374
-	ECHO = 0001
-	LINEMODE = 0042
+	IAC      byte = 0377
+	DO       byte = 0375
+	WILL     byte = 0373
+	WONT     byte = 0374
+	ECHO     byte = 0001
+	LINEMODE byte = 0042
 )
 
 // Implements connection for in- and out-bound telnet
@@ -60,24 +61,24 @@ func (m telnetReadWriteCloser) SetMode(mode int) {
 	m.mode = mode
 }
 
-func (m *Modem) acceptTelnet(channel chan connection) {
+func acceptTelnet(channel chan connection, busy busyFunc, log *log.Logger) {
 
 	port := ":" + fmt.Sprintf("%d", *_flags_telnetPort)
 	l, err := net.Listen("tcp", port)
 	if err != nil {
-		m.log.Fatal("Fatal Error: ", err)
+		log.Fatal("Fatal Error: ", err)
 	}
 	defer l.Close()
-	m.log.Printf("Listening: telnet tcp/%s", port)
+	log.Printf("Listening: telnet tcp/%s", port)
 
 	for {
 		conn, err := l.Accept()
 		if err != nil {
-			m.log.Print("l.Accept(): %s\n", err)
+			log.Print("l.Accept(): %s\n", err)
 			continue
 		}
 
-		if m.checkBusy() {
+		if busy() {
 			conn.Write([]byte("Busy..."))
 			conn.Close()
 			continue
@@ -89,20 +90,20 @@ func (m *Modem) acceptTelnet(channel chan connection) {
 	}
 }
 
-func (m *Modem) dialTelnet(remote string) (connection, error) {
+func dialTelnet(remote string, log *log.Logger) (connection, error) {
 
 	if _, _, err := net.SplitHostPort(remote); err != nil {
 		remote += ":23"
 	}
-	m.log.Print("Connecting to: ", remote)
+	log.Print("Connecting to: ", remote)
 	conn, err := net.DialTimeout("tcp", remote, __CONNECT_TIMEOUT)
 	if err != nil {
 		if err, ok := err.(net.Error); ok && err.Timeout() {
-			m.log.Print("net.DialTimeout: Timed out")
+			log.Print("net.DialTimeout: Timed out")
 		}
 		return nil, err
 	}
-	m.log.Printf("Connected to remote host '%s'", conn.RemoteAddr())
+	log.Printf("Connected to remote host '%s'", conn.RemoteAddr())
 	return telnetReadWriteCloser{OUTBOUND, DATAMODE, conn}, nil
 }
 

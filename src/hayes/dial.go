@@ -34,9 +34,9 @@ func (m *Modem) dialNumber(phone string) (connection, error) {
 	
 	switch strings.ToUpper(host.protocol) {
 	case "SSH":
-		return m.dialSSH(host.host, host.username, host.password)
+		return dialSSH(host.host, m.log, host.username, host.password)
 	case "TELNET":
-		return m.dialTelnet(host.host)
+		return dialTelnet(host.host, m.log)
 	}
 	return nil, fmt.Errorf("Unknown protocol")
 }
@@ -98,7 +98,7 @@ func (m *Modem) dial(to string) error {
 	switch cmd {
 	case 'H':		// Hostname (ATDH hostname)
 		m.log.Print("Opening telnet connection to: ", clean_to)
-		conn, err = m.dialTelnet(clean_to)
+		conn, err = dialTelnet(clean_to, m.log)
 	case 'E':		// Encrypted host (ATDE hostname)
 		m.log.Print("Opening SSH connection to: ", clean_to)
 		host, user, pw, e := splitATDE(clean_to)
@@ -106,7 +106,7 @@ func (m *Modem) dial(to string) error {
 			conn = nil
 			err = e
 		} else {
-			conn, err = m.dialSSH(host, user, pw)
+			conn, err = dialSSH(host, m.log, user, pw)
 		}
 	case 'T', 'P':		// Fake number from address book (ATDT 5551212)
 		m.log.Print("Dialing fake number: ", clean_to)
