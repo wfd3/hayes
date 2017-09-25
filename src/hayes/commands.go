@@ -105,6 +105,18 @@ func (m *Modem) amperV() error {
 // Only support &V and &C for now
 func (m *Modem) ampersand(cmd string) error {
 
+	m.log.Print(cmd)
+	if cmd[:2] == "&Z" {
+		var s string
+		var i int
+		_ , err := fmt.Sscanf(cmd, "&Z%d=%s", &i, &s)
+		if err != nil {
+			m.log.Print(err)
+			return err
+		}
+		return m.phonebook.storeNumber(s, i)
+	}
+
 	switch cmd {
 	case "&C0":
 		m.dcdControl = false
@@ -229,17 +241,24 @@ func parse(cmd string, opts string) (string, int, error) {
 	return "", 0, fmt.Errorf("Bad command: %s", cmd)
 }
 
-func (m *Modem) parseAmpersand(cmdstring string) (string, int, error) {
+func (m *Modem) parseAmpersand(cmdstr string) (string, int, error) {
 	var opts string
 
-	cmd := strings.ToUpper(cmdstring)
+	cmd := strings.ToUpper(cmdstr)
 	switch cmd[:2] {
 	case "&V":
 		opts = "0"
 	case "&C":
 		opts = "01"
 	case "&Z":
-		//todo
+		var idx int
+		var str string
+		if _, err := fmt.Sscanf(cmdstr, "&Z%d=%s", &idx, &str);
+		err != nil {
+			return "", 0, err
+		}
+		s := fmt.Sprintf("&Z%d=%s", idx, str)
+		return s, len(s), nil
 	default:
 		m.log.Printf("Unknown command: %s", cmd)
 		return "", 0, ERROR
@@ -249,8 +268,6 @@ func (m *Modem) parseAmpersand(cmdstring string) (string, int, error) {
 	s = "&" + s
 	i++
 	return s, i, err
-
-
 }
 
 // +++ 

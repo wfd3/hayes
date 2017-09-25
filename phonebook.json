@@ -16,7 +16,7 @@
 	"Password": "ks120872"
     },
     {
-	"Stored": -1,
+	"Stored": 3,
 	"Phone": "8586913",
 	"Host": "blackbox",
 	"Protocol": "telnet",

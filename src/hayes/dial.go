@@ -10,6 +10,13 @@ import (
 
 const __CONNECT_TIMEOUT = __MAX_RINGS * 6 * time.Second
 
+func supportedProtocol(proto string) bool {
+	switch strings.ToUpper(proto) {
+	case "TELNET", "SSH": return true
+	default: return false
+	}
+}
+
 // Using the phonebook mapping, fake out dialing a standard phone number
 // (ATDT5551212)
 func (m *Modem) dialNumber(phone string) (connection, error) {
@@ -20,15 +27,17 @@ func (m *Modem) dialNumber(phone string) (connection, error) {
 	}
 
 	m.log.Printf("Dialing address book entry: %+v", host)
-	
-	switch strings.ToUpper(host.Protocol) {
-	case "SSH":
-		return m.dialSSH(host.Host, host.Username, host.Password)
-	case "TELNET":
-		return m.dialTelnet(host.Host)
-	}
 
-	m.log.Printf("Protocol '%s' not supported", host.Protocol)
+	if !supportedProtocol(host.protocol) {
+		return nil, fmt.Errorf("Unsupported protocol '%s'", host.protocol)
+	}
+	
+	switch strings.ToUpper(host.protocol) {
+	case "SSH":
+		return m.dialSSH(host.host, host.username, host.password)
+	case "TELNET":
+		return m.dialTelnet(host.host)
+	}
 	return nil, fmt.Errorf("Unknown protocol")
 }
 
@@ -42,19 +51,19 @@ func (m *Modem) dialStoredNumber(idxstr string) (connection, error) {
 
 	phone, err := m.phonebook.LookupStoredNumber(index)
 	if err != nil {
-		m.log.Print("Stored number not found")
-		return nil, err
+		m.log.Print("Error: ", err)
+		return nil, ERROR // We want ATDS to return ERROR.
 	}
 	m.log.Print("-- phone number ", phone)
 	return m.dialNumber(phone)
 }
 
+// Returns host|username|password
 func splitATDE(cmd string) (string, string, string, error) {
 	s := strings.Split(cmd, "|")
 	if len(s) != 3 {
 		return "", "", "", fmt.Errorf("Malformated ATDE command")
 	}
-	fmt.Println("%+v\n", s)
 	return s[0], s[1], s[2], nil
 }
 
@@ -103,24 +112,20 @@ func (m *Modem) dial(to string) error {
 		m.log.Print("Dialing fake number: ", clean_to)
 		conn, err = m.dialNumber(clean_to)
 	case 'S':		// Stored number (ATDS3)
-		m.log.Print("Dialing stored number: ", clean_to)
-		switch clean_to {
-		case "0", "1", "2", "3":
-			conn, err = m.dialStoredNumber(clean_to)
-		default:
-			err = ERROR
-		}
+		conn, err = m.dialStoredNumber(clean_to[1:])
 	default:
 		m.log.Printf("Dial mode '%c' not supported\n", cmd)
 		m.goOnHook()
-		err = ERROR
+		err = fmt.Errorf("Dial mode '%c' not supported", cmd)
 	}
 
 	// if we're connected, setup the connected state in the modem,
 	// otherwise return a BUSY or NO_ANSWER result code.
 	if err != nil {
 		m.goOnHook()
-		m.log.Print(err)
+		if err == ERROR {
+			return ERROR
+		}
 		if err, ok := err.(net.Error); ok && err.Timeout() {
 			return NO_ANSWER
 		}

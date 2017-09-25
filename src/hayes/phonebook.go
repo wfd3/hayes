@@ -7,8 +7,7 @@ import (
 	"fmt"
 )
 
-type Phonebook []pb_host
-type pb_host struct {
+type jsonPhonebook []struct {
 	Stored   int    `json:"Stored"`
 	Phone    string `json:"Phone"`
 	Host     string `json:"Host"`
@@ -16,8 +15,38 @@ type pb_host struct {
 	Username string `json:"Username"`
 	Password string `json:"Password"`
 }
+type Phonebook map[int]pb_host
+type pb_host struct {
+	phone    string 
+	host     string 
+	protocol string 
+	username string 
+	password string 
+}	
 
-func isValidPhoneNumber(n string) error {
+func LoadPhoneBook() (*Phonebook, error) {
+	var pb Phonebook
+	var jpb jsonPhonebook
+
+	b, err := ioutil.ReadFile(*_flags_phoneBook)
+	if err != nil {
+		return nil, fmt.Errorf("Phone book file flag not set (%s)", err)
+	}
+
+	if err = json.Unmarshal(b, &jpb); err != nil {
+		return nil, err
+	}
+
+	// Covert the json parsed array into a map
+	pb = make(Phonebook)
+	for i, _ := range jpb {
+		pb[jpb[i].Stored] = pb_host{jpb[i].Phone, jpb[i].Host,
+			jpb[i].Protocol, jpb[i].Username, jpb[i].Password}
+	}
+	return &pb, nil
+}
+
+func isValidPhoneNumber(n string) bool {
 	// 0-9, A, B, C, D, #, * are valid Hayes phone number 'digits
 	check := func(r rune) rune {
 		switch r {
@@ -29,9 +58,9 @@ func isValidPhoneNumber(n string) error {
 	};
 	m := strings.Map(check, n)
 	if m != n {
-		return fmt.Errorf("'%s' is not a valid phone number", n)
+		return false
 	}
-	return nil
+	return true
 }
 
 func sanitizeNumber(n string) (string, error) {
@@ -42,50 +71,33 @@ func sanitizeNumber(n string) (string, error) {
 		default: return r
 		}
 	};
-	if err := isValidPhoneNumber(n); err != nil {
-		return "", err;
+	if !isValidPhoneNumber(n) {
+		return "", fmt.Errorf("Invalid phone number '%s'", n)
 	}
 	return strings.Map(check, n), nil
 }
 
-func (a Phonebook) String() string {
-
-	if len(a) == 0 {
+func (p Phonebook) String() string {
+	if len(p) == 0 {
 		return "Phone Book is empty"
 	}
 	s := "Phone Book:\n"
-	for _, h := range a {
-		s += fmt.Sprintf(" -- %+v\n", h)
+	for i := range p {
+		s += fmt.Sprintf(" -- %d: %+v\n", i, p[i])
 	}
 	return s
 }
 
-func LoadPhoneBook() (*Phonebook, error) {
-	var ab Phonebook
-
-	b, err := ioutil.ReadFile(*_flags_phoneBook)
-	if err != nil {
-		return nil, fmt.Errorf("Phone book file flag not set (%s)", err)
-	}
-
-	if err = json.Unmarshal(b, &ab); err != nil {
-		return nil, err
-	}
-
-	return &ab, nil
-}
-
-func (a Phonebook) Lookup(number string) (*pb_host, error) {
-	err := isValidPhoneNumber(number)
-	if err != nil {
-		return nil, err
+func (p Phonebook) Lookup(number string) (*pb_host, error) {
+	if !isValidPhoneNumber(number) {
+		return nil, fmt.Errorf("Invalid phone number '%s'", number)
 	}
 	sanitized_index, err := sanitizeNumber(number)
 	if err != nil {
 		return nil, err
 	}
-	for _, h := range a {
-		sanitized_n, _ := sanitizeNumber(h.Phone)
+	for _, h := range p {
+		sanitized_n, _ := sanitizeNumber(h.phone)
 		if sanitized_index == sanitized_n {
 			return &h, nil
 		}
@@ -94,16 +106,50 @@ func (a Phonebook) Lookup(number string) (*pb_host, error) {
 	return nil, err
 }
 
-func (a Phonebook) LookupStoredNumber(n int) (string, error) {
-	for _, h := range a {
-		if h.Stored == n {
-			return h.Phone, OK
-		}
+func (p Phonebook) LookupStoredNumber(n int) (string, error) {
+	if n > len(p) {
+		return "", fmt.Errorf("No stored number at entry %d", n)
 	}
-	return "", fmt.Errorf("No stored number at entry %d", n)
+	if n > 2 {
+		return "", fmt.Errorf("ATDS=n, n=0, 1, 2")
+	}
+	return p[n].phone, nil
 }
 
-func (a Phonebook) storeNumber(phone string, pos int) error {
-	// This can't be done in this implemenetation.  Return ERROR always.
-	return fmt.Errorf("Storing numbers not yet implemented")
+// Returns phone|host|protocol|username|password
+func splitAmperZ(cmd string) (string, string, string, string, string, error) {
+	s := strings.Split(cmd, "|")
+	if len(s) != 5 {
+		return "", "", "", "", "", fmt.Errorf("Malformated AT&Z command")
+	}
+	return s[0], s[1], s[2], s[3], s[4], nil
+}
+
+func (p Phonebook) storeNumber(phone string, pos int) error {
+
+	fmt.Printf("storeNumber: %s at %d\n", phone, pos)
+	phone, host, proto, username, pw, err := splitAmperZ(phone)
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+
+	if !supportedProtocol(proto) {
+		return fmt.Errorf("Unsupported protocol '%s'", proto)
+	}
+	if !isValidPhoneNumber(phone) {
+		return fmt.Errorf("Invalid phone number '%s'", phone)
+	}
+
+	if pb, err := p.Lookup(phone); err == nil {
+		// TODO: check to see if p[pos] is this number
+		inbook, _ := sanitizeNumber(pb.phone)
+		passed, _ := sanitizeNumber(phone)
+		if inbook == passed {
+			return fmt.Errorf("Number already exisits at anohter positiong in phonebook")
+		}
+	}
+
+	p[pos] = pb_host{host, phone, proto, username, pw}
+	return nil
 }
