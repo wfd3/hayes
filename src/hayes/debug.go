@@ -117,6 +117,8 @@ func (m *Modem) debug(cmd string) error {
 			m.showPins()
 			time.Sleep(500 * time.Millisecond)
 		}
+	case 4:
+		m.phonebook.Write()
 	case 8:		// Toggle CD pin val times
 		for i := 0; i < val; i++ {
 			m.serial.Println("Toggling CD up")

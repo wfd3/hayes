@@ -53,7 +53,8 @@ func (m *Modem) reset() error {
 	m.dcdControl = false
 	m.resetRegs()
 	m.resetTimer()
-	m.phonebook, err = LoadPhoneBook()
+	m.phonebook = NewPhonebook(*_flags_phoneBook, m.log)
+	err = m.phonebook.Load()
 	if err != nil {
 		m.log.Print(err)
 	}
@@ -114,7 +115,10 @@ func (m *Modem) ampersand(cmd string) error {
 			m.log.Print(err)
 			return err
 		}
-		return m.phonebook.storeNumber(s, i)
+		if s[0] == 'D' || s[0] == 'd' { // Extension
+			return m.phonebook.Delete(i)
+		}
+		return m.phonebook.Add(i, s)
 	}
 
 	switch cmd {
@@ -244,8 +248,7 @@ func parse(cmd string, opts string) (string, int, error) {
 func (m *Modem) parseAmpersand(cmdstr string) (string, int, error) {
 	var opts string
 
-	cmd := strings.ToUpper(cmdstr)
-	switch cmd[:2] {
+	switch strings.ToUpper(cmdstr[:2]) {
 	case "&V":
 		opts = "0"
 	case "&C":
@@ -253,18 +256,27 @@ func (m *Modem) parseAmpersand(cmdstr string) (string, int, error) {
 	case "&Z":
 		var idx int
 		var str string
-		if _, err := fmt.Sscanf(cmdstr, "&Z%d=%s", &idx, &str);
-		err != nil {
+		var err error
+		
+		switch cmdstr[1] {
+		case 'Z': _, err = fmt.Sscanf(cmdstr, "&Z%d=%s", &idx, &str)
+		case 'z': _, err = fmt.Sscanf(cmdstr, "&z%d=%s", &idx, &str)
+		default: err = fmt.Errorf("Badly formated &Z command: ", cmdstr)
+		}
+
+		if err != nil {
+			m.log.Print("ERROR: ", err)
 			return "", 0, err
 		}
 		s := fmt.Sprintf("&Z%d=%s", idx, str)
 		return s, len(s), nil
+
 	default:
-		m.log.Printf("Unknown command: %s", cmd)
+		m.log.Printf("Unknown &cmd: %s", cmdstr)
 		return "", 0, ERROR
 	}
 	
-	s, i, err := parse(cmd[1:], opts)
+	s, i, err := parse(cmdstr[1:], opts)
 	s = "&" + s
 	i++
 	return s, i, err
@@ -290,24 +302,24 @@ func (m *Modem) command(cmdstring string) {
 	// in the extended dial command (ATDE, specifically).
 
 
-	m.log.Print("command: ", cmdstring)
-	
-	if len(cmdstring) < 2  {
-		m.log.Print("Cmd too short")
-		m.prstatus(ERROR)
-		return
-	}
-
 	if strings.ToUpper(cmdstring) == "AT" {
 		m.prstatus(OK)
 		return
 	}
 	
-	if strings.ToUpper(cmdstring[:2]) != "AT" {
-		m.log.Print("Malformed command")
+	if len(cmdstring) < 2  {
+		m.log.Print("Cmd too short: ", cmdstring)
 		m.prstatus(ERROR)
 		return
 	}
+
+	if strings.ToUpper(cmdstring[:2]) != "AT" {
+		m.log.Print("Malformed command: ", cmdstring)
+		m.prstatus(ERROR)
+		return
+	}
+
+	m.log.Print("command: ", cmdstring)
 
 	cmd := cmdstring[2:] 		// Skip the 'AT'
 	c := 0
