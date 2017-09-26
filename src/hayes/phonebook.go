@@ -9,6 +9,7 @@ import (
 	"log"
 )
 
+// JSON structure (what we read and write to disk)
 type jsonPhonebook []jsonPhonebookEntry
 type jsonPhonebookEntry struct {
 	Stored   int    `json:"Stored"`
@@ -19,6 +20,7 @@ type jsonPhonebookEntry struct {
 	Password string `json:"Password"`
 }
 
+// Internal structure
 type Phonebook struct {
 	entries map[int]pb_host
 	filename string
@@ -87,6 +89,19 @@ func (p *Phonebook) Write() error {
 		return err
 	}
 	err = ioutil.WriteFile(p.filename, b, 0644)
+	if err != nil {
+		p.log.Print(err)
+	}
+	return err
+}
+func (p *Phonebook) Write2() error {
+
+	b, err := json.MarshalIndent(p, "", "\t")
+	if err != nil {
+		p.log.Print(err)
+		return err
+	}
+	err = ioutil.WriteFile("newnew", b, 0644)
 	if err != nil {
 		p.log.Print(err)
 	}
