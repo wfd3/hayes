@@ -40,14 +40,10 @@ type serialPort struct {
 	log *log.Logger
 }
 
-func setupSerialPort(regs *Registers, log *log.Logger) (*serialPort) {
+func setupSerialPort(port string, regs *Registers, log *log.Logger) (*serialPort) {
 	var s serialPort
 
-	if *_flags_serialPort == "" {
-		s.console = true
-	} else {
-		s.console = false
-	}
+	s.console = port == ""
 	s.regs = regs
 	s.log = log
 
@@ -56,7 +52,7 @@ func setupSerialPort(regs *Registers, log *log.Logger) (*serialPort) {
 		return &s
 	}
 
-	c := &serial.Config{Name: *_flags_serialPort, Baud: 115200}
+	c := &serial.Config{Name: port, Baud: 115200}
 	p, err := serial.OpenPort(c)
         if err != nil {
                 s.log.Fatal(err)
@@ -75,6 +71,7 @@ func (s *serialPort) Read(p []byte) (int, error) {
 		}
 		return 1, nil
 	}
+
 	b := make([]byte, 1)
 	i, err := s.port.Read(b)
 	return i, err
