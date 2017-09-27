@@ -1,35 +1,30 @@
-[
-    {
-	"Stored": 0,
-	"Phone": "968-2612",
-	"Host": "macallan:30000",
-	"Protocol": "telnet",
-	"Username": "",
-	"Password": ""
-    },
-    {
-	"Stored": 1,
-	"Phone": "271-8090",
-	"Host": "localhost:22",
-	"Protocol": "ssh",
-	"Username": "foo",
-	"Password": "barbar"
-    },
-    {
-	"Stored": 3,
-	"Phone": "8586913",
-	"Host": "blackbox",
-	"Protocol": "telnet",
-	"Username": "",
-	"Password": ""
-    },
-    {
-	"Stored": 2,
-	"Phone": "badnum",
-	"Host": "badnum",
-	"Protocol": "telnet",
-	"Username": "",
-	"Password": ""
-    }
-]
-
+{
+	"0": {
+		"Phone": "968-2612",
+		"Host": "macallan:30000",
+		"Protocol": "telnet",
+		"Username": "",
+		"Password": ""
+	},
+	"1": {
+		"Phone": "271-8090",
+		"Host": "localhost:22",
+		"Protocol": "ssh",
+		"Username": "foo",
+		"Password": "barbar"
+	},
+	"2": {
+		"Phone": "badnum",
+		"Host": "badnum",
+		"Protocol": "telnet",
+		"Username": "",
+		"Password": ""
+	},
+	"3": {
+		"Phone": "8586913",
+		"Host": "blackbox",
+		"Protocol": "telnet",
+		"Username": "",
+		"Password": ""
+	}
+}

@@ -9,29 +9,17 @@ import (
 	"log"
 )
 
-// JSON structure (what we read and write to disk)
-type jsonPhonebook []jsonPhonebookEntry
-type jsonPhonebookEntry struct {
-	Stored   int    `json:"Stored"`
-	Phone    string `json:"Phone"`
-	Host     string `json:"Host"`
-	Protocol string `json:"Protocol"`
-	Username string `json:"Username"`
-	Password string `json:"Password"`
-}
-
-// Internal structure
 type Phonebook struct {
 	entries map[int]pb_host
 	filename string
 	log *log.Logger
 }
 type pb_host struct {
-	phone    string 
-	host     string 
-	protocol string 
-	username string 
-	password string 
+	Phone    string `json:"Phone"` 
+	Host     string `json:"Host"` 
+	Protocol string `json:"Protocol"`
+	Username string `json:"Username"`
+	Password string `json:"Password"`
 }
 
 func NewPhonebook(filename string, log *log.Logger) *Phonebook {
@@ -42,8 +30,6 @@ func NewPhonebook(filename string, log *log.Logger) *Phonebook {
 }
 
 func (p *Phonebook) Load() error {
-	var jpb jsonPhonebook
-
 	b, err := ioutil.ReadFile(p.filename)
 	if err != nil {
 		e := fmt.Errorf("Can't read phonebook file %s: %s",
@@ -52,51 +38,16 @@ func (p *Phonebook) Load() error {
 		return e
 	}
 
-	if err = json.Unmarshal(b, &jpb); err != nil {
+	if err = json.Unmarshal(b, &p.entries); err != nil {
 		p.log.Print(err)
 		return err
 	}
 
-	// Covert the json parsed array into a map
-	p.entries = make(map[int]pb_host)
-	for i, _ := range jpb {
-		p.entries[jpb[i].Stored] = pb_host{jpb[i].Phone, jpb[i].Host,
-			jpb[i].Protocol, jpb[i].Username, jpb[i].Password}
-	}
 	return nil
 }
 
 func (p *Phonebook) Write() error {
-	var j jsonPhonebook
-	var jentry jsonPhonebookEntry
-	var keys []int	
-
-	for k := range p.entries {
-		keys = append(keys, k)
-	}
-	sort.Ints(keys)
-
-	for _, i := range keys {
-		e := p.entries[i]
-		jentry = jsonPhonebookEntry{i, e.phone, e.host, e.protocol,
-			e.username, e.password}
-		j = append(j, jentry)
-	}
-
-	b, err := json.MarshalIndent(j, "", "\t")
-	if err != nil {
-		p.log.Print(err)
-		return err
-	}
-	err = ioutil.WriteFile(p.filename, b, 0644)
-	if err != nil {
-		p.log.Print(err)
-	}
-	return err
-}
-func (p *Phonebook) Write2() error {
-
-	b, err := json.MarshalIndent(p, "", "\t")
+	b, err := json.MarshalIndent(p.entries, "", "\t")
 	if err != nil {
 		p.log.Print(err)
 		return err
@@ -158,22 +109,23 @@ func sanitizeNumber(n string) (string, error) {
 	return strings.Map(check, n), nil
 }
 
-func (p *Phonebook) Lookup(number string) (*pb_host, error) {
+func (p *Phonebook) Lookup(number string) (string, string, string, string, error) {
 	if !isValidPhoneNumber(number) {
-		return nil, fmt.Errorf("Invalid phone number '%s'", number)
+		return "", "", "", "",
+		fmt.Errorf("Invalid phone number '%s'", number)
 	}
 	sanitized_index, err := sanitizeNumber(number)
 	if err != nil {
-		return nil, err
+		return "", "", "", "", err
 	}
 	for _, h := range p.entries {
-		sanitized_n, _ := sanitizeNumber(h.phone)
+		sanitized_n, _ := sanitizeNumber(h.Phone)
 		if sanitized_index == sanitized_n {
-			return &h, nil
+			return h.Host, h.Protocol, h.Username, h.Password, nil
 		}
 	}
 	err = fmt.Errorf("Number '%s' not in phone book", number)
-	return nil, err
+	return "", "", "", "", err
 }
 
 func (p *Phonebook) LookupStoredNumber(n int) (string, error) {
@@ -181,7 +133,7 @@ func (p *Phonebook) LookupStoredNumber(n int) (string, error) {
 	if !ok {
 		return "", fmt.Errorf("No entry at position %d", n)
 	}
-	return pb.phone, nil
+	return pb.Phone, nil
 }
 
 // Returns phone|host|protocol|username|password
@@ -207,18 +159,15 @@ func (p *Phonebook) Add(pos int, phone string) error {
 	}
 
 	passed, _ := sanitizeNumber(phone)
-	inbook, _ := sanitizeNumber(p.entries[pos].phone)
+	inbook, _ := sanitizeNumber(p.entries[pos].Phone)
 	if inbook == passed {
 		return fmt.Errorf("Number alreasy exists at position %d in ",
 			"phonebook", pos)
 	}
 	
-	if pb, err := p.Lookup(phone); err == nil {
-		inbook, _ = sanitizeNumber(pb.phone)
-		if inbook == passed {
-			return fmt.Errorf("Number already exisits at another ",
-				"position in phonebook")
-		}
+	if _, _, _, _, err = p.Lookup(phone); err == nil {
+		return fmt.Errorf("Number already exisits at another ",
+			"position in phonebook")
 	}
 
 	p.entries[pos] = pb_host{host, phone, proto, username, pw}

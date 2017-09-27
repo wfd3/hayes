@@ -21,22 +21,22 @@ func supportedProtocol(proto string) bool {
 // (ATDT5551212)
 func (m *Modem) dialNumber(phone string) (connection, error) {
 
-	host, err := m.phonebook.Lookup(phone)
+	host, protocol, username, password, err := m.phonebook.Lookup(phone)
 	if err != nil {
 		return nil, err
 	}
 
 	m.log.Printf("Dialing address book entry: %+v", host)
 
-	if !supportedProtocol(host.protocol) {
-		return nil, fmt.Errorf("Unsupported protocol '%s'", host.protocol)
+	if !supportedProtocol(protocol) {
+		return nil, fmt.Errorf("Unsupported protocol '%s'", protocol)
 	}
 	
-	switch strings.ToUpper(host.protocol) {
+	switch strings.ToUpper(protocol) {
 	case "SSH":
-		return dialSSH(host.host, m.log, host.username, host.password)
+		return dialSSH(host, m.log, username, password)
 	case "TELNET":
-		return dialTelnet(host.host, m.log)
+		return dialTelnet(host, m.log)
 	}
 	return nil, fmt.Errorf("Unknown protocol")
 }
