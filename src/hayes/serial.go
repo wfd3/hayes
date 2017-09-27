@@ -122,10 +122,16 @@ func (s *serialPort) Printf(format string, a ...interface{}) error {
 }
 
 func (s *serialPort) Print(a ...interface{}) error {
+	if a == nil {
+		return nil
+	}
 	return s.Printf("%s", a...)
 }
 
 func (s *serialPort) Println(a ...interface{}) error {
+	if a == nil {
+		return s.Printf("\n")
+	}
 	return s.Printf("%s\n", a...)
 }
 
@@ -206,9 +212,13 @@ func (m *Modem) readSerial() {
 			// s as a command.
 
 			// 'A/' command, immediately exec.
-			if (s == "A" || s == "a") && c == '/' && m.lastcmd != "" {
+			if (s == "A" || s == "a") && c == '/' {
 				m.serial.Println()
-				m.command(m.lastcmd)
+				if m.lastcmd == "" {
+					m.prstatus(ERROR)
+				} else {
+					m.command(m.lastcmd)
+				}
 				s = ""
 			} else if c == regs.Read(REG_LF_CH) && s != "" {
 				m.command(s)

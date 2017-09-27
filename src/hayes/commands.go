@@ -303,6 +303,7 @@ func (m *Modem) command(cmdstring string) {
 
 
 	if strings.ToUpper(cmdstring) == "AT" {
+		m.lastcmd = "AT"
 		m.prstatus(OK)
 		return
 	}
