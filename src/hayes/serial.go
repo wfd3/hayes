@@ -52,12 +52,12 @@ func setupSerialPort(port string, regs *Registers, log *log.Logger) (*serialPort
 		return &s
 	}
 
+	s.log.Printf("Using serial port %s", *_flags_serialPort)
 	c := &serial.Config{Name: port, Baud: 115200}
 	p, err := serial.OpenPort(c)
         if err != nil {
                 s.log.Fatal(err)
         }
-	s.log.Printf("Using %s", *_flags_serialPort)
 	s.port = p
 	return &s
 }
@@ -65,7 +65,7 @@ func setupSerialPort(port string, regs *Registers, log *log.Logger) (*serialPort
 func (s *serialPort) Read(p []byte) (int, error) {
 	if s.console {
 		p[0] = byte(C.getch())
-		// mapping 
+		// mappings
 		if p[0] == 127 {
 			p[0] = s.regs.Read(REG_BS_CH)
 		}
@@ -79,8 +79,8 @@ func (s *serialPort) Read(p []byte) (int, error) {
 
 func (s *serialPort) Write(p []byte) (int, error) {
 	if s.console {
-		// If we're writing to stdout (console == true), some static
-		// key mapping is needed 
+		// If we're writing to stdout, some static key mapping
+		// is needed
 
 		// Ignore anything above ASCII 127 or the ASCII escape
 		if p[0] > 127 || p[0] == 27 { 
@@ -132,123 +132,14 @@ func (s *serialPort) Println(a ...interface{}) error {
 	return s.Printf("%s\n", a...)
 }
 
-func (m *Modem) getChars() {
+func (s *serialPort) getChars(c chan byte) {
 
 	in := make([]byte, 1)
 	for {
-		if _, err := m.serial.Read(in); err != nil {
-			m.log.Print("Read(): ", err)
+		if _, err := s.Read(in); err != nil {
+			s.log.Print("Read(): ", err)
 		}
 
-		charchannel <- in[0]
-	}
-	
-}
-
-var charchannel chan byte
-
-// Consume bytes from the serial port and process or send to
-// remote as per m.mode
-func (m *Modem) readSerial() {
-	var c byte
-	var s string
-	var lastThree [3]byte
-	var idx int
-	var regs *Registers
-	var countAtTick uint64
-	var countAtLastTick uint64
-	var waitForOneTick bool
-
-	charchannel = make(chan byte, 1)
-	go m.getChars()
-
-	countAtTick = 0
-	for {
-		select {
-		case <- m.timer.C:
-			if m.mode == COMMANDMODE { // Skip this if in COMMAND mode
-				continue
-			}
-
-			// Look for the command escape sequence
-			// (see http://www.messagestick.net/modem/Hayes_Ch1-4.html)
-			// Basically:
-			// 1s of silence, "+++", 1s of silence.
-			// So, count the incoming chars between ticks, saving
-			// the previous tick's count.  If you see
-			// countAtTick == 3 && CountAtLastTick == 0 && the last
-			// three characters are "+++", wait one more tick.  If
-			// countAtTick == 0, the guard sequence was detected.
-			
-			if countAtTick == 3 && countAtLastTick == 0 &&
-				lastThree == escSequence { 
-				waitForOneTick = true
-			} else if waitForOneTick && countAtTick == 0 {
-				m.mode = COMMANDMODE
-				m.prstatus(OK) // signal that we're in command mode
-			} else {
-				waitForOneTick = false
-			}
-			countAtLastTick = countAtTick
-			countAtTick = 0
-			continue
-
-		case c = <- charchannel:
-			countAtTick++
-
-		}
-
-		switch m.mode {
-		case COMMANDMODE:
-			regs = m.registers // Reload regs in case we reset the modem
-			if m.echoInCmdMode { // Echo back to the DTE
-				m.serial.WriteByte(c)
-			}
-
-			// Accumulate chars in s until we read a CR, then process
-			// s as a command.
-
-			// 'A/' command, immediately exec.
-			if (s == "A" || s == "a") && c == '/' {
-				m.serial.Println()
-				if m.lastcmd == "" {
-					m.prstatus(ERROR)
-				} else {
-					m.command(m.lastcmd)
-				}
-				s = ""
-			} else if c == regs.Read(REG_LF_CH) && s != "" {
-				m.command(s)
-				s = ""
-			} else if c == regs.Read(REG_BS_CH)  && len(s) > 0 {
-				s = s[0:len(s) - 1]
-			} else if c == regs.Read(REG_LF_CH)  ||
-				c == regs.Read(REG_BS_CH) && len(s) == 0 {
-				// ignore naked CR's & BS if s is already empty
-			} else {
-				s += string(c)
-			}
-
-		case DATAMODE:
-			// Look for the command escape sequence
-			if c != m.registers.Read(REG_ESC_CH) {
-				lastThree = [3]byte{' ', ' ', ' '}
-				idx = 0
-			} else {
-				lastThree[idx] = c
-				idx = (idx + 1) % 3
-			}
-			
-			// Send to remote
-			// TODO: make sure the LED says on long enough
-			if m.offHook() && m.conn != nil {
-				m.led_SD_on()
-				out := make([]byte, 1)
-				out[0] = c
-				m.conn.Write(out)
-				m.led_SD_off()	
-			}
-		}
+		c <- in[0]
 	}
 }
-

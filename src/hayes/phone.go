@@ -2,7 +2,6 @@ package hayes
 
 // Simulate the phone line
 
-
 // Is the phone on or off hook?
 const (
 	ONHOOK = iota 

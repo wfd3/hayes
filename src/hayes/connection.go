@@ -153,7 +153,7 @@ func (m *Modem) handleModem() {
 	var conn connection
 	
 	go acceptTelnet(callChannel, m.checkBusy, m.log)
-	go acceptSSH(callChannel, m.checkBusy, m.log)
+	go acceptSSH(callChannel, *_flags_privateKey, m.checkBusy, m.log)
 	go m.clearRingCounter()
 
 	// If we have an incoming call, answer it.  If we have an outgoing call or
