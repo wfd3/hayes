@@ -60,7 +60,7 @@ func acceptSSH(channel chan connection, private_key string, busy busyFunc,
 	}
 
 	// You can generate a keypair with 'ssh-keygen -t rsa'
-	// TODO: cmdline option!
+	log.Printf("Loading SSH private key from %s", private_key)
 	privateBytes, err := ioutil.ReadFile(private_key)
 	if err != nil {
 		log.Fatalf("Fatal Error: failed to load private key (%s): %s\n",

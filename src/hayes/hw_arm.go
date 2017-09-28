@@ -17,7 +17,7 @@ const (
 	HS_LED  = 2		// Connected at High speed (m.speed > 14400)
 	AA_LED  = 3		// Auto Answer configured (m.r[0] > 0)
 	TR_LED  = 9		// Terminal Ready (turn on if read(DTR) is high)
-	OH_LED  = 27		// Is the modem off hook (m.offhook == true)
+	OH_LED  = 27		// Is the modem off hook (m.offHook() == true)
 
 	// Receive and Send Data LEDs.  Manually controlled
 	RD_LED  = 10		// Receive Data
@@ -47,59 +47,62 @@ func (m *Modem) setupPins() {
 		m.log.Fatal("Fatal Error: ", err)
 	}
 
-	m.leds = make(Pins)
-	m.pins = make(Pins)
+	leds := make(Pins)
+	pins := make(Pins)
 
 	// LEDs
-	m.leds[HS_LED] = rpio.Pin(HS_LED)
-	m.leds[HS_LED].Output()
+	leds[HS_LED] = rpio.Pin(HS_LED)
+	leds[HS_LED].Output()
 	
-	m.leds[AA_LED] = rpio.Pin(AA_LED)
-	m.leds[AA_LED].Output()
+	leds[AA_LED] = rpio.Pin(AA_LED)
+	leds[AA_LED].Output()
 	
-	m.leds[RI_LED] = rpio.Pin(RI_LED)
-	m.leds[RI_LED].Output()
+	leds[RI_LED] = rpio.Pin(RI_LED)
+	leds[RI_LED].Output()
 	
-	m.leds[MR_LED] = rpio.Pin(MR_LED)
-	m.leds[MR_LED].Output()
+	leds[MR_LED] = rpio.Pin(MR_LED)
+	leds[MR_LED].Output()
 	
-	m.leds[TR_LED] = rpio.Pin(TR_LED)
-	m.leds[TR_LED].Output()
+	leds[TR_LED] = rpio.Pin(TR_LED)
+	leds[TR_LED].Output()
 	
-	m.leds[RD_LED] = rpio.Pin(RD_LED)
-	m.leds[RD_LED].Output()
+	leds[RD_LED] = rpio.Pin(RD_LED)
+	leds[RD_LED].Output()
 	
-	m.leds[CS_LED] = rpio.Pin(CS_LED)
-	m.leds[CS_LED].Output()
+	leds[CS_LED] = rpio.Pin(CS_LED)
+	leds[CS_LED].Output()
 
-	m.leds[OH_LED] = rpio.Pin(OH_LED)
-	m.leds[OH_LED].Output()
+	leds[OH_LED] = rpio.Pin(OH_LED)
+	leds[OH_LED].Output()
 
-	m.leds[CD_LED] = rpio.Pin(CD_LED)
-	m.leds[CD_LED].Output()
+	leds[CD_LED] = rpio.Pin(CD_LED)
+	leds[CD_LED].Output()
 	
-	m.leds[SD_LED] = rpio.Pin(SD_LED)
-	m.leds[SD_LED].Output()
+	leds[SD_LED] = rpio.Pin(SD_LED)
+	leds[SD_LED].Output()
 	
 
 	// Pins
-	m.pins[CTS_PIN] = rpio.Pin(CTS_PIN)
-	m.pins[CTS_PIN].Output()
+	pins[CTS_PIN] = rpio.Pin(CTS_PIN)
+	pins[CTS_PIN].Output()
 	
-	m.pins[RI_PIN] = rpio.Pin(RI_PIN)
-	m.pins[RI_PIN].Output()
+	pins[RI_PIN] = rpio.Pin(RI_PIN)
+	pins[RI_PIN].Output()
 	
-	m.pins[CD_PIN] = rpio.Pin(CD_PIN)
-	m.pins[CD_PIN].Output()
+	pins[CD_PIN] = rpio.Pin(CD_PIN)
+	pins[CD_PIN].Output()
 	
-	m.pins[DSR_PIN] = rpio.Pin(DSR_PIN)
-	m.pins[DSR_PIN].Output()
+	pins[DSR_PIN] = rpio.Pin(DSR_PIN)
+	pins[DSR_PIN].Output()
 	
-	m.pins[DTR_PIN] = rpio.Pin(DTR_PIN)
-	m.pins[DTR_PIN].Input()
+	pins[DTR_PIN] = rpio.Pin(DTR_PIN)
+	pins[DTR_PIN].Input()
 	
-	m.pins[RTS_PIN] = rpio.Pin(RTS_PIN)
-	m.pins[RTS_PIN].Input()
+	pins[RTS_PIN] = rpio.Pin(RTS_PIN)
+	pins[RTS_PIN].Input()
+
+	m.leds = leds
+	m.pins = pins
 }
 
 func (m *Modem) clearPins() {

@@ -38,27 +38,32 @@ type serialPort struct {
 	port *serial.Port
 	regs *Registers
 	log *log.Logger
+	channel chan byte
 }
 
-func setupSerialPort(port string, regs *Registers, log *log.Logger) (*serialPort) {
+func setupSerialPort(port string, charchannel chan byte, regs *Registers,
+	log *log.Logger) (*serialPort) {
 	var s serialPort
 
 	s.console = port == ""
 	s.regs = regs
 	s.log = log
+	s.channel = charchannel
 
 	if s.console {
 		s.log.Print("Using stdin/stdout as DTE")
-		return &s
+	} else { 
+
+		s.log.Printf("Using serial port %s", *_flags_serialPort)
+		c := &serial.Config{Name: port, Baud: 115200}
+		p, err := serial.OpenPort(c)
+		if err != nil {
+			s.log.Fatal(err)
+		}
+		s.port = p
 	}
 
-	s.log.Printf("Using serial port %s", *_flags_serialPort)
-	c := &serial.Config{Name: port, Baud: 115200}
-	p, err := serial.OpenPort(c)
-        if err != nil {
-                s.log.Fatal(err)
-        }
-	s.port = p
+	go s.getChars()
 	return &s
 }
 
@@ -132,7 +137,7 @@ func (s *serialPort) Println(a ...interface{}) error {
 	return s.Printf("%s\n", a...)
 }
 
-func (s *serialPort) getChars(c chan byte) {
+func (s *serialPort) getChars() {
 
 	in := make([]byte, 1)
 	for {
@@ -140,6 +145,6 @@ func (s *serialPort) getChars(c chan byte) {
 			s.log.Print("Read(): ", err)
 		}
 
-		c <- in[0]
+		s.channel <- in[0]
 	}
 }

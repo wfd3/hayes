@@ -56,6 +56,7 @@ type Modem struct {
 
 	conn connection
 	serial *serialPort
+	charchannel chan byte
 	pins Pins
 	leds Pins
 	phonebook *Phonebook
@@ -112,6 +113,22 @@ func (m *Modem) handleSignals() {
 	}
 }
 
+// Timer functions
+func (m *Modem) resetTimer() {
+	m.stopTimer()
+	gt := m.registers.Read(REG_ESC_CODE_GUARD_TIME)
+	guardTime := time.Duration(float64(gt) * 0.02) * time.Second
+
+	m.log.Printf("Setting timer for %v", guardTime)
+	m.timer = time.NewTicker(guardTime)
+}
+
+func (m *Modem) stopTimer() {
+	if m.timer != nil {
+		m.timer.Stop()
+	}
+}
+
 // Boot the modem
 func (m *Modem) PowerOn(log *log.Logger) {
 
@@ -123,7 +140,9 @@ func (m *Modem) PowerOn(log *log.Logger) {
 	callChannel = make(chan connection, 1)
 
 	m.reset()	      // Setup modem inital state (or reset initial state)
-	m.serial = setupSerialPort(*_flags_serialPort, m.registers, m.log)
+	m.charchannel = make(chan byte, 1)
+	m.serial = setupSerialPort(*_flags_serialPort, m.charchannel, m.registers,
+		m.log)
 	
 	go m.handleSignals()	// Catch signals in a different thread
 	go m.handlePINs()       // Monitor input pins & internal registers
@@ -152,9 +171,6 @@ func (m *Modem) readSerial() {
 	var countAtTick uint64
 	var countAtLastTick uint64
 	var waitForOneTick bool
-
-	charchannel := make(chan byte, 1)
-	go m.serial.getChars(charchannel)
 
 	countAtTick = 0
 	for {
@@ -187,7 +203,7 @@ func (m *Modem) readSerial() {
 			countAtTick = 0
 			continue
 
-		case c = <- charchannel:
+		case c = <- m.charchannel:
 			countAtTick++
 
 		}
