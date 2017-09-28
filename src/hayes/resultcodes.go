@@ -78,7 +78,7 @@ func (m *Modem) prstatus(e error) {
 	}
 
 	if e == CONNECT && m.connectMsgSpeed {
-		e = speedToResult(m.connect_speed)
+		e = speedToResult(m.connectSpeed)
 	}
 
 	if e == BUSY && !m.busyDetect {

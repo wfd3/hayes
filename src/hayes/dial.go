@@ -77,12 +77,12 @@ func (m *Modem) dial(to string) error {
 
 	cmd := to[1]
 	if cmd == 'L' {
-		return m.dial(m.lastdialed)
+		return m.dial(m.lastDialed)
 	}
 
 	// Now we know the dial command isn't Dial Last (ATDL), save
 	// this number as last dialed
-	m.lastdialed = to
+	m.lastDialed = to
 
 	// Strip out dial modifiers we don't need.
 	r := strings.NewReplacer(

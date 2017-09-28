@@ -32,35 +32,36 @@ var callChannel chan connection
 
 //Basic modem struct
 type Modem struct {
-	mode int
+	// Configuration
 	echoInCmdMode bool
-	speakermode int
-	volume int
+	speakerMode int
+	speakerVolume int
 	verbose bool
 	quiet bool
 	connectMsgSpeed bool
 	busyDetect bool
 	extendedResultCodes bool
-
 	dcdControl bool
+	phonebook *Phonebook
+	registers *Registers
+
+	// State
+	mode int
+	lastCmd string
+	lastDialed string
+	connectSpeed int
 	dcd bool
-
-	lastcmd string
-	lastdialed string
-	connect_speed int
-
-	linebusy bool
-	linebusylock sync.RWMutex
+	lineBusy bool
+	lineBusyLock sync.RWMutex
 	hook int
-	hooklock sync.RWMutex
+	hookLock sync.RWMutex
 
+	// I/O
 	conn connection
 	serial *serialPort
 	charchannel chan byte
 	pins Pins
 	leds Pins
-	phonebook *Phonebook
-	registers *Registers
 	log *log.Logger
 	timer *time.Ticker
 }
@@ -76,7 +77,7 @@ func (m *Modem) handlePINs() {
 			m.led_TR_off()
 		}
 
-		if m.connect_speed > 19200 {
+		if m.connectSpeed > 19200 {
 			m.led_HS_on()
 		} else {
 			m.led_HS_off()
@@ -221,10 +222,10 @@ func (m *Modem) readSerial() {
 			// 'A/' command, immediately exec.
 			if (s == "A" || s == "a") && c == '/' {
 				m.serial.Println()
-				if m.lastcmd == "" {
+				if m.lastCmd == "" {
 					m.prstatus(ERROR)
 				} else {
-					m.command(m.lastcmd)
+					m.command(m.lastCmd)
 				}
 				s = ""
 			} else if c == regs.Read(REG_LF_CH) && s != "" {

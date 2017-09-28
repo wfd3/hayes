@@ -20,7 +20,7 @@ func (m *Modem) answer() error {
 	time.Sleep(delay)
 	m.dcd = true
 	m.mode = DATAMODE
-	m.connect_speed = 38400	// We only go fast...
+	m.connectSpeed = 38400	// We only go fast...
 	return CONNECT
 }
 
@@ -31,33 +31,36 @@ func (m *Modem) reset() error {
 
 	m.log.Print("Resetting modem")
 
+	// Reset state
 	m.goOnHook()
 	m.setLineBusy(false)
 	m.lowerDSR()
 	m.lowerCTS()
 	m.lowerRI()
 	m.stopTimer()
+	m.dcd = false
+	m.lastCmd = ""
+	m.lastDialed = ""
+	m.connectSpeed = 0
 
+	// Reset Config
 	m.echoInCmdMode = true  // Echo local keypresses
 	m.quiet = false		// Modem offers return status
 	m.verbose = true	// Text return codes
-	m.volume = 1		// moderate volume
-	m.speakermode = 1	// on until other modem heard
-	m.lastcmd = ""
-	m.lastdialed = ""
-	m.connect_speed = 0
-	m.connectMsgSpeed = true
+	m.speakerVolume = 1	// moderate volume
+	m.speakerMode = 1	// on until other modem heard
 	m.busyDetect = true
 	m.extendedResultCodes = true
-	m.dcdControl = false
+	m.dcdControl = false	
+	m.connectMsgSpeed = true
 	m.resetRegs()
-	m.resetTimer()
 	m.phonebook = NewPhonebook(*_flags_phoneBook, m.log)
 	err = m.phonebook.Load()
 	if err != nil {
 		m.log.Print(err)
 	}
 
+	m.resetTimer()
 	return err
 }
 
@@ -88,8 +91,8 @@ func (m *Modem) amperV() error {
 	var s string
 	s += "E" + b(m.echoInCmdMode)
 	s += "F1 "		// For Hayes 1200 compatability 
-	s += "L" + i(m.volume)
-	s += "M" + i(m.speakermode)
+	s += "L" + i(m.speakerVolume)
+	s += "M" + i(m.speakerMode)
 	s += "Q" + b(m.quiet)
 	s += "V" + b(m.verbose)
 	s += "W" + b(m.connectMsgSpeed)
@@ -181,16 +184,16 @@ func (m *Modem) processCommands(commands []string) error {
 			}
 		case 'L':
 			switch cmd[1] {
-			case '0': m.volume = 0
-			case '1': m.volume = 1
-			case '2': m.volume = 2
-			case '3': m.volume = 3
+			case '0': m.speakerVolume = 0
+			case '1': m.speakerVolume = 1
+			case '2': m.speakerVolume = 2
+			case '3': m.speakerVolume = 3
 			}
 		case 'M':
 			switch cmd[1] {
-			case '0': m.speakermode = 0
-			case '1': m.speakermode = 1
-			case '2': m.speakermode = 2
+			case '0': m.speakerMode = 0
+			case '1': m.speakerMode = 1
+			case '2': m.speakerMode = 2
 			}
 		case 'O':
 			m.mode = DATAMODE

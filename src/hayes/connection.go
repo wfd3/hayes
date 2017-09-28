@@ -175,7 +175,7 @@ func (m *Modem) handleModem() {
 		// We now have an established connection (either answered or dialed)
 		// so service it.
 		m.conn = conn
-		m.connect_speed = 38400
+		m.connectSpeed = 38400
 		m.mode = conn.Mode()
 		m.dcd = true
 		m.handleConnection()

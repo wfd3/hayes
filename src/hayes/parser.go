@@ -78,7 +78,7 @@ func (m *Modem) command(cmdstring string) {
 
 
 	if strings.ToUpper(cmdstring) == "AT" {
-		m.lastcmd = "AT"
+		m.lastCmd = "AT"
 		m.prstatus(OK)
 		return
 	}
@@ -172,6 +172,6 @@ func (m *Modem) command(cmdstring string) {
 	m.prstatus(status)
 
 	if savecmds && status == OK {
-		m.lastcmd = cmdstring
+		m.lastCmd = cmdstring
 	}
 }

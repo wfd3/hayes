@@ -19,12 +19,12 @@ func (m *Modem) goOnHook() error {
 		m.conn = nil
 	}
 
-	m.hooklock.Lock()
+	m.hookLock.Lock()
 	m.hook = ONHOOK
-	m.hooklock.Unlock()
+	m.hookLock.Unlock()
 
 	m.mode = COMMANDMODE
-	m.connect_speed = 0
+	m.connectSpeed = 0
 	m.setLineBusy(false)
 	m.led_HS_off()
 	m.led_OH_off()
@@ -35,37 +35,37 @@ func (m *Modem) goOnHook() error {
 func (m *Modem) goOffHook() error {
 	m.setLineBusy(true)
 
-	m.hooklock.Lock()
+	m.hookLock.Lock()
 	m.hook = OFFHOOK
-	m.hooklock.Unlock()
+	m.hookLock.Unlock()
 
 	m.led_OH_on()
 	return OK
 }
 
 func (m *Modem) onHook() bool {
-	m.hooklock.RLock()
-	defer m.hooklock.RUnlock()
+	m.hookLock.RLock()
+	defer m.hookLock.RUnlock()
 	return m.hook == ONHOOK
 }
 
 func (m *Modem) offHook() bool {
-	m.hooklock.RLock()
-	defer m.hooklock.RUnlock()
+	m.hookLock.RLock()
+	defer m.hookLock.RUnlock()
 	return m.hook == OFFHOOK
 }
 
 // Is the phone line busy?
 func (m *Modem) getLineBusy() bool {
-	m.linebusylock.RLock()
-	defer m.linebusylock.RUnlock()
-	return m.linebusy
+	m.lineBusyLock.RLock()
+	defer m.lineBusyLock.RUnlock()
+	return m.lineBusy
 }	
 
 func (m *Modem) setLineBusy(b bool) {
-	m.linebusylock.Lock()
-	defer m.linebusylock.Unlock()
-	m.linebusy = b
+	m.lineBusyLock.Lock()
+	defer m.lineBusyLock.Unlock()
+	m.lineBusy = b
 }
 
 // "Busy" signal.
