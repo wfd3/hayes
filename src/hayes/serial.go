@@ -29,10 +29,6 @@ char getch(){
 */
 import "C"
 
-func getByte() byte {
-	return byte(C.getch())
-}
-
 type serialPort struct {
 	console bool
 	port *serial.Port
