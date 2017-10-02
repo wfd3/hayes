@@ -56,16 +56,16 @@ func speedToResult(speed int) error {
 
 func (e *MError) Error() string {
 	if e == nil {
-		return "OK\n"
+		return "OK"
 	}
-	return fmt.Sprintf("%s\n",e.text)
+	return fmt.Sprintf("%s",e.text)
 }
 
 func (e *MError) Code() string {
 	if e == nil {
-		return "0\n"
+		return "0"
 	}
-	return fmt.Sprintf("%d\n", e.code)
+	return fmt.Sprintf("%d", e.code)
 }
 
 // Print command status, subject to quiet mode and verbose mode flags
@@ -99,8 +99,8 @@ func (m *Modem) prstatus(e error) {
 	}
 	
 	if !m.verbose {
-		m.serial.Write([]byte(merr.Code()))
+		m.serial.Println(merr.Code())
 	} else {
-		m.serial.Write([]byte(merr.Error()))
+		m.serial.Println(merr.Error())
 	} 
 }

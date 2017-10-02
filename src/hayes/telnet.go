@@ -42,6 +42,7 @@ func (m telnetReadWriteCloser) Write(p []byte) (int, error) {
 	return m.c.Write(p)
 }
 func (m telnetReadWriteCloser) Close() error {
+	fmt.Println("Closing telnet connection")
 	err := m.c.Close()
 	return err
 }
@@ -61,16 +62,20 @@ func (m telnetReadWriteCloser) SetMode(mode int) {
 	m.mode = mode
 }
 
-func acceptTelnet(channel chan connection, busy busyFunc, log *log.Logger) {
+func acceptTelnet(channel chan connection, busy busyFunc, log *log.Logger,
+	ok chan error) {
 
 	port := ":" + fmt.Sprintf("%d", *_flags_telnetPort)
 	l, err := net.Listen("tcp", port)
 	if err != nil {
-		log.Fatal("Fatal Error: ", err)
+		log.Print("Fatal Error: ", err)
+		ok <- err
+		return
 	}
 	defer l.Close()
 	log.Printf("Listening: telnet tcp/%s", port)
-
+	ok <- nil
+	
 	for {
 		conn, err := l.Accept()
 		if err != nil {

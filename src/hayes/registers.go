@@ -61,7 +61,7 @@ func (r *Registers) Write(regnum, val byte) {
 
 func (r *Registers) Read(regnum byte) byte {
 	if !r.valid(regnum) {
-		panic("Writing to a non-existant register")
+		panic("Reading from a non-existant register")
 	}
 	r.rlock.RLock()
 	defer r.rlock.RUnlock()

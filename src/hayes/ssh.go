@@ -44,7 +44,7 @@ func (m sshAcceptReadWriteCloser) SetMode(mode int) {
 }
 
 func acceptSSH(channel chan connection, private_key string, busy busyFunc,
-	log *log.Logger) {
+	log *log.Logger, ok chan error) {
 
 	// In the latest version of crypto/ssh (after Go 1.3), the SSH
 	// server type has been removed in favour of an SSH connection
@@ -63,13 +63,17 @@ func acceptSSH(channel chan connection, private_key string, busy busyFunc,
 	log.Printf("Loading SSH private key from %s", private_key)
 	privateBytes, err := ioutil.ReadFile(private_key)
 	if err != nil {
-		log.Fatalf("Fatal Error: failed to load private key (%s): %s\n",
+		log.Printf("Fatal Error: failed to load private key (%s): %s\n",
 			private_key, err)
+		ok <- err
+		return
 	}
 
 	private, err := ssh.ParsePrivateKey(privateBytes)
 	if err != nil {
-		log.Fatal("Fatal Error: failed to parse private key: ", err)
+		log.Print("Fatal Error: failed to parse private key: ", err)
+		ok <- err
+		return
 	}
 
 	config.AddHostKey(private)
@@ -78,13 +82,16 @@ func acceptSSH(channel chan connection, private_key string, busy busyFunc,
 	address := "0.0.0.0:" + fmt.Sprintf("%d", *_flags_sshdPort)
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
-		log.Fatal("Fatal Error: ", err)
+		log.Print("Fatal Error: ", err)
+		ok <- err
+		return
 	}
 	log.Printf("Listening: ssh/%s", address)
 
 	// Accept all connections
 	var conn ssh.Channel
 	var newChannel ssh.NewChannel
+	ok <- nil
 	for {
 		tcpConn, err := listener.Accept()
 		if err != nil {

@@ -4,7 +4,6 @@ package hayes
 
 import (
 	"github.com/stianeikeland/go-rpio"
-	"fmt"
 	"strings"
 	"time"
 )
@@ -124,7 +123,7 @@ func (m *Modem) clearPins() {
 	// No need to do RTS and DTR
 }
 
-func (m *Modem) showPins() {
+func (m *Modem) showPins() string {
 	pp := func (n string, pin rpio.Pin) (string) {
 		var s string
 		if pin.Read() == rpio.High {	
@@ -144,9 +143,10 @@ func (m *Modem) showPins() {
 	s += pp("RTS", m.pins[RTS_PIN])
 	s += pp("DTR", m.pins[DTR_PIN])
 	s += "]"
-	m.serial.Println(s)
 
-	s = "LEDs: "
+	s += "\n"
+
+	s += "LEDs: "
 	s += pp("HS", m.leds[HS_LED])
 	s += pp("AA", m.leds[AA_LED])
 	s += pp("RI", m.leds[RI_LED])
@@ -158,7 +158,7 @@ func (m *Modem) showPins() {
 	s += pp("SD", m.leds[SD_LED])
 	s += pp("RD", m.leds[RD_LED])
 	s += "]"
-	m.serial.Println(s)
+	return s
 }
 
 // Led functions

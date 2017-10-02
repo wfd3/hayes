@@ -3,41 +3,60 @@ package hayes
 import (
 	"fmt"
 	"time"
+	"runtime"
 )
 
-
-// Debug function
-func (m *Modem) showState() {
-	m.serial.Printf("Hook     : ")
-	if m.onHook() {
-		m.serial.Println("ON HOOK")
-	} else {
-		m.serial.Println("OFF HOOK")
-	}
-	m.serial.Printf("Echo     : %t\n", m.echoInCmdMode)
-	m.serial.Print( "Mode     : ")
-	if m.mode == COMMANDMODE {
-		m.serial.Println("Command")
-	} else {
-		m.serial.Println("Data")
-	}
-	m.serial.Printf("Quiet    : %t\n", m.quiet)
-	m.serial.Printf("Verbose  : %t\n", m.verbose)
-	m.serial.Printf("Line Busy: %t\n", m.getLineBusy())
-	m.serial.Printf("Speed    : %d\n", m.connectSpeed)
-	m.serial.Printf("Volume   : %d\n", m.speakerVolume)
-	m.serial.Printf("SpkrMode : %d\n", m.speakerMode)
-	m.serial.Printf("Last Cmd : %s\n", m.lastCmd)
-	m.serial.Printf("Last num : %s\n", m.lastDialed)
-	m.serial.Println("Phonebook:")
-	m.serial.Print(m.phonebook)
-	m.serial.Printf("Cur reg  : %d\n", m.registers.ShowCurrent())
-	m.serial.Println("Registers:")
-	m.serial.Println(m.registers)
-	m.serial.Printf("Connection: %v\n", m.conn)
-	m.showPins()
+func (m *Modem) logf(format string, a ...interface{}) {
+	m.log.Printf(format, a...)
+}
+func (m *Modem) pf(format string, a ...interface{}) {
+	m.serial.Printf(format, a...)
 }
 
+type out func(string, ...interface{})
+
+// Debug function
+func (m *Modem) outputState(debugf out)  {
+	
+	debugf("Hook      : ")
+	if m.onHook() {
+		debugf("ON HOOK\n")
+	} else {
+		debugf("OFF HOOK\n")
+	}
+	debugf("Echo      : %t\n", m.echoInCmdMode)
+	debugf( "Mode      : ")
+	if m.mode == COMMANDMODE {
+		debugf("Command\n")
+	} else {
+		debugf("Data\n")
+	}
+	debugf("Quiet     : %t\n", m.quiet)
+	debugf("Verbose   : %t\n", m.verbose)
+	debugf("Line Busy : %t\n", m.getLineBusy())
+	debugf("Speed     : %d\n", m.connectSpeed)
+	debugf("Volume    : %d\n", m.speakerVolume)
+	debugf("SpkrMode  : %d\n", m.speakerMode)
+	debugf("Last Cmd  : %s\n", m.lastCmd)
+	debugf("Last num  : %s\n", m.lastDialed)
+	debugf("Phonebook:\n")
+	debugf("%s\n", m.phonebook.String())
+	debugf("Cur reg   : %d\n", m.registers.ShowCurrent())
+	debugf("Registers:\n")
+	debugf("%s\n", m.registers.String())
+	debugf("Connection: %v\n", m.conn)
+	debugf("%s\n", m.showPins())
+	debugf("GoRoutines: %d\n", runtime.NumGoroutine())
+
+}
+
+func (m *Modem) showState() {
+	m.outputState(m.pf)
+}
+
+func (m *Modem) logState() {
+	m.outputState(m.logf)
+}
 
 // AT*... debug command
 // Given a string that looks like a "*" debug command, parse & normalize it
@@ -90,6 +109,7 @@ func (m *Modem) debug(cmd string) error {
 
 	if cmd == "*" {
 		m.showState()
+		m.logState()
 		return nil
 	}
 

@@ -53,7 +53,7 @@ func (m *Modem) clearPins() {
 	}
 }
 
-func (m *Modem) showPins() {
+func (m *Modem) showPins() string {
 
 	pp := func (n string, p int) (string) {
 		var s string
@@ -96,7 +96,7 @@ func (m *Modem) showPins() {
 	s += pl("CS", CS_LED)
 	s += pl("MR", MR_LED)
 	s += "]"
-	m.serial.Println(s)
+	return s
 }
 
 // LED functions

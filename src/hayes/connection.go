@@ -151,11 +151,25 @@ func (m *Modem) handleConnection() {
 // Accept connection's from dial*() and accept*() functions.
 func (m *Modem) handleModem() {
 	var conn connection
-	
-	go acceptTelnet(callChannel, m.checkBusy, m.log)
-	go acceptSSH(callChannel, *_flags_privateKey, m.checkBusy, m.log)
-	go m.clearRingCounter()
 
+	go m.clearRingCounter()
+	
+	started_ok := make(chan error)
+	go acceptTelnet(callChannel, m.checkBusy, m.log, started_ok)
+	if err := <- started_ok; err != nil {
+		m.log.Printf("Telnet server failed to start: %s", err)
+	} else {
+		m.log.Print("Telnet server started")
+	}
+
+	go acceptSSH(callChannel, *_flags_privateKey, m.checkBusy, m.log,
+		started_ok)
+	if err := <- started_ok; err != nil {
+		m.log.Printf("SSH server failed to start: %s", err)
+	} else {
+		m.log.Print("SSH server started")
+	}
+	
 	// If we have an incoming call, answer it.  If we have an outgoing call or
 	// an answered incoming call, service the connection
 	for {

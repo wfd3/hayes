@@ -70,9 +70,15 @@ type Modem struct {
 // Must be a goroutine
 func (m *Modem) handlePINs() {
 	for {
+
+		// TODO - need to add S-register support for DTR
+		// behavior.  This currently drops connections as soon
+		// as they're made.  Why DTR is down from the DTE is
+		// still a problem.
 		if m.readDTR() {
 			m.led_TR_on()
-		} else { 
+		} else {
+			m.log.Print("DTR down, dropping connection")
 			m.goOnHook()
 			m.led_TR_off()
 		}
@@ -96,7 +102,8 @@ func (m *Modem) handlePINs() {
 // Must be a goroutine
 func (m *Modem) handleSignals() {
 	c := make(chan os.Signal, 1)
-	signal.Notify(c, syscall.SIGINT, syscall.SIGUSR1)
+	signal.Notify(c, syscall.SIGINT, syscall.SIGUSR1, syscall.SIGUSR2,
+		syscall.SIGQUIT)
 
 	for {
 		// Block until a signal is received.
@@ -110,6 +117,12 @@ func (m *Modem) handleSignals() {
 
 		case syscall.SIGUSR1:
 			pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
+
+		case syscall.SIGUSR2:
+			m.logState()
+
+		case syscall.SIGQUIT:
+			m.logState()
 		}
 	}
 }
@@ -175,6 +188,8 @@ func (m *Modem) readSerial() {
 
 	countAtTick = 0
 	for {
+		regs = m.registers // Reload regs in case we reset the modem
+
 		select {
 		case <- m.timer.C:
 			if m.mode == COMMANDMODE { // Skip this if in COMMAND mode
@@ -206,12 +221,10 @@ func (m *Modem) readSerial() {
 
 		case c = <- m.charchannel:
 			countAtTick++
-
 		}
 
 		switch m.mode {
 		case COMMANDMODE:
-			regs = m.registers // Reload regs in case we reset the modem
 			if m.echoInCmdMode { // Echo back to the DTE
 				m.serial.WriteByte(c)
 			}
@@ -228,12 +241,12 @@ func (m *Modem) readSerial() {
 					m.command(m.lastCmd)
 				}
 				s = ""
-			} else if c == regs.Read(REG_LF_CH) && s != "" {
+			} else if c == regs.Read(REG_CR_CH) && s != "" {
 				m.command(s)
 				s = ""
 			} else if c == regs.Read(REG_BS_CH)  && len(s) > 0 {
 				s = s[0:len(s) - 1]
-			} else if c == regs.Read(REG_LF_CH)  ||
+			} else if c == regs.Read(REG_CR_CH)  ||
 				c == regs.Read(REG_BS_CH) && len(s) == 0 {
 				// ignore naked CR's & BS if s is already empty
 			} else {

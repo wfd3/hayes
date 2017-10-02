@@ -3,6 +3,7 @@ package hayes
 import (
 	"fmt"
 	"log"
+	"strings"
 	"github.com/tarm/serial"
 )
 
@@ -73,9 +74,20 @@ func (s *serialPort) Read(p []byte) (int, error) {
 		return 1, nil
 	}
 
-	b := make([]byte, 1)
-	i, err := s.port.Read(b)
+	i, err := s.port.Read(p)
 	return i, err
+}
+
+func (s *serialPort) getChars() {
+
+	in := make([]byte, 1)
+	for {
+		if _, err := s.Read(in); err != nil {
+			s.log.Print("Read(): ", err)
+		}
+
+		s.channel <- in[0]
+	}
 }
 
 func (s *serialPort) Write(p []byte) (int, error) {
@@ -108,14 +120,25 @@ func (s *serialPort) Write(p []byte) (int, error) {
 }
 
 func (s *serialPort) WriteByte(p byte) (int, error) {
-	out := make([]byte, 1)
-	out[0] = p
+	var out []byte
+	
+	// map '\n' to '\n\r'
+	if p == s.regs.Read(REG_CR_CH) {
+		out = make([]byte, 2)
+		out[0] = p
+		out[1] = s.regs.Read(REG_LF_CH)
+	} else {
+		out = make([]byte, 1)
+		out[0] = p
+	}
+
 	return s.Write(out)
 }
 
 func (s *serialPort) Printf(format string, a ...interface{}) error {
-	str := fmt.Sprintf(format, a...)
-	_, err := s.Write([]byte(str))
+	out := fmt.Sprintf(format, a...)
+	out = strings.Replace(out, "\n", "\n\r", -1)
+	_, err := s.Write([]byte(out))
 	return err
 }
 
@@ -131,16 +154,4 @@ func (s *serialPort) Println(a ...interface{}) error {
 		return s.Printf("\n")
 	}
 	return s.Printf("%s\n", a...)
-}
-
-func (s *serialPort) getChars() {
-
-	in := make([]byte, 1)
-	for {
-		if _, err := s.Read(in); err != nil {
-			s.log.Print("Read(): ", err)
-		}
-
-		s.channel <- in[0]
-	}
 }
