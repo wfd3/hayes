@@ -8,6 +8,13 @@ import (
 	"time"
 )
 
+// This assumes the MAX3232 does NOT do the level conversion between the Pi's
+// 0 and 3V low/high and RS-232 +5V/-5V.  So a "low" pin here is a High RPi output 
+// vice versa.
+//
+// So note that the LED pins are normal, and the control pins (RTS, CTS, etc.)
+// are backwards (eg, pin.Low() means RS232 High and pin.High() means RS232 Low)
+
 type Pins map[int]rpio.Pin
 
 // LED and data pins
@@ -25,16 +32,16 @@ const (
 	// Data Pins
 	// A MAX3232 translates these from 0V & 3V to RS232 -/+{3,5,12}V
 	CTS_PIN = 12		// Clear To Send pin
-	CS_LED  = 11		// Clear To Send
+	CS_LED  = 11		// Clear To Send LED
 
 	RI_PIN  = 23		// Ring Indicator pin
-	RI_LED  = 4		// Ring Indicator
+	RI_LED  = 4		// Ring Indicator LED
 
 	CD_PIN  = 24		// Carrier Detect pin
-	CD_LED  = 17		// Carrier Detect
+	CD_LED  = 17		// Carrier Detect LED
 
 	DSR_PIN = 25 		// Data Set Ready pin
-	MR_LED  = 5		// Modem Ready
+	MR_LED  = 5		// Modem Ready LED
 
 	RTS_PIN = 7		// Request to Send pin (Input)
 	DTR_PIN = 16 		// Data Terminal Ready (Input)
@@ -46,10 +53,9 @@ func (m *Modem) setupPins() {
 		m.log.Fatal("Fatal Error: ", err)
 	}
 
-	leds := make(Pins)
-	pins := make(Pins)
-
 	// LEDs
+	leds := make(Pins)
+
 	leds[HS_LED] = rpio.Pin(HS_LED)
 	leds[HS_LED].Output()
 	
@@ -82,6 +88,8 @@ func (m *Modem) setupPins() {
 	
 
 	// Pins
+	pins := make(Pins)
+
 	pins[CTS_PIN] = rpio.Pin(CTS_PIN)
 	pins[CTS_PIN].Output()
 	
@@ -116,17 +124,17 @@ func (m *Modem) clearPins() {
 	m.leds[SD_LED].Low()
 	m.leds[OH_LED].Low()
 
-	m.pins[RI_PIN].Low()
-	m.pins[CD_PIN].Low()
-	m.pins[DSR_PIN].Low()
-	m.pins[CTS_PIN].Low()
+	m.pins[RI_PIN].High()
+	m.pins[CD_PIN].High()
+	m.pins[DSR_PIN].High()
+	m.pins[CTS_PIN].High()
 	// No need to do RTS and DTR
 }
 
 func (m *Modem) showPins() string {
-	pp := func (n string, pin rpio.Pin) (string) {
+	pp := func (n string, pin rpio.Pin, up rpio.State) (string) {
 		var s string
-		if pin.Read() == rpio.High {	
+		if pin.Read() == up {	
 			s = strings.ToUpper(n)
 		} else {
 			s = strings.ToLower(n)
@@ -136,27 +144,27 @@ func (m *Modem) showPins() string {
 	}
 
 	s := "PINs: ["
-	s += pp("CTS", m.pins[CTS_PIN])
-	s += pp("RI_", m.pins[RI_PIN])
-	s += pp("DCD", m.pins[CD_PIN])
-	s += pp("DSR", m.pins[DSR_PIN])
-	s += pp("RTS", m.pins[RTS_PIN])
-	s += pp("DTR", m.pins[DTR_PIN])
+	s += pp("CTS", m.pins[CTS_PIN], rpio.Low)
+	s += pp("RI_", m.pins[RI_PIN], rpio.Low)
+	s += pp("DCD", m.pins[CD_PIN], rpio.Low)
+	s += pp("DSR", m.pins[DSR_PIN], rpio.Low)
+	s += pp("RTS", m.pins[RTS_PIN], rpio.Low)
+	s += pp("DTR", m.pins[DTR_PIN], rpio.Low)
 	s += "]"
 
 	s += "\n"
 
 	s += "LEDs: "
-	s += pp("HS", m.leds[HS_LED])
-	s += pp("AA", m.leds[AA_LED])
-	s += pp("RI", m.leds[RI_LED])
-	s += pp("CD", m.leds[CD_LED])
-	s += pp("OH", m.leds[OH_LED])
-	s += pp("MR", m.leds[MR_LED])
-	s += pp("CS", m.leds[ CS_LED])
-	s += pp("TR", m.leds[TR_LED])
-	s += pp("SD", m.leds[SD_LED])
-	s += pp("RD", m.leds[RD_LED])
+	s += pp("HS", m.leds[HS_LED], rpio.High)
+	s += pp("AA", m.leds[AA_LED], rpio.High)
+	s += pp("RI", m.leds[RI_LED], rpio.High)
+	s += pp("CD", m.leds[CD_LED], rpio.High)
+	s += pp("OH", m.leds[OH_LED], rpio.High)
+	s += pp("MR", m.leds[MR_LED], rpio.High)
+	s += pp("CS", m.leds[ CS_LED], rpio.High)
+	s += pp("TR", m.leds[TR_LED], rpio.High)
+	s += pp("SD", m.leds[SD_LED], rpio.High)
+	s += pp("RD", m.leds[RD_LED], rpio.High)
 	s += "]"
 	return s
 }
@@ -243,74 +251,66 @@ func (m *Modem) ledTest(round int) {
 }
 
 // PINs
-//
-// This assumes a MAX3232 to do the level conversion between the Pi's
-// 0 and 3V low/high and RS-232 +5V/-5V.  So 0V (low) on the Pi is +5V
-// (low) on RS-232 and vice versa.
 
 // RI - assert RI and turn on RI light
 func (m *Modem) raiseRI() {
 	m.leds[RI_LED].High()
-	m.pins[RI_PIN].High()
+	m.pins[RI_PIN].Low()
 }
 func (m *Modem) lowerRI() {
 	m.leds[RI_LED].Low()
-	m.pins[RI_PIN].Low()
+	m.pins[RI_PIN].High()
 }
 func (m *Modem) readRI() (bool) {
-	return m.pins[RI_PIN].Read() == rpio.High &&
-		m.leds[RI_LED].Read() == rpio.High
+	return m.pins[RI_PIN].Read() == rpio.Low
 }
 
 // CD - assert CD and turn on CD light
 func (m *Modem) raiseCD() {
 	m.leds[CD_LED].High()
-	m.pins[CD_PIN].High()
+	m.pins[CD_PIN].Low()
 }
 func (m *Modem) lowerCD() {
 	m.leds[CD_LED].Low()
-	m.pins[CD_PIN].Low()
+	m.pins[CD_PIN].High()
 }
 func (m *Modem) readCD() (bool) {
-	return m.pins[CD_PIN].Read() == rpio.High &&
-		m.leds[CD_LED].Read() == rpio.High
+	return m.pins[CD_PIN].Read() == rpio.Low
 }
 
 // DSR - assert DSR and turn on MR light
 func (m *Modem) raiseDSR() {
 	m.leds[MR_LED].High()
-	m.pins[DSR_PIN].High()
+	m.pins[DSR_PIN].Low()
 }
 func (m *Modem) lowerDSR() {
 	m.leds[MR_LED].Low()
-	m.pins[DSR_PIN].Low()
+	m.pins[DSR_PIN].High()
 }
 func (m *Modem) readDSR() (bool) {
-	return m.pins[DSR_PIN].Read() == rpio.High &&
-		m.pins[MR_LED].Read() == rpio.High
+	return m.pins[DSR_PIN].Read() == rpio.Low
 }
 
 // CTS - assert CTS and turn on CS light
 func (m *Modem) raiseCTS() {
 	m.leds[CS_LED].High()
-	m.pins[CTS_PIN].High()
+	m.pins[CTS_PIN].Low()
 }
 func (m *Modem) lowerCTS() {
 	m.leds[CS_LED].Low()
-	m.pins[CTS_PIN].Low()
+	m.pins[CTS_PIN].High()
 }
 func (m *Modem) readCTS() (bool) {
-	return m.pins[CTS_PIN].Read() == rpio.High &&
-		m.leds[CS_LED].Read() == rpio.High
+	return m.pins[CTS_PIN].Read() == rpio.Low
 }
 
 // DTR (input)
 func (m *Modem) readDTR() (bool) {
-	return m.pins[DTR_PIN].Read() == rpio.High
+	return m.pins[DTR_PIN].Read() == rpio.Low
 }
 
 // RTS (input)
 func (m *Modem) readRTS() (bool) {
-	return m.pins[RTS_PIN].Read() == rpio.High
+	return m.pins[RTS_PIN].Read() == rpio.Low
 }
 	

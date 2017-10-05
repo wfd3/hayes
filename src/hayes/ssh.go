@@ -16,31 +16,40 @@ type sshAcceptReadWriteCloser struct {
 	mode int
 	c io.ReadWriteCloser
 	remoteAddr net.Addr
+	sent uint64
+	recv uint64
 }
-func (m sshAcceptReadWriteCloser) Read(p []byte) (int, error) {
-	return m.c.Read(p)
+func (m *sshAcceptReadWriteCloser) Read(p []byte) (int, error) {
+	i, err :=  m.c.Read(p)
+	m.recv += uint64(i)
+	return i, err
 }
-func (m sshAcceptReadWriteCloser) Write(p []byte) (int, error) {
-	return m.c.Write(p)
+func (m *sshAcceptReadWriteCloser) Write(p []byte) (int, error) {
+	i, err := m.c.Write(p)
+	m.sent += uint64(i)
+	return i, err
 }
-func (m sshAcceptReadWriteCloser) Close() error {
+func (m *sshAcceptReadWriteCloser) Close() error {
 	err := m.c.Close()
 	return err
 }
-func (m sshAcceptReadWriteCloser) Mode() int {
+func (m *sshAcceptReadWriteCloser) Mode() int {
 	return m.mode
 }
-func (m sshAcceptReadWriteCloser) RemoteAddr() net.Addr {
+func (m *sshAcceptReadWriteCloser) RemoteAddr() net.Addr {
 	return m.remoteAddr
 }
-func (m sshAcceptReadWriteCloser) Direction() int {
+func (m *sshAcceptReadWriteCloser) Direction() int {
 	return m.direction
 }
-func (m sshAcceptReadWriteCloser) SetMode(mode int) {
+func (m *sshAcceptReadWriteCloser) SetMode(mode int) {
 	if mode != DATAMODE || mode != COMMANDMODE {
 		panic("bad mode")
 	}
 	m.mode = mode
+}
+func(m *sshAcceptReadWriteCloser) Stats() (uint64, uint64) {
+	return m.sent, m.recv
 }
 
 func acceptSSH(channel chan connection, private_key string, busy busyFunc,
@@ -127,8 +136,8 @@ func acceptSSH(channel chan connection, private_key string, busy busyFunc,
 				conn.Close()
 				continue
 			}
-			channel <- sshAcceptReadWriteCloser{INBOUND, DATAMODE,
-				conn, sshConn.RemoteAddr()}
+			channel <- &sshAcceptReadWriteCloser{INBOUND, DATAMODE,
+				conn, sshConn.RemoteAddr(), 0, 0}
 			break
 		}
 	}
@@ -143,37 +152,46 @@ type sshDialReadWriteCloser struct {
 	client *ssh.Client
 	session *ssh.Session
 	remoteAddr net.Addr
+	sent uint64
+	recv uint64
 }
-func (m sshDialReadWriteCloser) Read(p []byte) (int, error) {
-	return m.in.Read(p)
+func (m *sshDialReadWriteCloser) Read(p []byte) (int, error) {
+	i, err := m.in.Read(p)
+	m.recv += uint64(i)
+	return i, err
 }
-func (m sshDialReadWriteCloser) Write(p []byte) (int, error) {
-	return m.out.Write(p)
+func (m *sshDialReadWriteCloser) Write(p []byte) (int, error) {
+	i, err := m.out.Write(p)
+	m.sent += uint64(i)
+	return i, err
 }
-func (m sshDialReadWriteCloser) Close() error {
+func (m *sshDialReadWriteCloser) Close() error {
 	// Remember, in is an io.Reader so it doesn't Close()
 	err := m.out.Close()
 	m.session.Close()
 	m.client.Close()
 	return err
 }
-func (m sshDialReadWriteCloser) Direction() int {
+func (m *sshDialReadWriteCloser) Direction() int {
 	return m.direction
 }
-func (m sshDialReadWriteCloser) RemoteAddr() net.Addr {
+func (m *sshDialReadWriteCloser) RemoteAddr() net.Addr {
 	return m.remoteAddr
 }
-func (m sshDialReadWriteCloser) Mode() int {
+func (m *sshDialReadWriteCloser) Mode() int {
 	return m.mode
 }
-func (m sshDialReadWriteCloser) SetMode(mode int) {
+func (m *sshDialReadWriteCloser) SetMode(mode int) {
 	if mode != DATAMODE || mode != COMMANDMODE {
 		panic("bad mode")
 	}
 	m.mode = mode
 }
+func (m *sshDialReadWriteCloser) Stats() (uint64, uint64) {
+	return m.sent, m.recv
+}
 
-func dialSSH(remote string, log *log.Logger, username string, pw string) (sshDialReadWriteCloser, error) {
+func dialSSH(remote string, log *log.Logger, username string, pw string) (*sshDialReadWriteCloser, error) {
 
 	if _, _, err := net.SplitHostPort(remote); err != nil {
 		remote += ":22"
@@ -196,7 +214,7 @@ func dialSSH(remote string, log *log.Logger, username string, pw string) (sshDia
 		if err, ok := err.(net.Error); ok && err.Timeout() {
 			log.Print("ssh.Dial: Timed out")
 		}
-		return sshDialReadWriteCloser{},
+		return &sshDialReadWriteCloser{},
 		fmt.Errorf("ssh.Dial() failed: %s", err)
 	}
 
@@ -204,7 +222,7 @@ func dialSSH(remote string, log *log.Logger, username string, pw string) (sshDia
 	session, err := client.NewSession()
 	if err != nil {
     		log.Print("unable to create session: ", err)
-		return sshDialReadWriteCloser{},
+		return &sshDialReadWriteCloser{},
 		fmt.Errorf("unable to create session: ", err)
 	}
 
@@ -217,7 +235,7 @@ func dialSSH(remote string, log *log.Logger, username string, pw string) (sshDia
 	// Request pseudo terminal
 	if err := session.RequestPty("xterm", 40, 80, modes); err != nil {
     		log.Print("request for pseudo terminal failed: ", err)
-		return sshDialReadWriteCloser{},
+		return &sshDialReadWriteCloser{},
 		fmt.Errorf("request for pty failed: ", err)
 	}
 
@@ -225,13 +243,13 @@ func dialSSH(remote string, log *log.Logger, username string, pw string) (sshDia
 	send, err :=  session.StdinPipe()
 	if err != nil {
 		log.Print("StdinPipe(): ", err)
-		return sshDialReadWriteCloser{},
+		return &sshDialReadWriteCloser{},
 		fmt.Errorf("session.StdinPipe(): ", err)
 	}
 	recv, err := session.StdoutPipe()
 	if err != nil {
 		log.Print("StdoutPipe(): ", err)
-		return sshDialReadWriteCloser{},
+		return &sshDialReadWriteCloser{},
 		fmt.Errorf("session.StdinOut(): ", err)
 	}
 
@@ -240,6 +258,6 @@ func dialSSH(remote string, log *log.Logger, username string, pw string) (sshDia
 	log.Printf("Connected to remote host '%s', SSH Server version %s",
 		client.Conn.RemoteAddr(), client.Conn.ServerVersion())
 
-	return sshDialReadWriteCloser{OUTBOUND, DATAMODE, recv, send, client,
-		session, client.Conn.RemoteAddr()}, nil
+	return &sshDialReadWriteCloser{OUTBOUND, DATAMODE, recv, send, client,
+		session, client.Conn.RemoteAddr(), 0, 0}, nil
 }

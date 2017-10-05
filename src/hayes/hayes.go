@@ -13,13 +13,15 @@ package hayes
 //
 
 import (
+	"flag"
+	"log"
 	"os"
 	"os/signal"
-	"log"
-	"time"
-	"sync"
 	"runtime/pprof"
+	"strings"
+	"sync"
 	"syscall"
+	"time"
 )
 
 // What mode is the modem in?
@@ -66,21 +68,35 @@ type Modem struct {
 	timer *time.Ticker
 }
 
+func setupLogging() *log.Logger {
+	var err error
+	
+	logger := os.Stderr
+	if *_flags_logfile != "" {
+		logger, err = os.OpenFile(*_flags_logfile,
+			os.O_RDWR|os.O_APPEND|os.O_CREATE, 0644)
+		if err != nil {
+			panic("Can't open logfile")
+		}
+	}
+	return log.New(logger, "modem: ",
+		log.Ldate | log.Ltime | log.Lmicroseconds | log.Lshortfile)
+}
+
+
 // Watch a subset of pins and act as apropriate
 // Must be a goroutine
 func (m *Modem) handlePINs() {
-	for {
 
-		// TODO - need to add S-register support for DTR
-		// behavior.  This currently drops connections as soon
-		// as they're made.  Why DTR is down from the DTE is
-		// still a problem.
+	for {
+		// TODO: Do I need to support DTR state changes (&Q & &D)?
 		if m.readDTR() {
 			m.led_TR_on()
 		} else {
-			m.log.Print("DTR down, dropping connection")
-			m.goOnHook()
-			m.led_TR_off()
+			if m.offHook() {
+				m.led_TR_off()
+				m.goOnHook()
+			}
 		}
 
 		if m.connectSpeed > 19200 {
@@ -144,19 +160,21 @@ func (m *Modem) stopTimer() {
 }
 
 // Boot the modem
-func (m *Modem) PowerOn(log *log.Logger) {
+func (m *Modem) PowerOn() {
 
-	m.log = log
+	flag.Parse()
+	
+	m.log = setupLogging()
 	m.log.Print("------------ Starting up")
+	m.log.Printf("Cmdline: %s", strings.Join(os.Args, " "))
+
 	m.registers = NewRegisters()
 	m.setupPins()
-
 	callChannel = make(chan connection, 1)
-
 	m.reset()	      // Setup modem inital state (or reset initial state)
 	m.charchannel = make(chan byte, 1)
-	m.serial = setupSerialPort(*_flags_serialPort, m.charchannel, m.registers,
-		m.log)
+	m.serial = setupSerialPort(*_flags_serialPort, *_flags_serialSpeed,
+		m.charchannel, m.registers, m.log)
 	
 	go m.handleSignals()	// Catch signals in a different thread
 	go m.handlePINs()       // Monitor input pins & internal registers
@@ -210,6 +228,8 @@ func (m *Modem) readSerial() {
 				lastThree == escSequence { 
 				waitForOneTick = true
 			} else if waitForOneTick && countAtTick == 0 {
+				m.log.Print("Escape sequence detected, ", 
+					"entering command mode")
 				m.mode = COMMANDMODE
 				m.prstatus(OK) // signal that we're in command mode
 			} else {
@@ -263,8 +283,7 @@ func (m *Modem) readSerial() {
 				idx = (idx + 1) % 3
 			}
 			
-			// Send to remote
-			// TODO: make sure the LED says on long enough
+			// Send to remote, blinking the SD LED
 			if m.offHook() && m.conn != nil {
 				m.led_SD_on()
 				out := make([]byte, 1)

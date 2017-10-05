@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 	"runtime"
+	"code.cloudfoundry.org/bytefmt"
 )
 
 func (m *Modem) logf(format string, a ...interface{}) {
@@ -18,18 +19,16 @@ type out func(string, ...interface{})
 // Debug function
 func (m *Modem) outputState(debugf out)  {
 	
-	debugf("Hook      : ")
 	if m.onHook() {
-		debugf("ON HOOK\n")
+		debugf("Hook      : ON HOOK\n")
 	} else {
-		debugf("OFF HOOK\n")
+		debugf("Hook      : OFF HOOK\n")	
 	}
-	debugf("Echo      : %t\n", m.echoInCmdMode)
-	debugf( "Mode      : ")
+	debugf("EchoInCmd : %t\n", m.echoInCmdMode)
 	if m.mode == COMMANDMODE {
-		debugf("Command\n")
+		debugf( "Mode      : Command\n")
 	} else {
-		debugf("Data\n")
+		debugf( "Mode      : Data\n")
 	}
 	debugf("Quiet     : %t\n", m.quiet)
 	debugf("Verbose   : %t\n", m.verbose)
@@ -44,7 +43,13 @@ func (m *Modem) outputState(debugf out)  {
 	debugf("Cur reg   : %d\n", m.registers.ShowCurrent())
 	debugf("Registers:\n")
 	debugf("%s\n", m.registers.String())
-	debugf("Connection: %v\n", m.conn)
+	if m.conn != nil {
+		sent, recv := m.conn.Stats()
+		debugf("Connection: %s, tx: %s rx: %s\n", m.conn.RemoteAddr(),
+			bytefmt.ByteSize(sent), bytefmt.ByteSize(recv))
+	} else {
+		debugf("Connection: <Not connected>\n")
+	}
 	debugf("%s\n", m.showPins())
 	debugf("GoRoutines: %d\n", runtime.NumGoroutine())
 

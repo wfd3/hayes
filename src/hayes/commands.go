@@ -141,7 +141,6 @@ func (m *Modem) processCommands(commands []string) error {
 	var status error
 	var cmd string
 
-	m.log.Printf("entering PC: %+v\n", commands)
 	status = OK
 	for _, cmd = range commands {
 		m.log.Printf("Processing: %s", cmd)

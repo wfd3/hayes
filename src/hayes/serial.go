@@ -38,8 +38,8 @@ type serialPort struct {
 	channel chan byte
 }
 
-func setupSerialPort(port string, charchannel chan byte, regs *Registers,
-	log *log.Logger) (*serialPort) {
+func setupSerialPort(port string, speed int, charchannel chan byte,
+	regs *Registers, log *log.Logger) (*serialPort) {
 	var s serialPort
 
 	s.console = port == ""
@@ -52,7 +52,7 @@ func setupSerialPort(port string, charchannel chan byte, regs *Registers,
 	} else { 
 
 		s.log.Printf("Using serial port %s", *_flags_serialPort)
-		c := &serial.Config{Name: port, Baud: 115200}
+		c := &serial.Config{Name: port, Baud: speed}
 		p, err := serial.OpenPort(c)
 		if err != nil {
 			s.log.Fatal(err)

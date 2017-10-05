@@ -21,9 +21,11 @@ type telnetReadWriteCloser struct {
 	direction int
 	mode int
 	c net.Conn
+	sent uint64
+	recv uint64
 }
 
-func (m telnetReadWriteCloser) Read(p []byte) (int, error) {
+func (m *telnetReadWriteCloser) Read(p []byte) (int, error) {
 	i, err := m.c.Read(p)
 
 	// Tell the telnet server we won't comply.
@@ -35,31 +37,35 @@ func (m telnetReadWriteCloser) Read(p []byte) (int, error) {
 		m.Write([]byte{IAC, WONT, cmd[1]})
 		i, err = m.Read(p)
 	}
-
+	m.recv += uint64(i)
 	return i, err
 }
-func (m telnetReadWriteCloser) Write(p []byte) (int, error) {
-	return m.c.Write(p)
+func (m *telnetReadWriteCloser) Write(p []byte) (int, error) {
+	i, err := m.c.Write(p)
+	m.sent += uint64(i)
+	return i, err
 }
-func (m telnetReadWriteCloser) Close() error {
-	fmt.Println("Closing telnet connection")
+func (m *telnetReadWriteCloser) Close() error {
 	err := m.c.Close()
 	return err
 }
-func (m telnetReadWriteCloser) Mode() int {
+func (m *telnetReadWriteCloser) Mode() int {
 	return m.mode
 }
-func (m telnetReadWriteCloser) Direction() int {
+func (m *telnetReadWriteCloser) Direction() int {
 	return m.direction
 }
-func (m telnetReadWriteCloser) RemoteAddr() net.Addr {
+func (m *telnetReadWriteCloser) RemoteAddr() net.Addr {
 	return m.c.RemoteAddr()
 }
-func (m telnetReadWriteCloser) SetMode(mode int) {
+func (m *telnetReadWriteCloser) SetMode(mode int) {
 	if mode != DATAMODE || mode != COMMANDMODE {
 		panic("Bad mode")
 	}
 	m.mode = mode
+}
+func (m *telnetReadWriteCloser) Stats() (uint64, uint64) {
+	return m.sent, m.recv
 }
 
 func acceptTelnet(channel chan connection, busy busyFunc, log *log.Logger,
@@ -91,7 +97,7 @@ func acceptTelnet(channel chan connection, busy busyFunc, log *log.Logger,
 		
 		// This is a telnet session, negotiate char-at-a-time
 		conn.Write([]byte{IAC, DO, LINEMODE, IAC, WILL, ECHO})
-		channel <- telnetReadWriteCloser{INBOUND, DATAMODE, conn}
+		channel <- &telnetReadWriteCloser{INBOUND, DATAMODE, conn, 0, 0}
 	}
 }
 
@@ -100,7 +106,6 @@ func dialTelnet(remote string, log *log.Logger) (connection, error) {
 	if _, _, err := net.SplitHostPort(remote); err != nil {
 		remote += ":23"
 	}
-	log.Print("Connecting to: ", remote)
 	conn, err := net.DialTimeout("tcp", remote, __CONNECT_TIMEOUT)
 	if err != nil {
 		if err, ok := err.(net.Error); ok && err.Timeout() {
@@ -108,7 +113,7 @@ func dialTelnet(remote string, log *log.Logger) (connection, error) {
 		}
 		return nil, err
 	}
-	log.Printf("Connected to remote host '%s'", conn.RemoteAddr())
-	return telnetReadWriteCloser{OUTBOUND, DATAMODE, conn}, nil
+
+	return &telnetReadWriteCloser{OUTBOUND, DATAMODE, conn, 0, 0}, nil
 }
 

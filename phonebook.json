@@ -7,11 +7,11 @@
 		"Password": ""
 	},
 	"1": {
-		"Phone": "271-8090",
-		"Host": "localhost:22",
-		"Protocol": "ssh",
-		"Username": "foo",
-		"Password": "barbar"
+	    "Phone": "111-111-1111",
+	    "Host": "anotherbbs.bbsindex.com",
+		"Protocol": "telnet",
+		"Username": "",
+		"Password": ""
 	},
 	"2": {
 		"Phone": "badnum",

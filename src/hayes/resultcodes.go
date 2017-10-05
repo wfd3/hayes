@@ -17,7 +17,7 @@ func NewMerror(c byte, s string) error {
 
 var OK error            = nil
 var CONNECT error       = NewMerror(1,  "CONNECT")
-var RING error          = NewMerror(2,  "RING")
+var RING error          = NewMerror(2,  "RING\n") // RING has CR/LF after it.
 var NO_CARRIER error    = NewMerror(3,  "NO CARRIER")
 var ERROR error         = NewMerror(4,  "ERROR")
 var CONNECT_1200 error  = NewMerror(5,  "CONNECT 1200")

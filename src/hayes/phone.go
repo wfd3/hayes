@@ -10,12 +10,13 @@ const (
 
 // ATH0
 func (m *Modem) goOnHook() error {
-	m.log.Print("Going on hook (conn = %p)", m.conn)
 	m.dcd = false
 
 	// It's OK to hang up the phone when there's no active network connection.
 	// But if there is, close it.
 	if m.conn != nil {
+		m.log.Printf("Hanging up on active connection (remote %s)",
+			m.conn.RemoteAddr())
 		m.conn.Close()
 		m.conn = nil
 	}

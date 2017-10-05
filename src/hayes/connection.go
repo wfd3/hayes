@@ -3,6 +3,7 @@ package hayes
 import (
 	"time"
 	"net"
+	"code.cloudfoundry.org/bytefmt"
 )
 
 const __MAX_RINGS = 15		// How many rings before giving up
@@ -24,7 +25,8 @@ type connection interface {
 	RemoteAddr() net.Addr
 	Direction() int		// INBOUND or OUTBOUND
 	Mode() int		// What command mode to be in after connection 
-	SetMode(int) 
+	SetMode(int)
+	Stats() (uint64, uint64)
 }
 
 
@@ -37,8 +39,6 @@ func (m *Modem) answerIncomming(conn connection) bool {
 	r := m.registers
 	for i := 0; i < __MAX_RINGS; i++ {
 		last_ring_time = time.Now()
-		r.Inc(REG_RING_COUNT)
-		m.prstatus(RING)
 		conn.Write([]byte("Ringing...\n\r"))
 		if m.offHook() { // computer has issued 'ATA' 
 			m.conn = conn
@@ -66,13 +66,21 @@ func (m *Modem) answerIncomming(conn connection) bool {
 			}
 		}
 		m.lowerRI()
-		
+
+		// By verification, the Hayes Ultra 96 displays the
+		// "RING" text /after/ the RI signal is lowered.  So
+		// do this here so we behave the same. 
+		m.prstatus(RING)
+
 		// If Auto Answer if enabled and we've exceeded the
 		// configured number of rings to wait before
 		// answering, answer the call.  We do this here before
 		// the 4s delay as I think it feels more correct.
-		if m.registers.Read(REG_AUTO_ANSWER) > 0 {
-			if r.Read(REG_RING_COUNT) >= r.Read(REG_AUTO_ANSWER) {
+		ringCount := r.Inc(REG_RING_COUNT)
+		aaCount := r.Read(REG_AUTO_ANSWER)
+		if aaCount > 0 {
+			if ringCount >= aaCount {
+				m.log.Print("Auto answering")
 				m.answer()
 			}
 		}
@@ -133,14 +141,13 @@ func (m *Modem) handleConnection() {
 			break
 		}
 		if _, err := m.conn.Read(buf); err != nil {// TODO: timeout
-			m.log.Print("m.conn.Read(): ", err)
 			// carrier lost
+			m.log.Print("m.conn.Read(): ", err)
 			break
 		}
 
-		// Send the byte to the DTE
+		// Send the byte to the DTE, blink the RD LED
 		if m.mode == DATAMODE {
-			// TODO: try 'go m.blinkRD()'
 			m.led_RD_on()
 			m.serial.Write(buf) 
 			m.led_RD_off()
@@ -195,7 +202,9 @@ func (m *Modem) handleModem() {
 		m.handleConnection()
 
 		// If we're here, we lost "carrier" somehow.
-		m.log.Print("Lost carrier")
+		sent, recv := conn.Stats()
+		m.log.Printf("Connection closed, sent %s recv %s",
+			bytefmt.ByteSize(sent), bytefmt.ByteSize(recv))
 		m.prstatus(NO_CARRIER)
 		m.goOnHook()
 		m.setLineBusy(false)

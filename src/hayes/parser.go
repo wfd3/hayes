@@ -95,70 +95,47 @@ func (m *Modem) command(cmdstring string) {
 		return
 	}
 
-	m.log.Print("command: ", cmdstring)
+	m.log.Printf("command: %s", cmdstring)
 
 	cmd := cmdstring[2:] 		// Skip the 'AT'
 	c := 0
 
 	commands = nil
 	status = OK
-	savecmds := true
 	for  c < len(cmd) && status == OK {
 		switch (cmd[c]) {
 		case 'D', 'd':
 			s, i, err = parseDial(cmd[c:])
-			if err != nil {
-				m.prstatus(err)
-				return
-			}
-			commands = append(commands, s)
-			c += i
-			continue
 		case 'S', 's':
 			s, i, err = parseRegisters(cmd[c:])
-			if err != nil {
-				m.prstatus(err)
-				return
-			}
-			commands = append(commands, s)
-			c += i
-			continue
 		case '*': 	// Custom debug registers
 			s, i, err = parseDebug(cmd[c:])
-			if err != nil {
-				m.prstatus(err)
-				return
-			}
-			commands = append(commands, s)
-			c += i
-			continue
 		case '&':
 			s, i, err = m.parseAmpersand(cmd)
-			if err != nil {
-				m.prstatus(err)
-				return
-			}
-			commands = append(commands, s)
-			c += i
-			continue
 		case 'A', 'a':
 			opts = "0"
+			s, i, err = parse(cmd[c:], opts)
 		case 'E', 'e', 'H', 'h', 'Q', 'q', 'V', 'v', 'Z', 'z':
 			opts = "01"
+			s, i, err = parse(cmd[c:], opts)
 		case 'L', 'l':
 			opts = "0123"
+			s, i, err = parse(cmd[c:], opts)
 		case 'M', 'm', 'W', 'w':
 			opts = "012"
+			s, i, err = parse(cmd[c:], opts)
 		case 'O', 'o':
 			opts = "O"
+			s, i, err = parse(cmd[c:], opts)
 		case 'X', 'x':
 			opts = "01234567"
+			s, i, err = parse(cmd[c:], opts)
 		default:
 			m.log.Printf("Unknown command: %s", cmd)
 			m.prstatus(ERROR)
 			return
 		}
-		s, i, err = parse(cmd[c:], opts)
+
 		if err != nil {
 			m.prstatus(ERROR)
 			return
@@ -167,11 +144,12 @@ func (m *Modem) command(cmdstring string) {
 		c += i
 	}
 
-	m.log.Print("Command array: %+v", commands)
+	m.log.Printf("Command array: %+v", commands)
 	status = m.processCommands(commands)
 	m.prstatus(status)
 
-	if savecmds && status == OK {
+	if status == OK || status == CONNECT {
+		m.log.Printf("Saving command string '%s'", cmdstring)
 		m.lastCmd = cmdstring
 	}
 }
