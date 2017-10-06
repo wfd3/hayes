@@ -68,14 +68,14 @@ func (s *serialPort) Read(p []byte) (int, error) {
 	if s.console {
 		p[0] = byte(C.getch())
 		// mappings
-		if p[0] == 127 {
-			p[0] = s.regs.Read(REG_BS_CH)
+		switch p[0] {
+		case 127:  p[0] = s.regs.Read(REG_BS_CH)
+		case '\n': p[0] = s.regs.Read(REG_CR_CH)
 		}
 		return 1, nil
 	}
 
-	i, err := s.port.Read(p)
-	return i, err
+	return s.port.Read(p)
 }
 
 func (s *serialPort) getChars() {

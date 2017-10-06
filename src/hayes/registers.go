@@ -89,10 +89,11 @@ func (r *Registers) activeRegisters() (i []byte) {
 }
 
 func (r *Registers) String() string {
-	var s string
+	var s, t string
 	for _, f := range r.activeRegisters() {
-		s += fmt.Sprintf("S%03d:%03d ", f, r.Read(f))
-		if (len(s) % 80) + 9 > 80 {
+		t = fmt.Sprintf("S%02d:%03d ", f, r.Read(f))
+		s += t
+		if (len(s) % 80) + len(t) > 80 {
 			s += "\n"
 		}
 	}

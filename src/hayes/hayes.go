@@ -94,9 +94,9 @@ func (m *Modem) handlePINs() {
 			m.led_TR_on()
 		} else {
 			if m.offHook() {
-				m.led_TR_off()
 				m.goOnHook()
 			}
+			m.led_TR_off()
 		}
 
 		if m.connectSpeed > 19200 {

@@ -5,9 +5,8 @@ package hayes
 // Support for generic hardare (ie, not a Raspberry Pi)
 
 import (
-	"runtime"
-	"fmt"
 	"strings"
+	"runtime"
 )
 
 const (
@@ -58,20 +57,21 @@ func (m *Modem) showPins() string {
 	pp := func (n string, p int) (string) {
 		var s string
 		if m.pins[p] {
-			s = "High"
+			s = strings.ToUpper(n)
 		} else {
-			s = "Low"
+			s = strings.ToLower(n)
 		}
-		return fmt.Sprintf("%s:[%s] ", n, s)
+		s += " " 
+		return s
 	}
-	s := "PINs: "
+	s := "PINs: ["
 	s += pp("CTS", CTS_PIN)
-	s += pp("RI", RI_PIN)
-	s += pp("CD", CD_PIN)
+	s += pp("RI ", RI_PIN)
+	s += pp("CD ", CD_PIN)
 	s += pp("DSR", DSR_PIN)
 	s += pp("RTS", RTS_PIN)
 	s += pp("DTR", DTR_PIN)
-	m.serial.Println(s)
+	s += "]\n"
 
 	pl := func (n string, p int) (string) {
 		var s string
@@ -84,7 +84,7 @@ func (m *Modem) showPins() string {
 		s += " "
 		return s
 	}
-	s = "LEDs: [ "
+	s += "LEDs: [ "
 	s += pl("HS", HS_LED)
 	s += pl("AA", AA_LED)
 	s += pl("RI", RI_LED)

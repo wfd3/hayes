@@ -3,6 +3,7 @@ package hayes
 import (
 	"fmt"
 	"strings"
+	"time"
 )
 
 // Helper function to parse non-complex AT commands (everthing except ATS.., ATD...)
@@ -146,6 +147,9 @@ func (m *Modem) command(cmdstring string) {
 
 	m.log.Printf("Command array: %+v", commands)
 	status = m.processCommands(commands)
+
+	time.Sleep(500 * time.Millisecond) // Simulate command delay
+
 	m.prstatus(status)
 
 	if status == OK || status == CONNECT {

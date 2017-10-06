@@ -132,7 +132,7 @@ func acceptSSH(channel chan connection, private_key string, busy busyFunc,
 			}
 
 			if busy() {
-				conn.Write([]byte("Busy..."))
+				conn.Write([]byte("Busy...\n\r"))
 				conn.Close()
 				continue
 			}

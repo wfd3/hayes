@@ -72,7 +72,7 @@ func (e *MError) Code() string {
 func (m *Modem) prstatus(e error) {
 	var ok bool
 	var merr *MError
-	
+
 	if m.quiet {
 		return
 	}
@@ -98,6 +98,7 @@ func (m *Modem) prstatus(e error) {
 		}
 	}
 	
+	m.log.Printf("Result Code: %s (%s)", merr.Error(), merr.Code())
 	if !m.verbose {
 		m.serial.Println(merr.Code())
 	} else {

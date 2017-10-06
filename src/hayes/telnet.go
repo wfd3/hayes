@@ -90,7 +90,7 @@ func acceptTelnet(channel chan connection, busy busyFunc, log *log.Logger,
 		}
 
 		if busy() {
-			conn.Write([]byte("Busy..."))
+			conn.Write([]byte("Busy...\n\r"))
 			conn.Close()
 			continue
 		}
