@@ -169,11 +169,12 @@ func (m *Modem) PowerOn() {
 
 	m.registers = NewRegisters()
 	m.setupPins()
-	callChannel = make(chan connection, 1)
-	m.reset()	      // Setup modem inital state (or reset initial state)
-	m.charchannel = make(chan byte, 1)
+	callChannel = make(chan connection)
+	m.charchannel = make(chan byte)
 	m.serial = setupSerialPort(*_flags_serialPort, *_flags_serialSpeed,
 		m.charchannel, m.registers, m.log)
+
+	m.reset()	      // Setup modem inital state (or reset initial state)
 	
 	go m.handleSignals()	// Catch signals in a different thread
 	go m.handlePINs()       // Monitor input pins & internal registers

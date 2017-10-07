@@ -11,6 +11,9 @@ const (
 // ATH0
 func (m *Modem) goOnHook() error {
 	m.dcd = false
+	m.hookLock.Lock()
+	m.hook = ONHOOK
+	m.hookLock.Unlock()
 
 	// It's OK to hang up the phone when there's no active network connection.
 	// But if there is, close it.
@@ -21,9 +24,9 @@ func (m *Modem) goOnHook() error {
 		m.conn = nil
 	}
 
-	m.hookLock.Lock()
-	m.hook = ONHOOK
-	m.hookLock.Unlock()
+	if err := m.serial.Flush(); err != nil {
+		m.log.Printf("serial.Flush(): %s", err)
+	}
 
 	m.mode = COMMANDMODE
 	m.connectSpeed = 0
@@ -74,4 +77,3 @@ func (m *Modem) setLineBusy(b bool) {
 func (m *Modem) checkBusy() bool {
 	return  m.offHook() || m.getLineBusy()
 }
-

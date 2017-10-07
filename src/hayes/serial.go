@@ -64,6 +64,15 @@ func setupSerialPort(port string, speed int, charchannel chan byte,
 	return &s
 }
 
+func (s *serialPort) Flush() error {
+	if s.console || s.port == nil {
+		return nil
+	}
+
+	s.log.Print("flushing serial port")
+	return s.port.Flush()
+}
+
 func (s *serialPort) Read(p []byte) (int, error) {
 	if s.console {
 		p[0] = byte(C.getch())
@@ -85,7 +94,7 @@ func (s *serialPort) getChars() {
 		if _, err := s.Read(in); err != nil {
 			s.log.Print("Read(): ", err)
 		}
-
+		
 		s.channel <- in[0]
 	}
 }

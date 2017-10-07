@@ -80,7 +80,7 @@ func (m *telnetReadWriteCloser) command(p []byte) (i int, err error) {
 			done = true
 		}
 	}
-	fmt.Printf("\ncommand() returning\n")
+
 	return i, err
 }
 
@@ -125,7 +125,7 @@ func (m *telnetReadWriteCloser) Stats() (uint64, uint64) {
 func acceptTelnet(channel chan connection, busy busyFunc, log *log.Logger,
 	ok chan error) {
 
-	port := ":" + fmt.Sprintf("%d", *_flags_telnetPort)
+	port := fmt.Sprintf(":%d", *_flags_telnetPort)
 	l, err := net.Listen("tcp", port)
 	if err != nil {
 		log.Print("Fatal Error: ", err)

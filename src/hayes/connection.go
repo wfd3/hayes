@@ -136,14 +136,19 @@ func (m *Modem) handleConnection() {
 	buf := make([]byte, 1)
 
 	for {
-		if m.onHook() {
-			m.log.Print("ON_HOOK")
-			break
-		}
 		if _, err := m.conn.Read(buf); err != nil {// TODO: timeout
 			// carrier lost
 			m.log.Print("m.conn.Read(): ", err)
-			break
+			return
+		}
+
+		if m.dcd == false {
+			m.log.Print("No carrier at network read")
+			return
+		}
+		if m.onHook() {
+			m.log.Print("On hook at network read")
+			return
 		}
 
 		// Send the byte to the DTE, blink the RD LED
