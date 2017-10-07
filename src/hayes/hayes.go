@@ -83,7 +83,6 @@ func setupLogging() *log.Logger {
 		log.Ldate | log.Ltime | log.Lmicroseconds | log.Lshortfile)
 }
 
-
 // Watch a subset of pins and act as apropriate
 // Must be a goroutine
 func (m *Modem) handlePINs() {

@@ -1,19 +1,42 @@
 package hayes
 
 import (
-	"net"
 	"fmt"
 	"log"
+	"net"
 )
 
-// Telnet negoitation commands
+// Telnet negoitation 
 const (
-	IAC      byte = 0377
-	DO       byte = 0375
-	WILL     byte = 0373
-	WONT     byte = 0374
-	ECHO     byte = 0001
-	LINEMODE byte = 0042
+	// COMMANDS
+	IAC      byte = 255
+	DONT     byte = 254
+	DO       byte = 253
+	WONT     byte = 252
+	WILL     byte = 251
+	SB       byte = 250
+	GA       byte = 249
+	EL       byte = 248
+	EC       byte = 247
+	AYT      byte = 246
+	AO       byte = 245
+	IP       byte = 244
+	BRK      byte = 243
+	DM       byte = 242
+	NOP      byte = 241
+	SE       byte = 240
+
+	// OPTIONS
+	ECHO     byte = 1
+	SGA      byte = 3
+	STATUS   byte = 5
+	TIMINGMK byte = 6
+	TERM     byte = 24
+	WINSIZE  byte = 31
+	TERMSPD  byte = 32
+	REMFLOW  byte = 33
+	LINEMODE byte = 34
+	ENVVAR   byte = 36
 )
 
 // Implements connection for in- and out-bound telnet
@@ -25,17 +48,48 @@ type telnetReadWriteCloser struct {
 	recv uint64
 }
 
+func (m *telnetReadWriteCloser) command(p []byte) (i int, err error) {
+	// TODO - What if len(p) > 1?
+	// TODO - Do we need to respond to recv'ed WILL/DO commands?
+
+	done := false
+	for !done{
+		i, err = m.c.Read(p)
+
+		if p[0] == IAC { // Two in a row, it's just ASCII 255
+			done = true
+			break
+		}
+		
+		switch p[0] {
+		case NOP, DM, BRK, IP, AO, AYT, EC, EL, GA, SE:
+			// Do nothing
+		case SB:
+			for p[0] != SE {
+				i, err = m.c.Read(p)
+			}
+		case WILL:
+			m.c.Read(p)
+		case DO:
+			m.c.Read(p)
+		case DONT:
+			m.c.Read(p)
+		case WONT:
+			m.c.Read(p)
+		default:
+			done = true
+		}
+	}
+	fmt.Printf("\ncommand() returning\n")
+	return i, err
+}
+
 func (m *telnetReadWriteCloser) Read(p []byte) (int, error) {
 	i, err := m.c.Read(p)
 
-	// Tell the telnet server we won't comply.
+	// If it's a telnet command, process it
 	if  p[0] == IAC {
-		cmd := make([]byte, 2)
-		if _, err := m.Read(cmd); err != nil {
-			return 0, err
-		}
-		m.Write([]byte{IAC, WONT, cmd[1]})
-		i, err = m.Read(p)
+		i, err = m.command(p) 
 	}
 	m.recv += uint64(i)
 	return i, err
@@ -96,7 +150,11 @@ func acceptTelnet(channel chan connection, busy busyFunc, log *log.Logger,
 		}
 		
 		// This is a telnet session, negotiate char-at-a-time
-		conn.Write([]byte{IAC, DO, LINEMODE, IAC, WILL, ECHO})
+		// and turn off local echo
+		conn.Write([]byte{IAC, DO, LINEMODE}) // You go into linemode
+		conn.Write([]byte{IAC, DONT, ECHO}) // You don't echo locally
+		conn.Write([]byte{IAC, WILL, ECHO}) // I'll echo to you
+
 		channel <- &telnetReadWriteCloser{INBOUND, DATAMODE, conn, 0, 0}
 	}
 }

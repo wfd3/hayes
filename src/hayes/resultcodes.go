@@ -4,6 +4,7 @@ package hayes
 
 import (
 	"fmt"
+	"strings"
 )
 
 type MError struct {
@@ -98,7 +99,9 @@ func (m *Modem) prstatus(e error) {
 		}
 	}
 	
-	m.log.Printf("Result Code: %s (%s)", merr.Error(), merr.Code())
+	s := fmt.Sprintf("Result Code: %s (%s)", merr.Error(), merr.Code())
+	m.log.Print(strings.Replace(s, "\n", "", -1))
+	
 	if !m.verbose {
 		m.serial.Println(merr.Code())
 	} else {
