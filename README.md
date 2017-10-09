@@ -26,5 +26,6 @@ Parts needed:
  
  . Some LEDs and resistor
 
-<This really needs some documentation>
+This really needs some documentation...
+
   
