@@ -14,5 +14,17 @@ To dial a host with SSH: ATDE hostname[:port]|username|password
 
 The file 'phonebook.json' also allows phone number to <host, port, protocol, ... > mapping so ATD commands work as expected.
 
+Parts needed:
+
+ . Raspberry Pi 3
+ 
+ . 3 MAX3232's
+ 
+ . DB9
+ 
+ . Some jumpers
+ 
+ . Some LEDs and resistor
+
 <This really needs some documentation>
   
