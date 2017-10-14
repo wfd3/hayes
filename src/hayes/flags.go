@@ -20,12 +20,3 @@ var _flags_sshdPort    = flag.Uint("s", 22000,
 var _flags_privateKey  = flag.String("k", __ID_RSA_FILE, "SSH Private Key `file`")
 
 
-/*
-
-TODO:
- - Use syslog
- - Enable or disable incoming calls, by proto
- - 
-
-*/ 
-

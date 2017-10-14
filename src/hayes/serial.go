@@ -51,7 +51,7 @@ func setupSerialPort(port string, speed int, charchannel chan byte,
 		s.log.Print("Using stdin/stdout as DTE")
 	} else { 
 
-		s.log.Printf("Using serial port %s", *_flags_serialPort)
+		s.log.Printf("Using serial port %s at %d bps", port, speed)
 		c := &serial.Config{Name: port, Baud: speed}
 		p, err := serial.OpenPort(c)
 		if err != nil {
@@ -132,11 +132,12 @@ func (s *serialPort) WriteByte(p byte) (int, error) {
 	var out []byte
 	
 	// map '\n' to '\n\r'
-	if p == s.regs.Read(REG_CR_CH) {
+	switch p {
+	case s.regs.Read(REG_CR_CH):
 		out = make([]byte, 2)
 		out[0] = p
 		out[1] = s.regs.Read(REG_LF_CH)
-	} else {
+	default:
 		out = make([]byte, 1)
 		out[0] = p
 	}
