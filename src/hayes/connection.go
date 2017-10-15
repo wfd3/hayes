@@ -1,4 +1,4 @@
-package hayes
+package main
 
 import (
 	"time"
@@ -30,18 +30,18 @@ type connection interface {
 }
 
 
-func (m *Modem) answerIncomming(conn connection) bool {
+func answerIncomming(conn connection) bool {
 	const __DELAY_MS = 20
 
 	zero := make([]byte, 1)
 	zero[0] = 0
 
-	r := m.registers
+	r := registers
 	for i := 0; i < __MAX_RINGS; i++ {
 		last_ring_time = time.Now()
 		conn.Write([]byte("Ringing...\n\r"))
-		if m.offHook() { // computer has issued 'ATA' 
-			m.conn = conn
+		if offHook() { // computer has issued 'ATA' 
+			netConn = conn
 			conn = nil
 			goto answered
 		}
@@ -52,25 +52,25 @@ func (m *Modem) answerIncomming(conn connection) bool {
 		
 		// Ring for 2s
 		d := 0
-		m.raiseRI()
-		for m.onHook() && d < 2000 {
+		raiseRI()
+		for onHook() && d < 2000 {
 			if _, err := conn.Write(zero); err != nil {
 				goto no_answer
 			}
 			time.Sleep(__DELAY_MS * time.Millisecond)
 			d += __DELAY_MS
-			if m.offHook() { // computer has issued 'ATA' 
-				m.conn = conn
+			if offHook() { // computer has issued 'ATA' 
+				netConn = conn
 				conn = nil
 				goto answered
 			}
 		}
-		m.lowerRI()
+		lowerRI()
 
 		// By verification, the Hayes Ultra 96 displays the
 		// "RING" text /after/ the RI signal is lowered.  So
 		// do this here so we behave the same. 
-		m.prstatus(RING)
+		prstatus(RING)
 
 		// If Auto Answer if enabled and we've exceeded the
 		// configured number of rings to wait before
@@ -80,14 +80,14 @@ func (m *Modem) answerIncomming(conn connection) bool {
 		aaCount := r.Read(REG_AUTO_ANSWER)
 		if aaCount > 0 {
 			if ringCount >= aaCount {
-				m.log.Print("Auto answering")
-				m.answer()
+				logger.Print("Auto answering")
+				answer()
 			}
 		}
 		
 		// Silence for 4s
 		d = 0
-		for m.onHook() && d < 4000 {
+		for onHook() && d < 4000 {
 			// Test for closed connection
 			if _, err := conn.Write(zero); err != nil {
 				goto no_answer
@@ -95,7 +95,7 @@ func (m *Modem) answerIncomming(conn connection) bool {
 			
 			time.Sleep(__DELAY_MS * time.Millisecond)
 			d += __DELAY_MS
-			if m.offHook() { // computer has issued 'ATA' 
+			if offHook() { // computer has issued 'ATA' 
 				goto answered
 			}
 		}
@@ -104,26 +104,26 @@ func (m *Modem) answerIncomming(conn connection) bool {
 no_answer:
 	// At this point we've not answered and have timed out, or the
 	// caller hung up before we answered.
-	m.lowerRI()
+	lowerRI()
 	return false
 	
 answered:
 	// if we're here, the computer answered.
-	m.registers.Write(REG_RING_COUNT, 0)
-	m.lowerRI()
+	registers.Write(REG_RING_COUNT, 0)
+	lowerRI()
 	return true
 }
 
 // Clear the ring counter after 8s
 // Must be a goroutine
-func (m *Modem) clearRingCounter() {
+func clearRingCounter() {
 	var delay time.Duration = 8 * time.Second
 
 	for _ = range time.Tick(delay) {
 		if time.Since(last_ring_time) >= delay &&
-			m.registers.Read(REG_RING_COUNT) != 0 {
-			m.registers.Write(REG_RING_COUNT, 0)
-			m.log.Print("Cleared ring count")
+			registers.Read(REG_RING_COUNT) != 0 {
+			registers.Write(REG_RING_COUNT, 0)
+			logger.Print("Cleared ring count")
 		}
 	}
 }
@@ -131,88 +131,88 @@ func (m *Modem) clearRingCounter() {
 // Pass bytes from the remote dialer to the serial port (for now,
 // stdout) as long as we're offhook, we're in DATA MODE and we have
 // valid carrier (m.comm != nil)
-func (m *Modem) handleConnection() {
+func handleConnection() {
 
 	buf := make([]byte, 1)
 
 	for {
-		if _, err := m.conn.Read(buf); err != nil {// TODO: timeout
+		if _, err := netConn.Read(buf); err != nil {// TODO: timeout
 			// carrier lost
-			m.log.Print("m.conn.Read(): ", err)
+			logger.Print("netConn.Read(): ", err)
 			return
 		}
 
 		if m.dcd == false {
-			m.log.Print("No carrier at network read")
+			logger.Print("No carrier at network read")
 			return
 		}
-		if m.onHook() {
-			m.log.Print("On hook at network read")
+		if onHook() {
+			logger.Print("On hook at network read")
 			return
 		}
 
 		// Send the byte to the DTE, blink the RD LED
 		if m.mode == DATAMODE {
-			m.led_RD_on()
-			m.serial.Write(buf) 
-			m.led_RD_off()
+			led_RD_on()
+			serial.Write(buf) 
+			led_RD_off()
 		}
 	}
 }
 
 // Accept connection's from dial*() and accept*() functions.
-func (m *Modem) handleModem() {
+func handleModem() {
 	var conn connection
 
-	go m.clearRingCounter()
+	go clearRingCounter()
 	
 	started_ok := make(chan error)
-	go acceptTelnet(callChannel, m.checkBusy, m.log, started_ok)
+	go acceptTelnet(callChannel, checkBusy, logger, started_ok)
 	if err := <- started_ok; err != nil {
-		m.log.Printf("Telnet server failed to start: %s", err)
+		logger.Printf("Telnet server failed to start: %s", err)
 	} else {
-		m.log.Print("Telnet server started")
+		logger.Print("Telnet server started")
 	}
 
-	go acceptSSH(callChannel, *_flags_privateKey, m.checkBusy, m.log,
+	go acceptSSH(callChannel, *_flags_privateKey, checkBusy, logger,
 		started_ok)
 	if err := <- started_ok; err != nil {
-		m.log.Printf("SSH server failed to start: %s", err)
+		logger.Printf("SSH server failed to start: %s", err)
 	} else {
-		m.log.Print("SSH server started")
+		logger.Print("SSH server started")
 	}
 	
 	// If we have an incoming call, answer it.  If we have an outgoing call or
 	// an answered incoming call, service the connection
 	for {
 		conn = <- callChannel
-		m.setLineBusy(true)
+		setLineBusy(true)
 
 		if conn.Direction() == INBOUND {
-			m.log.Printf("Incomming call from %s", conn.RemoteAddr())
-			if !m.answerIncomming(conn) {
+			logger.Printf("Incomming call from %s", conn.RemoteAddr())
+			if !answerIncomming(conn) {
 				conn.Close()
 				continue
 			}
 		} else {
-			m.log.Printf("Outgoing call to %s ", conn.RemoteAddr())
+			logger.Printf("Outgoing call to %s ", conn.RemoteAddr())
 		}
 
 		// We now have an established connection (either answered or dialed)
 		// so service it.
-		m.conn = conn
+		netConn = conn
 		m.connectSpeed = 38400
 		m.mode = conn.Mode()
 		m.dcd = true
-		m.handleConnection()
+		handleConnection()
 
 		// If we're here, we lost "carrier" somehow.
 		sent, recv := conn.Stats()
-		m.log.Printf("Connection closed, sent %s recv %s",
+		logger.Printf("Connection closed, sent %s recv %s",
 			bytefmt.ByteSize(sent), bytefmt.ByteSize(recv))
-		m.prstatus(NO_CARRIER)
-		m.goOnHook()
-		m.setLineBusy(false)
+		prstatus(NO_CARRIER)
+		goOnHook()
+		setLineBusy(false)
 	}
 }
 

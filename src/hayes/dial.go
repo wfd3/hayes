@@ -1,4 +1,4 @@
-package hayes
+package main
 
 import (
 	"fmt"
@@ -19,14 +19,14 @@ func supportedProtocol(proto string) bool {
 
 // Using the phonebook mapping, fake out dialing a standard phone number
 // (ATDT5551212)
-func (m *Modem) dialNumber(phone string) (connection, error) {
+func dialNumber(phone string) (connection, error) {
 
-	host, protocol, username, password, err := m.phonebook.Lookup(phone)
+	host, protocol, username, password, err := phonebook.Lookup(phone)
 	if err != nil {
 		return nil, err
 	}
 
-	m.log.Printf("Dialing address book entry: %+v", host)
+	logger.Printf("Dialing address book entry: %+v", host)
 
 	if !supportedProtocol(protocol) {
 		return nil, fmt.Errorf("Unsupported protocol '%s'", protocol)
@@ -34,28 +34,28 @@ func (m *Modem) dialNumber(phone string) (connection, error) {
 	
 	switch strings.ToUpper(protocol) {
 	case "SSH":
-		return dialSSH(host, m.log, username, password)
+		return dialSSH(host, logger, username, password)
 	case "TELNET":
-		return dialTelnet(host, m.log)
+		return dialTelnet(host, logger)
 	}
 	return nil, fmt.Errorf("Unknown protocol")
 }
 
-func (m *Modem) dialStoredNumber(idxstr string) (connection, error) {
+func dialStoredNumber(idxstr string) (connection, error) {
 
 	index, err := strconv.Atoi(idxstr)
 	if err != nil {
-		m.log.Print(err)
+		logger.Print(err)
 		return nil, err
 	}
 
-	phone, err := m.phonebook.LookupStoredNumber(index)
+	phone, err := phonebook.LookupStoredNumber(index)
 	if err != nil {
-		m.log.Print("Error: ", err)
+		logger.Print("Error: ", err)
 		return nil, ERROR // We want ATDS to return ERROR.
 	}
-	m.log.Print("-- phone number ", phone)
-	return m.dialNumber(phone)
+	logger.Print("-- phone number ", phone)
+	return dialNumber(phone)
 }
 
 // Returns host|username|password
@@ -69,15 +69,15 @@ func splitATDE(cmd string) (string, string, string, error) {
 
 // ATD...
 // See http://www.messagestick.net/modem/Hayes_Ch1-1.html on ATD... result codes
-func (m *Modem) dial(to string) error {
+func dial(to string) error {
 	var conn connection
 	var err error
 
-	m.goOffHook()
+	goOffHook()
 
 	cmd := to[1]
 	if cmd == 'L' {
-		return m.dial(m.lastDialed)
+		return dial(m.lastDialed)
 	}
 
 	// Now we know the dial command isn't Dial Last (ATDL), save
@@ -97,32 +97,32 @@ func (m *Modem) dial(to string) error {
 
 	switch cmd {
 	case 'H':		// Hostname (ATDH hostname)
-		m.log.Print("Opening telnet connection to: ", clean_to)
-		conn, err = dialTelnet(clean_to, m.log)
+		logger.Print("Opening telnet connection to: ", clean_to)
+		conn, err = dialTelnet(clean_to, logger)
 	case 'E':		// Encrypted host (ATDE hostname)
-		m.log.Print("Opening SSH connection to: ", clean_to)
+		logger.Print("Opening SSH connection to: ", clean_to)
 		host, user, pw, e := splitATDE(clean_to)
 		if e != nil {
 			conn = nil
 			err = e
 		} else {
-			conn, err = dialSSH(host, m.log, user, pw)
+			conn, err = dialSSH(host, logger, user, pw)
 		}
 	case 'T', 'P':		// Fake number from address book (ATDT 5551212)
-		m.log.Print("Dialing fake number: ", clean_to)
-		conn, err = m.dialNumber(clean_to)
+		logger.Print("Dialing fake number: ", clean_to)
+		conn, err = dialNumber(clean_to)
 	case 'S':		// Stored number (ATDS3)
-		conn, err = m.dialStoredNumber(clean_to[1:])
+		conn, err = dialStoredNumber(clean_to[1:])
 	default:
-		m.log.Printf("Dial mode '%c' not supported\n", cmd)
-		m.goOnHook()
+		logger.Printf("Dial mode '%c' not supported\n", cmd)
+		goOnHook()
 		err = fmt.Errorf("Dial mode '%c' not supported", cmd)
 	}
 
 	// if we're connected, setup the connected state in the modem,
 	// otherwise return a BUSY or NO_ANSWER result code.
 	if err != nil {
-		m.goOnHook()
+		goOnHook()
 		if err == ERROR {
 			return ERROR
 		}

@@ -1,4 +1,4 @@
-package hayes
+package main
 
 import (
 	"fmt"
@@ -21,7 +21,7 @@ func parse(cmd string, opts string) (string, int, error) {
 	return "", 0, fmt.Errorf("Bad command: %s", cmd)
 }
 
-func (m *Modem) parseAmpersand(cmdstr string) (string, int, error) {
+func parseAmpersand(cmdstr string) (string, int, error) {
 	var opts string
 
 	switch strings.ToUpper(cmdstr[:2]) {
@@ -41,14 +41,14 @@ func (m *Modem) parseAmpersand(cmdstr string) (string, int, error) {
 		}
 
 		if err != nil {
-			m.log.Print("ERROR: ", err)
+			logger.Print("ERROR: ", err)
 			return "", 0, err
 		}
 		s := fmt.Sprintf("&Z%d=%s", idx, str)
 		return s, len(s), nil
 
 	default:
-		m.log.Printf("Unknown &cmd: %s", cmdstr)
+		logger.Printf("Unknown &cmd: %s", cmdstr)
 		return "", 0, ERROR
 	}
 	
@@ -59,7 +59,7 @@ func (m *Modem) parseAmpersand(cmdstr string) (string, int, error) {
 }
 
 // +++ 
-func (m *Modem) command(cmdstring string) {
+func command(cmdstring string) {
 	var commands []string
 	var s, opts string
 	var i int
@@ -80,23 +80,23 @@ func (m *Modem) command(cmdstring string) {
 
 	if strings.ToUpper(cmdstring) == "AT" {
 		m.lastCmd = "AT"
-		m.prstatus(OK)
+		prstatus(OK)
 		return
 	}
 	
 	if len(cmdstring) < 2  {
-		m.log.Print("Cmd too short: ", cmdstring)
-		m.prstatus(ERROR)
+		logger.Print("Cmd too short: ", cmdstring)
+		prstatus(ERROR)
 		return
 	}
 
 	if strings.ToUpper(cmdstring[:2]) != "AT" {
-		m.log.Print("Malformed command: ", cmdstring)
-		m.prstatus(ERROR)
+		logger.Print("Malformed command: ", cmdstring)
+		prstatus(ERROR)
 		return
 	}
 
-	m.log.Printf("command: %s", cmdstring)
+	logger.Printf("command: %s", cmdstring)
 
 	cmd := cmdstring[2:] 		// Skip the 'AT'
 	c := 0
@@ -112,7 +112,7 @@ func (m *Modem) command(cmdstring string) {
 		case '*': 	// Custom debug registers
 			s, i, err = parseDebug(cmd[c:])
 		case '&':
-			s, i, err = m.parseAmpersand(cmd)
+			s, i, err = parseAmpersand(cmd)
 		case 'A', 'a':
 			opts = "0"
 			s, i, err = parse(cmd[c:], opts)
@@ -132,28 +132,28 @@ func (m *Modem) command(cmdstring string) {
 			opts = "01234567"
 			s, i, err = parse(cmd[c:], opts)
 		default:
-			m.log.Printf("Unknown command: %s", cmd)
-			m.prstatus(ERROR)
+			logger.Printf("Unknown command: %s", cmd)
+			prstatus(ERROR)
 			return
 		}
 
 		if err != nil {
-			m.prstatus(ERROR)
+			prstatus(ERROR)
 			return
 		}
 		commands = append(commands, s)
 		c += i
 	}
 
-	m.log.Printf("Command array: %+v", commands)
-	status = m.processCommands(commands)
+	logger.Printf("Command array: %+v", commands)
+	status = processCommands(commands)
 
 	time.Sleep(500 * time.Millisecond) // Simulate command delay
 
-	m.prstatus(status)
+	prstatus(status)
 
 	if status == OK || status == CONNECT {
-		m.log.Printf("Saving command string '%s'", cmdstring)
+		logger.Printf("Saving command string '%s'", cmdstring)
 		m.lastCmd = cmdstring
 	}
 }

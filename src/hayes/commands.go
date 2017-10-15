@@ -1,4 +1,4 @@
-package hayes
+package main
 
 import (
 	"time"
@@ -6,16 +6,16 @@ import (
 )
 
 // ATA
-func (m *Modem) answer() error {
-	if m.offHook() {
-		m.log.Print("Can't answer, line off hook already")
+func answer() error {
+	if offHook() {
+		logger.Print("Can't answer, line off hook already")
 		return ERROR
 	}
 	
-	m.goOffHook()
+	goOffHook()
 
 	// Simulate Carrier Detect delay
-	delay := time.Duration(m.registers.Read(REG_CARRIER_DETECT_RESPONSE_TIME))
+	delay := time.Duration(registers.Read(REG_CARRIER_DETECT_RESPONSE_TIME))
 	delay = delay * 100 * time.Millisecond
 	time.Sleep(delay)
 	m.dcd = true
@@ -26,18 +26,18 @@ func (m *Modem) answer() error {
 
 // ATZ
 // Setup/reset modem.  Leaves RTS & CTS down.
-func (m *Modem) reset() error {
+func reset() error {
 	var err error = OK
 
-	m.log.Print("Resetting modem")
+	logger.Print("Resetting modem")
 
 	// Reset state
-	m.goOnHook()
-	m.setLineBusy(false)
-	m.lowerDSR()
-	m.lowerCTS()
-	m.lowerRI()
-	m.stopTimer()
+	goOnHook()
+	setLineBusy(false)
+	lowerDSR()
+	lowerCTS()
+	lowerRI()
+	stopTimer()
 	m.dcd = false
 	m.lastCmd = ""
 	m.lastDialed = ""
@@ -53,19 +53,19 @@ func (m *Modem) reset() error {
 	m.extendedResultCodes = true
 	m.dcdControl = false	
 	m.connectMsgSpeed = true
-	m.resetRegs()
-	m.phonebook = NewPhonebook(*_flags_phoneBook, m.log)
-	err = m.phonebook.Load()
+	registers.Reset()
+	phonebook = NewPhonebook(*_flags_phoneBook, logger)
+	err = phonebook.Load()
 	if err != nil {
-		m.log.Print(err)
+		logger.Print(err)
 	}
 
-	m.resetTimer()
+	resetTimer()
 	return err
 }
 
 // AT&V
-func (m *Modem) amperV() error {
+func amperV() error {
 	b := func(p bool) (string) {
 		if p {
 			return"1 "
@@ -99,28 +99,28 @@ func (m *Modem) amperV() error {
 	s += "X" + x(m.extendedResultCodes, m.busyDetect)
 	s += "&C" + b(m.dcdControl)
 	s += "\n"
-	s += m.registers.String()
-	m.serial.Println(s)
+	s += registers.String()
+	serial.Println(s)
 	return OK
 }
 
 // AT&...
 // Only support &V and &C for now
-func (m *Modem) processAmpersand(cmd string) error {
+func processAmpersand(cmd string) error {
 
-	m.log.Print(cmd)
+	logger.Print(cmd)
 	if cmd[:2] == "&Z" {
 		var s string
 		var i int
 		_ , err := fmt.Sscanf(cmd, "&Z%d=%s", &i, &s)
 		if err != nil {
-			m.log.Print(err)
+			logger.Print(err)
 			return err
 		}
 		if s[0] == 'D' || s[0] == 'd' { // Extension
-			return m.phonebook.Delete(i)
+			return phonebook.Delete(i)
 		}
-		return m.phonebook.Add(i, s)
+		return phonebook.Add(i, s)
 	}
 
 	switch cmd {
@@ -130,28 +130,28 @@ func (m *Modem) processAmpersand(cmd string) error {
 	case "&C1":
 		m.dcdControl = true
 		return OK
-	case "&V0": return m.amperV()
+	case "&V0": return amperV()
 	}
 	return ERROR
 }
 
 
 // process each command
-func (m *Modem) processCommands(commands []string) error {
+func processCommands(commands []string) error {
 	var status error
 	var cmd string
 
 	status = OK
 	for _, cmd = range commands {
-		m.log.Printf("Processing: %s", cmd)
+		logger.Printf("Processing: %s", cmd)
 		switch cmd[0] {
 		case 'A':
-			status = m.answer()
+			status = answer()
 		case 'Z':
-			status = m.reset()
+			status = reset()
 			time.Sleep(250 * time.Millisecond)
-			m.raiseDSR()
-			m.raiseCTS()
+			raiseDSR()
+			raiseCTS()
 		case 'E':
 			if cmd[1] == '0' {
 				m.echoInCmdMode = false
@@ -163,9 +163,9 @@ func (m *Modem) processCommands(commands []string) error {
 			status = OK 
 		case 'H':
 			if cmd[1] == '0' { 
-				status = m.goOnHook()
+				status = goOnHook()
 			} else if cmd[1] == '1' {
-				status = m.goOffHook()
+				status = goOffHook()
 			} else {
 				status = ERROR
 			}
@@ -215,13 +215,13 @@ func (m *Modem) processCommands(commands []string) error {
 				m.busyDetect = true
 			}
 		case 'D':
-			status = m.dial(cmd)
+			status = dial(cmd)
 		case 'S':
-			status = m.registerCmd(cmd)
+			status = registerCmd(cmd)
 		case '&':
-			status = m.processAmpersand(cmd)
+			status = processAmpersand(cmd)
 		case '*':
-			status = m.debug(cmd)
+			status = debug(cmd)
 		default:
 			status = ERROR
 		}

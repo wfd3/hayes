@@ -1,10 +1,10 @@
-package hayes
+package main
 
 import (
 	"fmt"
 	"log"
 	"strings"
-	"github.com/tarm/serial"
+	tarmserial "github.com/tarm/serial"
 )
 
 /*
@@ -32,18 +32,19 @@ import "C"
 
 type serialPort struct {
 	console bool
-	port *serial.Port
-	regs *Registers
+	port *tarmserial.Port
 	log *log.Logger
 	channel chan byte
+	bs byte
+	cr byte
+	lf byte
 }
 
 func setupSerialPort(port string, speed int, charchannel chan byte,
-	regs *Registers, log *log.Logger) (*serialPort) {
+	log *log.Logger) (*serialPort) {
 	var s serialPort
 
 	s.console = port == ""
-	s.regs = regs
 	s.log = log
 	s.channel = charchannel
 
@@ -52,8 +53,8 @@ func setupSerialPort(port string, speed int, charchannel chan byte,
 	} else { 
 
 		s.log.Printf("Using serial port %s at %d bps", port, speed)
-		c := &serial.Config{Name: port, Baud: speed}
-		p, err := serial.OpenPort(c)
+		c := &tarmserial.Config{Name: port, Baud: speed}
+		p, err := tarmserial.OpenPort(c)
 		if err != nil {
 			s.log.Fatal(err)
 		}
@@ -62,6 +63,13 @@ func setupSerialPort(port string, speed int, charchannel chan byte,
 
 	go s.getChars()
 	return &s
+}
+
+func (s *serialPort) Chars(bs, cr, lf byte) {
+	s.bs = bs
+	s.cr = cr
+	s.lf = lf
+	s.log.Printf("bs = %d, cr = %d, lf = %d", s.bs, s.cr, s.lf)
 }
 
 func (s *serialPort) Flush() error {
@@ -78,8 +86,8 @@ func (s *serialPort) Read(p []byte) (int, error) {
 		p[0] = byte(C.getch())
 		// mappings
 		switch p[0] {
-		case 127:  p[0] = s.regs.Read(REG_BS_CH)
-		case '\n': p[0] = s.regs.Read(REG_CR_CH)
+		case 127:  p[0] = s.bs
+		case '\n': p[0] = s.cr
 		}
 		return 1, nil
 	}
@@ -110,15 +118,14 @@ func (s *serialPort) Write(p []byte) (int, error) {
 		}
 		// ASCII DEL -> ASCII BS		
 		if p[0] == 127 {
-			p[0] = s.regs.Read(REG_BS_CH)
+			p[0] = s.bs
 		}
 		// end of key mappings
 
 		// Handle BS
 		str := string(p)
-		if p[0] == s.regs.Read(REG_BS_CH) {
-			str = fmt.Sprintf("%c %c", s.regs.Read(REG_BS_CH),
-				s.regs.Read(REG_BS_CH))
+		if p[0] == s.bs {
+			str = fmt.Sprintf("%c %c", s.bs, s.bs)
 		} 
 		return fmt.Printf("%s", str) // This should be the
 					     // only fmt.Print* in the
@@ -133,10 +140,10 @@ func (s *serialPort) WriteByte(p byte) (int, error) {
 	
 	// map '\n' to '\n\r'
 	switch p {
-	case s.regs.Read(REG_CR_CH):
+	case s.cr:
 		out = make([]byte, 2)
 		out[0] = p
-		out[1] = s.regs.Read(REG_LF_CH)
+		out[1] = s.lf
 	default:
 		out = make([]byte, 1)
 		out[0] = p

@@ -1,4 +1,4 @@
-package hayes
+package main
 
 import (
 	"flag"
@@ -8,6 +8,7 @@ import (
 const __ADDRESS_BOOK_FILE = "./phonebook.json"
 const __ID_RSA_FILE       = "./id_rsa"
 
+var _flags_syslog      = flag.Bool("L", false, "Log to syslog (default false)")
 var _flags_logfile     = flag.String("l", "", "Default log `file` (default stderr)")
 var _flags_serialPort  = flag.String("p", "", "Serial `port` (eg, /dev/ttyS0")
 var _flags_serialSpeed = flag.Int("S", 115200,

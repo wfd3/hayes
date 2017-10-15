@@ -1,4 +1,4 @@
-package hayes
+package main
 
 //
 // Pretend to be a Hayes modem.
@@ -15,8 +15,10 @@ package hayes
 import (
 	"flag"
 	"log"
+	"log/syslog"
 	"os"
 	"os/signal"
+	"path"
 	"runtime/pprof"
 	"strings"
 	"sync"
@@ -44,8 +46,6 @@ type Modem struct {
 	busyDetect bool
 	extendedResultCodes bool
 	dcdControl bool
-	phonebook *Phonebook
-	registers *Registers
 
 	// State
 	mode int
@@ -58,20 +58,32 @@ type Modem struct {
 	hook int
 	hookLock sync.RWMutex
 
-	// I/O
-	conn connection
-	serial *serialPort
-	charchannel chan byte
-	pins Pins
-	leds Pins
-	log *log.Logger
-	timer *time.Ticker
 }
+
+var m Modem
+var registers *Registers
+var phonebook *Phonebook
+var netConn connection
+var serial *serialPort
+
+var timer *time.Ticker
+var charchannel chan byte
+var logger *log.Logger
 
 func setupLogging() *log.Logger {
 	var err error
+
+	flags := log.Ldate | log.Ltime | log.Lmicroseconds | log.Lshortfile
 	
-	logger := os.Stderr
+	if *_flags_syslog {
+		logger, err := syslog.NewLogger(syslog.LOG_CRIT, flags)
+		if err != nil {
+			panic("Can't open syslog")
+		}
+		return logger
+	}
+
+	logger := os.Stderr	// default to StdErr
 	if *_flags_logfile != "" {
 		logger, err = os.OpenFile(*_flags_logfile,
 			os.O_RDWR|os.O_APPEND|os.O_CREATE, 0644)
@@ -79,35 +91,36 @@ func setupLogging() *log.Logger {
 			panic("Can't open logfile")
 		}
 	}
-	return log.New(logger, "modem: ",
-		log.Ldate | log.Ltime | log.Lmicroseconds | log.Lshortfile)
+	prefix := path.Base(os.Args[0]) + ": "
+	return log.New(logger, prefix, flags)
+
 }
 
 // Watch a subset of pins and act as apropriate
 // Must be a goroutine
-func (m *Modem) handlePINs() {
+func handlePINs() {
 
 	for {
 		// TODO: Do I need to support DTR state changes (&Q & &D)?
-		if m.readDTR() {
-			m.led_TR_on()
+		if readDTR() {
+			led_TR_on()
 		} else {
-			if m.offHook() {
-				m.goOnHook()
+			if offHook() {
+				goOnHook()
 			}
-			m.led_TR_off()
+			led_TR_off()
 		}
 
 		if m.connectSpeed > 19200 {
-			m.led_HS_on()
+			led_HS_on()
 		} else {
-			m.led_HS_off()
+			led_HS_off()
 		}
 
 		if m.dcd || m.dcdControl {
-			m.raiseCD()
+			raiseCD()
 		} else {
-			m.lowerCD()
+			lowerCD()
 		}
 		time.Sleep(250 * time.Millisecond)
 	}
@@ -115,7 +128,7 @@ func (m *Modem) handlePINs() {
 
 // Catch ^C, reset the HW pins
 // Must be a goroutine
-func (m *Modem) handleSignals() {
+func handleSignals() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGINT, syscall.SIGUSR1, syscall.SIGUSR2,
 		syscall.SIGQUIT)
@@ -123,78 +136,44 @@ func (m *Modem) handleSignals() {
 	for {
 		// Block until a signal is received.
 		s := <-c
-		m.log.Print("Caught signal: ", s)
+		logger.Print("Caught signal: ", s)
 		switch s {
 		case syscall.SIGINT:
-			m.clearPins()
-			m.log.Print("Exiting")
+			clearPins()
+			logger.Print("Exiting")
 			os.Exit(0)
 
 		case syscall.SIGUSR1:
 			pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
 
 		case syscall.SIGUSR2:
-			m.logState()
+			logState()
 
 		case syscall.SIGQUIT:
-			m.logState()
+			logState()
 		}
 	}
 }
 
 // Timer functions
-func (m *Modem) resetTimer() {
-	m.stopTimer()
-	gt := m.registers.Read(REG_ESC_CODE_GUARD_TIME)
+func resetTimer() {
+	stopTimer()
+	gt := registers.Read(REG_ESC_CODE_GUARD_TIME)
 	guardTime := time.Duration(float64(gt) * 0.02) * time.Second
 
-	m.log.Printf("Setting timer for %v", guardTime)
-	m.timer = time.NewTicker(guardTime)
+	logger.Printf("Setting timer for %v", guardTime)
+	timer = time.NewTicker(guardTime)
 }
 
-func (m *Modem) stopTimer() {
-	if m.timer != nil {
-		m.timer.Stop()
+func stopTimer() {
+	if timer != nil {
+		timer.Stop()
 	}
-}
-
-// Boot the modem
-func (m *Modem) PowerOn() {
-
-	flag.Parse()
-	
-	m.log = setupLogging()
-	m.log.Print("------------ Starting up")
-	m.log.Printf("Cmdline: %s", strings.Join(os.Args, " "))
-
-	m.registers = NewRegisters()
-	m.setupPins()
-	callChannel = make(chan connection)
-	m.charchannel = make(chan byte)
-	m.serial = setupSerialPort(*_flags_serialPort, *_flags_serialSpeed,
-		m.charchannel, m.registers, m.log)
-
-	m.reset()	      // Setup modem inital state (or reset initial state)
-	
-	go m.handleSignals()	// Catch signals in a different thread
-	go m.handlePINs()       // Monitor input pins & internal registers
-	go m.handleModem()	// Handle in-bound bytes in a seperate goroutine
-
-	// Signal to DTE that we're ready
-	time.Sleep(250 * time.Millisecond) // make it look good
-	m.raiseDSR()
-	m.raiseCTS()
-
-	// Tell user we're ready
-	m.log.Print("Modem Ready")
-	m.prstatus(OK)
-
-	m.readSerial()		// never returns
 }
 
 // Consume bytes from the serial port and process or send to
 // remote as per m.mode
-func (m *Modem) readSerial() {
+func readSerial() {
 	var c byte
 	var s string
 	var lastThree [3]byte
@@ -206,10 +185,10 @@ func (m *Modem) readSerial() {
 
 	countAtTick = 0
 	for {
-		regs = m.registers // Reload regs in case we reset the modem
+		regs = registers // Reload regs in case we reset the modem
 
 		select {
-		case <- m.timer.C:
+		case <- timer.C:
 			if m.mode == COMMANDMODE { // Skip this if in COMMAND mode
 				continue
 			}
@@ -228,10 +207,10 @@ func (m *Modem) readSerial() {
 				lastThree == escSequence { 
 				waitForOneTick = true
 			} else if waitForOneTick && countAtTick == 0 {
-				m.log.Print("Escape sequence detected, ", 
+				logger.Print("Escape sequence detected, ", 
 					"entering command mode")
 				m.mode = COMMANDMODE
-				m.prstatus(OK) // signal that we're in command mode
+				prstatus(OK) // signal that we're in command mode
 			} else {
 				waitForOneTick = false
 			}
@@ -239,14 +218,14 @@ func (m *Modem) readSerial() {
 			countAtTick = 0
 			continue
 
-		case c = <- m.charchannel:
+		case c = <- charchannel:
 			countAtTick++
 		}
 
 		switch m.mode {
 		case COMMANDMODE:
 			if m.echoInCmdMode { // Echo back to the DTE
-				m.serial.WriteByte(c)
+				serial.WriteByte(c)
 			}
 
 			// Accumulate chars in s until we read a CR, then process
@@ -254,15 +233,15 @@ func (m *Modem) readSerial() {
 
 			// 'A/' command, immediately exec.
 			if (s == "A" || s == "a") && c == '/' {
-				m.serial.Println()
+				serial.Println()
 				if m.lastCmd == "" {
-					m.prstatus(ERROR)
+					prstatus(ERROR)
 				} else {
-					m.command(m.lastCmd)
+					command(m.lastCmd)
 				}
 				s = ""
 			} else if c == regs.Read(REG_CR_CH) && s != "" {
-				m.command(s)
+				command(s)
 				s = ""
 			} else if c == regs.Read(REG_BS_CH)  && len(s) > 0 {
 				s = s[0:len(s) - 1]
@@ -275,7 +254,7 @@ func (m *Modem) readSerial() {
 
 		case DATAMODE:
 			// Look for the command escape sequence
-			if c != m.registers.Read(REG_ESC_CH) {
+			if c != registers.Read(REG_ESC_CH) {
 				lastThree = [3]byte{' ', ' ', ' '}
 				idx = 0
 			} else {
@@ -284,17 +263,51 @@ func (m *Modem) readSerial() {
 			}
 			
 			// Send to remote, blinking the SD LED
-			if m.offHook() && m.conn != nil {
-				m.led_SD_on()
+			if offHook() && netConn != nil {
+				led_SD_on()
 				out := make([]byte, 1)
 				out[0] = c
-				m.conn.Write(out)
-				m.led_SD_off()	
+				netConn.Write(out)
+				led_SD_off()	
 			}
 		}
 	}
 }
 
+// Boot the modem
+func main() {
+	flag.Parse()
+	
+	logger = setupLogging()
+	logger.Print("------------ Starting up")
+	logger.Printf("Cmdline: %s", strings.Join(os.Args, " "))
 
+	registers = NewRegisters()
+	callChannel = make(chan connection)
+	charchannel = make(chan byte)
+	serial = setupSerialPort(*_flags_serialPort, *_flags_serialSpeed,
+		charchannel, logger)
+	serial.Chars(registers.Read(REG_BS_CH), registers.Read(REG_CR_CH),
+		registers.Read(REG_LF_CH))
+
+	setupPins()
+
+	reset()	      // Setup modem inital state (or reset initial state)
+	
+	go handleSignals()	// Catch signals in a different thread
+	go handlePINs()         // Monitor input pins & internal registers
+	go handleModem()	// Handle in-bound bytes in a seperate goroutine
+
+	// Signal to DTE that we're ready
+	time.Sleep(250 * time.Millisecond) // make it look good
+	raiseDSR()
+	raiseCTS()
+
+	// Tell user we're ready
+	logger.Print("Modem Ready")
+	prstatus(OK)
+
+	readSerial()		// never returns
+}
 
 

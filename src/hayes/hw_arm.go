@@ -1,6 +1,6 @@
 // +build arm
 
-package hayes
+package main
 
 import (
 	"github.com/stianeikeland/go-rpio"
@@ -15,7 +15,9 @@ import (
 // So note that the LED pins are normal, and the control pins (RTS, CTS, etc.)
 // are backwards (eg, pin.Low() means RS232 High and pin.High() means RS232 Low)
 
-type Pins map[int]rpio.Pin
+type hwPins map[int]rpio.Pin
+var leds hwPins
+var pins hwPins
 
 // LED and data pins
 const (
@@ -47,14 +49,14 @@ const (
 	DTR_PIN = 16 		// Data Terminal Ready (Input)
 )
 
-func (m *Modem) setupPins() {
+func setupPins() {
 
 	if err := rpio.Open(); err != nil {
-		m.log.Fatal("Fatal Error: ", err)
+		logger.Fatal("Fatal Error: ", err)
 	}
 
 	// LEDs
-	leds := make(Pins)
+	leds = make(hwPins)
 
 	leds[HS_LED] = rpio.Pin(HS_LED)
 	leds[HS_LED].Output()
@@ -88,7 +90,7 @@ func (m *Modem) setupPins() {
 	
 
 	// Pins
-	pins := make(Pins)
+	pins = make(hwPins)
 
 	pins[CTS_PIN] = rpio.Pin(CTS_PIN)
 	pins[CTS_PIN].Output()
@@ -108,30 +110,28 @@ func (m *Modem) setupPins() {
 	pins[RTS_PIN] = rpio.Pin(RTS_PIN)
 	pins[RTS_PIN].Input()
 
-	m.leds = leds
-	m.pins = pins
 }
 
-func (m *Modem) clearPins() {
-	m.leds[HS_LED].Low()
-	m.leds[AA_LED].Low()
-	m.leds[RI_LED].Low()
-	m.leds[MR_LED].Low()
-	m.leds[TR_LED].Low()
-	m.leds[RD_LED].Low()
-	m.leds[CS_LED].Low()
-	m.leds[CD_LED].Low()
-	m.leds[SD_LED].Low()
-	m.leds[OH_LED].Low()
+func clearPins() {
+	leds[HS_LED].Low()
+	leds[AA_LED].Low()
+	leds[RI_LED].Low()
+	leds[MR_LED].Low()
+	leds[TR_LED].Low()
+	leds[RD_LED].Low()
+	leds[CS_LED].Low()
+	leds[CD_LED].Low()
+	leds[SD_LED].Low()
+	leds[OH_LED].Low()
 
-	m.pins[RI_PIN].High()
-	m.pins[CD_PIN].High()
-	m.pins[DSR_PIN].High()
-	m.pins[CTS_PIN].High()
+	pins[RI_PIN].High()
+	pins[CD_PIN].High()
+	pins[DSR_PIN].High()
+	pins[CTS_PIN].High()
 	// No need to do RTS and DTR
 }
 
-func (m *Modem) showPins() string {
+func showPins() string {
 	pp := func (n string, pin rpio.Pin, up rpio.State) (string) {
 		var s string
 		if pin.Read() == up {	
@@ -144,108 +144,108 @@ func (m *Modem) showPins() string {
 	}
 
 	s := "PINs: ["
-	s += pp("CTS", m.pins[CTS_PIN], rpio.Low)
-	s += pp("RI_", m.pins[RI_PIN], rpio.Low)
-	s += pp("DCD", m.pins[CD_PIN], rpio.Low)
-	s += pp("DSR", m.pins[DSR_PIN], rpio.Low)
-	s += pp("RTS", m.pins[RTS_PIN], rpio.Low)
-	s += pp("DTR", m.pins[DTR_PIN], rpio.Low)
+	s += pp("CTS", pins[CTS_PIN], rpio.Low)
+	s += pp("RI_", pins[RI_PIN], rpio.Low)
+	s += pp("DCD", pins[CD_PIN], rpio.Low)
+	s += pp("DSR", pins[DSR_PIN], rpio.Low)
+	s += pp("RTS", pins[RTS_PIN], rpio.Low)
+	s += pp("DTR", pins[DTR_PIN], rpio.Low)
 	s += "]"
 
 	s += "\n"
 
 	s += "LEDs: "
-	s += pp("HS", m.leds[HS_LED], rpio.High)
-	s += pp("AA", m.leds[AA_LED], rpio.High)
-	s += pp("RI", m.leds[RI_LED], rpio.High)
-	s += pp("CD", m.leds[CD_LED], rpio.High)
-	s += pp("OH", m.leds[OH_LED], rpio.High)
-	s += pp("MR", m.leds[MR_LED], rpio.High)
-	s += pp("CS", m.leds[ CS_LED], rpio.High)
-	s += pp("TR", m.leds[TR_LED], rpio.High)
-	s += pp("SD", m.leds[SD_LED], rpio.High)
-	s += pp("RD", m.leds[RD_LED], rpio.High)
+	s += pp("HS", leds[HS_LED], rpio.High)
+	s += pp("AA", leds[AA_LED], rpio.High)
+	s += pp("RI", leds[RI_LED], rpio.High)
+	s += pp("CD", leds[CD_LED], rpio.High)
+	s += pp("OH", leds[OH_LED], rpio.High)
+	s += pp("MR", leds[MR_LED], rpio.High)
+	s += pp("CS", leds[ CS_LED], rpio.High)
+	s += pp("TR", leds[TR_LED], rpio.High)
+	s += pp("SD", leds[SD_LED], rpio.High)
+	s += pp("RD", leds[RD_LED], rpio.High)
 	s += "]"
 	return s
 }
 
 // Led functions
-func (m *Modem) led_HS_on() {
-	m.leds[HS_LED].High()
+func led_HS_on() {
+	leds[HS_LED].High()
 }
-func (m *Modem) led_HS_off() {
-	m.leds[HS_LED].Low()
-}
-
-func (m *Modem) led_AA_on() {
-	m.leds[AA_LED].High()
-}
-func (m *Modem) led_AA_off() {
-	m.leds[AA_LED].Low()
+func led_HS_off() {
+	leds[HS_LED].Low()
 }
 
-func(m *Modem) led_OH_on() {
-	m.leds[OH_LED].High()
+func led_AA_on() {
+	leds[AA_LED].High()
 }
-func(m *Modem) led_OH_off() {
-	m.leds[OH_LED].Low()
-}
-
-func(m *Modem) led_TR_on() {
-	m.leds[TR_LED].High()
-}
-func(m *Modem) led_TR_off() {
-	m.leds[TR_LED].Low()
+func led_AA_off() {
+	leds[AA_LED].Low()
 }
 
-func (m *Modem) led_SD_on() {
-	m.leds[SD_LED].High()
+func led_OH_on() {
+	leds[OH_LED].High()
 }
-func (m *Modem) led_SD_off() {
-	m.leds[SD_LED].Low()
-}
-
-func (m *Modem) led_RD_on() {
-	m.leds[RD_LED].High()
-}
-func (m *Modem) led_RD_off() {
-	m.leds[RD_LED].Low()
+func led_OH_off() {
+	leds[OH_LED].Low()
 }
 
-func (m *Modem) ledTest(round int) {
+func led_TR_on() {
+	leds[TR_LED].High()
+}
+func led_TR_off() {
+	leds[TR_LED].Low()
+}
+
+func led_SD_on() {
+	leds[SD_LED].High()
+}
+func led_SD_off() {
+	leds[SD_LED].Low()
+}
+
+func led_RD_on() {
+	leds[RD_LED].High()
+}
+func led_RD_off() {
+	leds[RD_LED].Low()
+}
+
+func ledTest(round int) {
 	var saved_leds map[int]rpio.State
 
 	saved_leds = make(map[int]rpio.State)
 
 	// Turn them all on, wait a bit, turn them all off.
-	for i:= range m.leds {
-		saved_leds[i] = m.leds[i].Read() // Save current state
-		m.leds[i].High()
+	for i:= range leds {
+		saved_leds[i] = leds[i].Read() // Save current state
+		leds[i].High()
 		time.Sleep(50 * time.Millisecond)
 	}
 	time.Sleep(500 * time.Millisecond)
-	for i:= range m.leds {
-		m.leds[i].Low()
+	for i:= range leds {
+		leds[i].Low()
 		time.Sleep(50 * time.Millisecond)
 	}
 	time.Sleep(500 * time.Millisecond)
 	
 	// Randomly (based on how range works) turn on and off round times
 	for j := 0; j < round; j++ {
-		for i:= range m.leds {
-			m.leds[i].High()
+		for i:= range leds {
+			leds[i].High()
 			time.Sleep(50 * time.Millisecond)
 		}
 		time.Sleep(10 * time.Millisecond)
-		for i:= range m.leds {
-			m.leds[i].Low()
+		for i:= range leds {
+			leds[i].Low()
 			time.Sleep(50 * time.Millisecond)
 		}
 	}
 
 	// Restore LED state
 	for j := range saved_leds {
-		m.leds[j].Write(saved_leds[j])
+		leds[j].Write(saved_leds[j])
 	}
 
 }
@@ -253,64 +253,64 @@ func (m *Modem) ledTest(round int) {
 // PINs
 
 // RI - assert RI and turn on RI light
-func (m *Modem) raiseRI() {
-	m.leds[RI_LED].High()
-	m.pins[RI_PIN].Low()
+func raiseRI() {
+	leds[RI_LED].High()
+	pins[RI_PIN].Low()
 }
-func (m *Modem) lowerRI() {
-	m.leds[RI_LED].Low()
-	m.pins[RI_PIN].High()
+func lowerRI() {
+	leds[RI_LED].Low()
+	pins[RI_PIN].High()
 }
-func (m *Modem) readRI() (bool) {
-	return m.pins[RI_PIN].Read() == rpio.Low
+func readRI() (bool) {
+	return pins[RI_PIN].Read() == rpio.Low
 }
 
 // CD - assert CD and turn on CD light
-func (m *Modem) raiseCD() {
-	m.leds[CD_LED].High()
-	m.pins[CD_PIN].Low()
+func raiseCD() {
+	leds[CD_LED].High()
+	pins[CD_PIN].Low()
 }
-func (m *Modem) lowerCD() {
-	m.leds[CD_LED].Low()
-	m.pins[CD_PIN].High()
+func lowerCD() {
+	leds[CD_LED].Low()
+	pins[CD_PIN].High()
 }
-func (m *Modem) readCD() (bool) {
-	return m.pins[CD_PIN].Read() == rpio.Low
+func readCD() (bool) {
+	return pins[CD_PIN].Read() == rpio.Low
 }
 
 // DSR - assert DSR and turn on MR light
-func (m *Modem) raiseDSR() {
-	m.leds[MR_LED].High()
-	m.pins[DSR_PIN].Low()
+func raiseDSR() {
+	leds[MR_LED].High()
+	pins[DSR_PIN].Low()
 }
-func (m *Modem) lowerDSR() {
-	m.leds[MR_LED].Low()
-	m.pins[DSR_PIN].High()
+func lowerDSR() {
+	leds[MR_LED].Low()
+	pins[DSR_PIN].High()
 }
-func (m *Modem) readDSR() (bool) {
-	return m.pins[DSR_PIN].Read() == rpio.Low
+func readDSR() (bool) {
+	return pins[DSR_PIN].Read() == rpio.Low
 }
 
 // CTS - assert CTS and turn on CS light
-func (m *Modem) raiseCTS() {
-	m.leds[CS_LED].High()
-	m.pins[CTS_PIN].Low()
+func raiseCTS() {
+	leds[CS_LED].High()
+	pins[CTS_PIN].Low()
 }
-func (m *Modem) lowerCTS() {
-	m.leds[CS_LED].Low()
-	m.pins[CTS_PIN].High()
+func lowerCTS() {
+	leds[CS_LED].Low()
+	pins[CTS_PIN].High()
 }
-func (m *Modem) readCTS() (bool) {
-	return m.pins[CTS_PIN].Read() == rpio.Low
+func readCTS() (bool) {
+	return pins[CTS_PIN].Read() == rpio.Low
 }
 
 // DTR (input)
-func (m *Modem) readDTR() (bool) {
-	return m.pins[DTR_PIN].Read() == rpio.Low
+func readDTR() (bool) {
+	return pins[DTR_PIN].Read() == rpio.Low
 }
 
 // RTS (input)
-func (m *Modem) readRTS() (bool) {
-	return m.pins[RTS_PIN].Read() == rpio.Low
+func readRTS() (bool) {
+	return pins[RTS_PIN].Read() == rpio.Low
 }
 	

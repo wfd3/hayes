@@ -1,4 +1,4 @@
-package hayes
+package main
 
 // Command Result codes
 
@@ -70,7 +70,7 @@ func (e *MError) Code() string {
 }
 
 // Print command status, subject to quiet mode and verbose mode flags
-func (m *Modem) prstatus(e error) {
+func prstatus(e error) {
 	var ok bool
 	var merr *MError
 
@@ -93,18 +93,18 @@ func (m *Modem) prstatus(e error) {
 	if e != nil { // nil is "OK", so that's OK.  
 		merr, ok = e.(*MError)
 		if !ok {
-			m.log.Print("Underlying error: ", e)
-			m.prstatus(ERROR)
+			logger.Print("Underlying error: ", e)
+			prstatus(ERROR)
 			return
 		}
 	}
 	
 	s := fmt.Sprintf("Result Code: %s (%s)", merr.Error(), merr.Code())
-	m.log.Print(strings.Replace(s, "\n", "", -1))
+	logger.Print(strings.Replace(s, "\n", "", -1))
 	
 	if !m.verbose {
-		m.serial.Println(merr.Code())
+		serial.Println(merr.Code())
 	} else {
-		m.serial.Println(merr.Error())
+		serial.Println(merr.Error())
 	} 
 }

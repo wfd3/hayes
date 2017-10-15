@@ -1,6 +1,6 @@
 // +build !arm
 
-package hayes
+package main
 
 // Support for generic hardare (ie, not a Raspberry Pi)
 
@@ -30,33 +30,36 @@ const (
 
 	_PIN_LEN		// This needs to be last in the const list
 )
-type Pins [_PIN_LEN]bool
 
-func (m *Modem) setupPins() {
-	m.log.Printf("Simulated Pins enabled on %s/%s\n",
+type hwPins [_PIN_LEN]bool
+var leds hwPins
+var pins hwPins
+
+func setupPins() {
+	logger.Printf("Simulated Pins enabled on %s/%s\n",
 		runtime.GOOS, runtime.GOARCH)
 
-	m.clearPins()
+	clearPins()
 
 	// The DTE is always ready
-	m.pins[DTR_PIN] = true
-	m.pins[RTS_PIN] = true
+	pins[DTR_PIN] = true
+	pins[RTS_PIN] = true
 }
 
-func (m *Modem) clearPins() {
-	for i := range m.leds {
-		m.leds[i] = false
+func clearPins() {
+	for i := range leds {
+		leds[i] = false
 	}
-	for i := range m.pins {
-		m.pins[i] = false
+	for i := range pins {
+		pins[i] = false
 	}
 }
 
-func (m *Modem) showPins() string {
+func showPins() string {
 
 	pp := func (n string, p int) (string) {
 		var s string
-		if m.pins[p] {
+		if pins[p] {
 			s = strings.ToUpper(n)
 		} else {
 			s = strings.ToLower(n)
@@ -75,7 +78,7 @@ func (m *Modem) showPins() string {
 
 	pl := func (n string, p int) (string) {
 		var s string
-		if m.leds[p] {	// LED is on
+		if leds[p] {	// LED is on
 			s = strings.ToUpper(n)
 		} else {
 			s = strings.ToLower(n)
@@ -100,116 +103,116 @@ func (m *Modem) showPins() string {
 }
 
 // LED functions
-func (m *Modem) led_HS_on() {
-	m.leds[HS_LED] = true
+func led_HS_on() {
+	leds[HS_LED] = true
 }
-func (m *Modem) led_HS_off() {
-	m.leds[HS_LED] = false
-}
-
-func (m *Modem) led_AA_on() {
-	m.leds[AA_LED] = true
-}
-func (m *Modem) led_AA_off() {
-	m.leds[AA_LED] = false
+func led_HS_off() {
+	leds[HS_LED] = false
 }
 
-func(m *Modem) led_OH_on() {
-	m.leds[OH_LED] = true
+func led_AA_on() {
+	leds[AA_LED] = true
 }
-func(m *Modem) led_OH_off() {
-	m.leds[OH_LED] = false
-}
-
-func(m *Modem) led_TR_on() {
-	m.leds[TR_LED] = true
-}
-func(m *Modem) led_TR_off() {
-	m.leds[TR_LED] = false
+func led_AA_off() {
+	leds[AA_LED] = false
 }
 
-func (m *Modem) led_SD_on() {
-	m.leds[SD_LED] = true
+func led_OH_on() {
+	leds[OH_LED] = true
 }
-func (m *Modem) led_SD_off() {
-	m.leds[SD_LED] = false
-}
-
-func (m *Modem) led_RD_on() {
-	m.leds[RD_LED] = true
-}
-func (m *Modem) led_RD_off() {
-	m.leds[RD_LED] = false
+func led_OH_off() {
+	leds[OH_LED] = false
 }
 
-func (m *Modem) ledTest(i int) {
+func led_TR_on() {
+	leds[TR_LED] = true
+}
+func led_TR_off() {
+	leds[TR_LED] = false
+}
+
+func led_SD_on() {
+	leds[SD_LED] = true
+}
+func led_SD_off() {
+	leds[SD_LED] = false
+}
+
+func led_RD_on() {
+	leds[RD_LED] = true
+}
+func led_RD_off() {
+	leds[RD_LED] = false
+}
+
+func ledTest(i int) {
 	// NOOP
 }
 
 // PINs
 
 // RI - Ring Indicator
-func (m *Modem) raiseRI() {
-	m.pins[RI_PIN] = true
+func raiseRI() {
+	pins[RI_PIN] = true
 }
-func (m *Modem) lowerRI() {
-	m.pins[RI_PIN] = false
+func lowerRI() {
+	pins[RI_PIN] = false
 }
-func (m *Modem) readRI() (bool) {
-	return m.pins[RI_PIN]
+func readRI() (bool) {
+	return pins[RI_PIN]
 }
 
 // CD - Carrier Detect
-func (m *Modem) raiseCD() {
-	m.leds[CD_LED] = true
-	m.pins[CD_PIN] = true
+func raiseCD() {
+	leds[CD_LED] = true
+	pins[CD_PIN] = true
 }
-func (m *Modem) lowerCD() {
-	m.leds[CD_LED] = false
-	m.pins[CD_PIN] = false
+func lowerCD() {
+	leds[CD_LED] = false
+	pins[CD_PIN] = false
 }
-func (m *Modem) readCD() (bool) {
-	return m.pins[CD_PIN] && m.leds[CD_LED]
+func readCD() (bool) {
+	return pins[CD_PIN]
 }
 
 // DSR - Data Set Ready
-func (m *Modem) raiseDSR() {
-	m.leds[MR_LED] = true
-	m.pins[DSR_PIN] = true
-	m.log.Print("raiseDSR()")
+func raiseDSR() {
+	leds[MR_LED] = true
+	pins[DSR_PIN] = true
+	logger.Print("raiseDSR()")
 }
-func (m *Modem) lowerDSR() {
-	m.leds[MR_LED] = false
-	m.pins[DSR_PIN] = false
-	m.log.Print("lowerDSR()")
+func lowerDSR() {
+	leds[MR_LED] = false
+	pins[DSR_PIN] = false
+	logger.Print("lowerDSR()")
 }
-func (m *Modem) readDSR() (bool) {
-	return m.pins[DSR_PIN] && m.leds[MR_LED]
+func readDSR() (bool) {
+	return pins[DSR_PIN]
 }
 
 // CTS - Clear to Send
-func (m *Modem) raiseCTS() {
-	m.leds[CS_LED] = true
-	m.pins[CTS_PIN] = true
-	m.log.Print("raiseCTS()")
+func raiseCTS() {
+	leds[CS_LED] = true
+	pins[CTS_PIN] = true
+	logger.Print("raiseCTS()")
 }
-func (m *Modem) lowerCTS() {
-	m.leds[CS_LED] = true
-	m.pins[CTS_PIN] = false
-	m.log.Print("lowerCTS()")
+func lowerCTS() {
+	leds[CS_LED] = true
+	pins[CTS_PIN] = false
+	logger.Print("lowerCTS()")
 }
-func (m *Modem) readCTS() (bool) {
-	return m.pins[CTS_PIN] && m.leds[CS_LED]
+func readCTS() (bool) {
+	return pins[CTS_PIN]
 }
 
 // DTR - Data Terminal Ready (input)
-func (m *Modem) readDTR() (bool) {
+func readDTR() (bool) {
 	// Is the computer ready to send data?
-	return m.pins[DTR_PIN]
+	return pins[DTR_PIN]
 }
 
 // RTS - Request to Send (input)
-func (m *Modem) readRTS() (bool) {
+func readRTS() (bool) {
 	// Has the computer requested data be sent?
-	return m.pins[RTS_PIN]
+	return pins[RTS_PIN]
 }

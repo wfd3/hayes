@@ -1,4 +1,4 @@
-package hayes
+package main
 
 import (
 	"fmt"
@@ -7,19 +7,19 @@ import (
 	"code.cloudfoundry.org/bytefmt"
 )
 
-func (m *Modem) logf(format string, a ...interface{}) {
-	m.log.Printf(format, a...)
+func logf(format string, a ...interface{}) {
+	logger.Printf(format, a...)
 }
-func (m *Modem) pf(format string, a ...interface{}) {
-	m.serial.Printf(format, a...)
+func pf(format string, a ...interface{}) {
+	serial.Printf(format, a...)
 }
 
 type out func(string, ...interface{})
 
 // Debug function
-func (m *Modem) outputState(debugf out)  {
+func outputState(debugf out)  {
 	
-	if m.onHook() {
+	if onHook() {
 		debugf("Hook      : ON HOOK\n")
 	} else {
 		debugf("Hook      : OFF HOOK\n")	
@@ -32,35 +32,35 @@ func (m *Modem) outputState(debugf out)  {
 	}
 	debugf("Quiet     : %t\n", m.quiet)
 	debugf("Verbose   : %t\n", m.verbose)
-	debugf("Line Busy : %t\n", m.getLineBusy())
+	debugf("Line Busy : %t\n", getLineBusy())
 	debugf("Speed     : %d\n", m.connectSpeed)
 	debugf("Volume    : %d\n", m.speakerVolume)
 	debugf("SpkrMode  : %d\n", m.speakerMode)
 	debugf("Last Cmd  : %s\n", m.lastCmd)
 	debugf("Last num  : %s\n", m.lastDialed)
 	debugf("Phonebook:\n")
-	debugf("%s\n", m.phonebook.String())
-	debugf("Cur reg   : %d\n", m.registers.ShowCurrent())
+	debugf("%s\n", phonebook.String())
+	debugf("Cur reg   : %d\n", registers.ShowCurrent())
 	debugf("Registers:\n")
-	debugf("%s\n", m.registers.String())
-	if m.conn != nil {
-		sent, recv := m.conn.Stats()
-		debugf("Connection: %s, tx: %s rx: %s\n", m.conn.RemoteAddr(),
+	debugf("%s\n", registers.String())
+	if netConn != nil {
+		sent, recv := netConn.Stats()
+		debugf("Connection: %s, tx: %s rx: %s\n", netConn.RemoteAddr(),
 			bytefmt.ByteSize(sent), bytefmt.ByteSize(recv))
 	} else {
 		debugf("Connection: <Not connected>\n")
 	}
-	debugf("%s\n", m.showPins())
+	debugf("%s\n", showPins())
 	debugf("GoRoutines: %d\n", runtime.NumGoroutine())
 
 }
 
-func (m *Modem) showState() {
-	m.outputState(m.pf)
+func showState() {
+	outputState(pf)
 }
 
-func (m *Modem) logState() {
-	m.outputState(m.logf)
+func logState() {
+	outputState(logf)
 }
 
 // AT*... debug command
@@ -104,24 +104,24 @@ func parseDebug(cmd string) (string, int, error) {
 }
 
 // Given a parsed register command, execute it.
-func (m *Modem) debug(cmd string) error {
+func debug(cmd string) error {
 	var err error
 	var reg, val int
 	
 	// NOTE: The order of these stanzas is critical.
 
-	m.log.Printf("cmd = '%s'", cmd)
+	logger.Printf("cmd = '%s'", cmd)
 
 	if cmd == "*" {
-		m.showState()
-		m.logState()
+		showState()
+		logState()
 		return nil
 	}
 
 	// *n=x - write x to n
 	_, err = fmt.Sscanf(cmd, "*%d=%d", &reg, &val)
 	if err != nil {
-		m.log.Print(err)
+		logger.Print(err)
 		return err
 	}
 
@@ -129,70 +129,70 @@ func (m *Modem) debug(cmd string) error {
 	case 1:		// Toggle DSR/CTS
 		switch val {
 		case 1:
-			m.lowerDSR()
-			m.lowerCTS()
+			lowerDSR()
+			lowerCTS()
 		case 2:
-			m.raiseDSR()
-			m.raiseCTS()
+			raiseDSR()
+			raiseCTS()
 		}
 	case 2:		// Run ledTest
-		m.ledTest(val)
+		ledTest(val)
 	case 3:
 		for i := 0; i < val; i++ {
-			m.showPins()
+			showPins()
 			time.Sleep(500 * time.Millisecond)
 		}
 	case 4:
-		m.phonebook.Write()
+		phonebook.Write()
 	case 8:		// Toggle CD pin val times
 		for i := 0; i < val; i++ {
-			m.serial.Println("Toggling CD up")
-			m.raiseCD()
+			serial.Println("Toggling CD up")
+			raiseCD()
 			time.Sleep(2 * time.Second)
-			m.serial.Println("Toggling CD down")
-			m.lowerCD()
+			serial.Println("Toggling CD down")
+			lowerCD()
 			time.Sleep(2 * time.Second)
 		}
 	case 9:		// Toggle RI pin val times
 		for i := 0; i < val; i++ {
-			m.serial.Println("Toggling RI up")
-			m.raiseRI()
+			serial.Println("Toggling RI up")
+			raiseRI()
 			time.Sleep(2 * time.Second)
-			m.serial.Println("Toggling RI down")
-			m.lowerRI()
+			serial.Println("Toggling RI down")
+			lowerRI()
 			time.Sleep(2 * time.Second)
 		}
 	case 10: 	// Toggle DSR
 		for i := 0; i < val; i++ {
-			m.serial.Println("Toggling DSR up")
-			m.raiseDSR()
+			serial.Println("Toggling DSR up")
+			raiseDSR()
 			time.Sleep(2 * time.Second)
-			m.serial.Println("Toggling DSR down")
-			m.lowerDSR()
+			serial.Println("Toggling DSR down")
+			lowerDSR()
 			time.Sleep(2 * time.Second)
 		}
 	case 11: 	// Toggle CTS
 		for i := 0; i < val; i++ {
-			m.serial.Println("Toggling CTS up")
-			m.raiseCTS()
+			serial.Println("Toggling CTS up")
+			raiseCTS()
 			time.Sleep(2 * time.Second)
-			m.serial.Println("Toggling CTS down")
-			m.lowerCTS()
+			serial.Println("Toggling CTS down")
+			lowerCTS()
 			time.Sleep(2 * time.Second)
 		}
 	case 99: 		// All output
 		for i := 0; i < val; i++ {
-			m.serial.Println("Rasising: CD, RI, DSR, CTS")
-			m.raiseCD()
-			m.raiseRI()
-			m.raiseDSR()
-			m.raiseCTS()
+			serial.Println("Rasising: CD, RI, DSR, CTS")
+			raiseCD()
+			raiseRI()
+			raiseDSR()
+			raiseCTS()
 			time.Sleep(2 * time.Second)
-			m.serial.Println("Lowering: CD, RI, DSR, CTS")
-			m.lowerCD()
-			m.lowerRI()
-			m.lowerDSR()
-			m.lowerCTS()
+			serial.Println("Lowering: CD, RI, DSR, CTS")
+			lowerCD()
+			lowerRI()
+			lowerDSR()
+			lowerCTS()
 			time.Sleep(2 * time.Second)
 		}
 	}
