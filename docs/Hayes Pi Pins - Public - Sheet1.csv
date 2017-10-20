@@ -1,0 +1,37 @@
+Function,Left,Left,CENTER,Right,Right,Function,,,,,,,
+,GPIO,PIN,Breadboard row,PIN,GPIO,,,,,,,,
+--,3.3V,1,1,2,5V,--,,,,,,,
+HS_LED,2,3,2,4,5V,--,,,,,,,
+AA_LED,3,5,3,6,GND,--,,,,,,,
+RI_LED,4,7,4,8,14,TX,,,,,,,
+--,GND,9,5,10,15,RX,,,,,,,
+CD_LED,17,11,6,12,18,,,,,,,,
+OH_LED,27,13,7,14,GND,--,,,,,,,
+SD_LED,22,15,8,16,23,RI_PIN,,,,,,,
+--,3.3V,17,9,18,24,CD_PIN,,,,,,,
+RD_LED,10,19,10,20,GND,--,,,,,,,
+TR_LED,9,21,11,22,25,DSR_PIN,,,,,,,
+CS_LED,11,23,12,24,8,,,,,,,,
+--,GND,25,13,26,7,RTS_PIN (I),,,,,,,
+--,ID SD,27,14,28,ID SC,--,,,,,,,
+MR_LED,5,29,15,30,GND,--,,,,,,,
+,6,31,16,32,12,CTS_PIN,,,,,,,
+,13,33,17,34,GND,--,,,,,,,
+,19,35,18,36,16,DTR_PIN (I),,,,,,,
+,26,37,19,38,20,,,,,,,,
+--,GND,39,20,40,21,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+Chip,Signal,RPi Header,Sent from,3232 In,BB Row,Side, Maps to,3232 Out,BB Row,Side,Going to,DB9 PIn,Signal
+3232 #1,RI,8 R,Pi ->,T1IN,39,Right,RI_PIN,T1OUT,36,Right,-> 232,9,RI
+,CD,9 R,Pi ->,T2IN,40,Right,CD_PIN,T2OUT,40,Left,-> 232,1,CD
+,RTS,13 R,232 ->,R1IN,37,Right,RTS_PIN,R1OUT,38,Right,-> Pi,7,RTS
+,DTR,18 R,232 ->,R2IN,41,Left,DTR_PIN,R2OUT,41,Right,-> Pi,4,DTR
+3232 #2,DSR,11 R,Pi ->,T1IN,47,Right,DSR_PIN,T1OUT,44,Right,-> 232,6,DSR
+,CTS,16 R,Pi ->,T2IN,48,Right,CTS_PIN,T2OUT,48,Left,-> 232,8,CTS
+,N/A,N/A,232 ->,R1IN,45,Right,Not Used,R1OUT,46,Right,-> Pi,,N/A
+,N/A,N/A,232 ->,R2IN,49,Left,Not Used,R2OUT,49,Right,-> Pi,,N/A
+3232 #3,TX,4 R,Pi ->,T1IN,55,Right,Tx->Rx,T1OUT,52,Right,-> 232,2,RX
+,N/A,N/A,Pi ->,T2IN,56,Right,Not Used,T2OUT,56,Left,-> 232,,N/A
+,RX,5 R,232 ->,R1IN,53,Right,Rx->Tx,R1OUT,54,Right,-> Pi,3,TX
+,NA,N/A,232 ->,R2IN,57,Left,Not Used,R2OUT,57,Right,-> Pi,,NA
