@@ -26,6 +26,6 @@ Parts needed:
  
  . Some LEDs and resistor
 
-This really needs some documentation...
+The docs/ directory has some basic pin mappings and a crude Fritzing diagram.  This really needs some documentation...
 
   
