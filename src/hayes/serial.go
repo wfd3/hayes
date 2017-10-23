@@ -35,9 +35,6 @@ type serialPort struct {
 	port *tarmserial.Port
 	log *log.Logger
 	channel chan byte
-	bs byte
-	cr byte
-	lf byte
 }
 
 func setupSerialPort(port string, speed int, charchannel chan byte,
@@ -65,13 +62,6 @@ func setupSerialPort(port string, speed int, charchannel chan byte,
 	return &s
 }
 
-func (s *serialPort) Chars(bs, cr, lf byte) {
-	s.bs = bs
-	s.cr = cr
-	s.lf = lf
-	s.log.Printf("bs = %d, cr = %d, lf = %d", s.bs, s.cr, s.lf)
-}
-
 func (s *serialPort) Flush() error {
 	if s.console || s.port == nil {
 		return nil
@@ -86,8 +76,8 @@ func (s *serialPort) Read(p []byte) (int, error) {
 		p[0] = byte(C.getch())
 		// mappings
 		switch p[0] {
-		case 127:  p[0] = s.bs
-		case '\n': p[0] = s.cr
+		case 127:  p[0] = registers.Read(REG_BS_CH)
+		case '\n': p[0] = registers.Read(REG_CR_CH)
 		}
 		return 1, nil
 	}
@@ -118,14 +108,15 @@ func (s *serialPort) Write(p []byte) (int, error) {
 		}
 		// ASCII DEL -> ASCII BS		
 		if p[0] == 127 {
-			p[0] = s.bs
+			p[0] = registers.Read(REG_BS_CH)
 		}
 		// end of key mappings
 
 		// Handle BS
 		str := string(p)
-		if p[0] == s.bs {
-			str = fmt.Sprintf("%c %c", s.bs, s.bs)
+		if p[0] == registers.Read(REG_BS_CH) {
+			str = fmt.Sprintf("%c %c", registers.Read(REG_BS_CH),
+				registers.Read(REG_BS_CH))
 		} 
 		return fmt.Printf("%s", str) // This should be the
 					     // only fmt.Print* in the
@@ -140,10 +131,10 @@ func (s *serialPort) WriteByte(p byte) (int, error) {
 	
 	// map '\n' to '\n\r'
 	switch p {
-	case s.cr:
+	case registers.Read(REG_CR_CH):
 		out = make([]byte, 2)
 		out[0] = p
-		out[1] = s.lf
+		out[1] = registers.Read(REG_LF_CH)
 	default:
 		out = make([]byte, 1)
 		out[0] = p

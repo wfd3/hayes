@@ -24,83 +24,18 @@ func answer() error {
 	return CONNECT
 }
 
-// ATZ
-// Setup/reset modem.  Leaves RTS & CTS down.
-func reset() error {
-	var err error = OK
-
-	logger.Print("Resetting modem")
-
-	// Reset state
-	goOnHook()
-	setLineBusy(false)
-	lowerDSR()
-	lowerCTS()
-	lowerRI()
-	stopTimer()
-	m.dcd = false
-	m.lastCmd = ""
-	m.lastDialed = ""
-	m.connectSpeed = 0
-
-	// Reset Config
-	m.echoInCmdMode = true  // Echo local keypresses
-	m.quiet = false		// Modem offers return status
-	m.verbose = true	// Text return codes
-	m.speakerVolume = 1	// moderate volume
-	m.speakerMode = 1	// on until other modem heard
-	m.busyDetect = true
-	m.extendedResultCodes = true
-	m.dcdControl = false	
-	m.connectMsgSpeed = true
-	registers.Reset()
-	phonebook = NewPhonebook(*_flags_phoneBook, logger)
-	err = phonebook.Load()
-	if err != nil {
-		logger.Print(err)
-	}
-
-	resetTimer()
-	return err
-}
-
 // AT&V
+// TODO: THis needs to be fixed
 func amperV() error {
-	b := func(p bool) (string) {
-		if p {
-			return"1 "
-		} 
-		return "0 "
-	};
-	i := func(p int) (string) {
-		return fmt.Sprintf("%d ", p)
-	};
-	x := func(r, b bool) (string) {
-		if (r == false && b == false) {
-			return "0 "
-		}
-		if (r == true && b == false) {
-			return "1 "
-		}
-		if (r == true && b == true) {
-			return "7 "
-		}
-		return "0 "
-	};
+	serial.Println("ACTIVE PROFILE:")
+	serial.Println(profile.Active())
 
-	var s string
-	s += "E" + b(m.echoInCmdMode)
-	s += "F1 "		// For Hayes 1200 compatability 
-	s += "L" + i(m.speakerVolume)
-	s += "M" + i(m.speakerMode)
-	s += "Q" + b(m.quiet)
-	s += "V" + b(m.verbose)
-	s += "W" + b(m.connectMsgSpeed)
-	s += "X" + x(m.extendedResultCodes, m.busyDetect)
-	s += "&C" + b(m.dcdControl)
-	s += "\n"
-	s += registers.String()
-	serial.Println(s)
+	serial.Printf("\nSTORED PROFILE \n")
+	serial.Println("profile.String()")
+
+	serial.Println("\nTELEPHONE NUMBERS:")
+	serial.Println(phonebook)
+
 	return OK
 }
 
@@ -125,108 +60,127 @@ func processAmpersand(cmd string) error {
 
 	switch cmd {
 	case "&C0":
-		m.dcdControl = false
+		conf.dcdControl = false
 		return OK
 	case "&C1":
-		m.dcdControl = true
+		conf.dcdControl = true
 		return OK
-	case "&V0": return amperV()
+	case "&F0":
+		return factoryReset()
+	case "&V0":
+		return amperV()
 	}
 	return ERROR
 }
 
 
 // process each command
-func processCommands(commands []string) error {
+func processSingleCommand(cmd string) error {
 	var status error
-	var cmd string
 
+	switch cmd[0] {
+	case 'A':
+		status = answer()
+	case 'Z':
+		var c int
+		switch cmd[1] {
+		case '0': c = 0
+		case '1': c = 1
+		}				
+		status = softReset(c)
+		time.Sleep(250 * time.Millisecond)
+		if status == OK {
+			conf = profile.Switch(c) // TODO: correct?
+			raiseDSR()
+			raiseCTS()
+		}
+		case 'E':
+		if cmd[1] == '0' {
+			conf.echoInCmdMode = false
+		} else {
+			conf.echoInCmdMode = true
+		}
+	case 'F':	// Online Echo mode, F1 assumed for backwards
+		// compatability after Hayes 1200
+		status = OK 
+	case 'H':
+		if cmd[1] == '0' { 
+			status = goOnHook()
+		} else if cmd[1] == '1' {
+			status = goOffHook()
+		} else {
+			status = ERROR
+		}
+	case 'Q':
+		if cmd[1] == '0' {
+			conf.quiet = true
+		} else {
+			conf.quiet = false
+		}
+	case 'V':
+		if cmd[1] == '0' {
+			conf.verbose = true
+		} else {
+			conf.verbose = false
+		}
+	case 'L':
+		switch cmd[1] {
+		case '0': conf.speakerVolume = 0
+		case '1': conf.speakerVolume = 1
+		case '2': conf.speakerVolume = 2
+		case '3': conf.speakerVolume = 3
+		}
+	case 'M':
+		switch cmd[1] {
+		case '0': conf.speakerMode = 0
+		case '1': conf.speakerMode = 1
+		case '2': conf.speakerMode = 2
+		}
+	case 'O':
+		m.mode = DATAMODE
+		status = OK
+	case 'W':
+		switch cmd[1] {
+		case '0': conf.connectMsgSpeed = false
+		case '1', '2': conf.connectMsgSpeed = true
+		}
+	case 'X':	// Change result codes displayed
+		switch cmd[1] {
+		case '0':
+			conf.extendedResultCodes = false
+			conf.busyDetect = false
+		case '1', '2':
+			conf.extendedResultCodes = true
+			conf.busyDetect = false
+		case '3', '4', '5', '6', '7':
+			conf.extendedResultCodes = true
+			conf.busyDetect = true
+		}
+	case 'D':
+		status = dial(cmd)
+	case 'S':
+		status = registerCmd(cmd)
+	case '&':
+		status = processAmpersand(cmd)
+	case '*':
+		status = debug(cmd)
+	default:
+		status = ERROR
+	}
+
+	return status
+}
+
+func processCommands(commands []string) error {
+	var cmd string 
+	var status error
+	
 	status = OK
 	for _, cmd = range commands {
 		logger.Printf("Processing: %s", cmd)
-		switch cmd[0] {
-		case 'A':
-			status = answer()
-		case 'Z':
-			status = reset()
-			time.Sleep(250 * time.Millisecond)
-			raiseDSR()
-			raiseCTS()
-		case 'E':
-			if cmd[1] == '0' {
-				m.echoInCmdMode = false
-			} else {
-				m.echoInCmdMode = true
-			}
-		case 'F':	// Online Echo mode, F1 assumed for backwards
-			        // compatability after Hayes 1200
-			status = OK 
-		case 'H':
-			if cmd[1] == '0' { 
-				status = goOnHook()
-			} else if cmd[1] == '1' {
-				status = goOffHook()
-			} else {
-				status = ERROR
-			}
-		case 'Q':
-			if cmd[1] == '0' {
-				m.quiet = true
-			} else {
-				m.quiet = false
-			}
-		case 'V':
-			if cmd[1] == '0' {
-				m.verbose = true
-			} else {
-				m.verbose = false
-			}
-		case 'L':
-			switch cmd[1] {
-			case '0': m.speakerVolume = 0
-			case '1': m.speakerVolume = 1
-			case '2': m.speakerVolume = 2
-			case '3': m.speakerVolume = 3
-			}
-		case 'M':
-			switch cmd[1] {
-			case '0': m.speakerMode = 0
-			case '1': m.speakerMode = 1
-			case '2': m.speakerMode = 2
-			}
-		case 'O':
-			m.mode = DATAMODE
-			status = OK
-		case 'W':
-			switch cmd[1] {
-			case '0': m.connectMsgSpeed = false
-			case '1', '2': m.connectMsgSpeed = true
-			}
-		case 'X':	// Change result codes displayed
-			switch cmd[1] {
-			case '0':
-				m.extendedResultCodes = false
-				m.busyDetect = false
-			case '1', '2':
-				m.extendedResultCodes = true
-				m.busyDetect = false
-			case '3', '4', '5', '6', '7':
-				m.extendedResultCodes = true
-				m.busyDetect = true
-			}
-		case 'D':
-			status = dial(cmd)
-		case 'S':
-			status = registerCmd(cmd)
-		case '&':
-			status = processAmpersand(cmd)
-		case '*':
-			status = debug(cmd)
-		default:
-			status = ERROR
-		}
+		status = processSingleCommand(cmd)
 		if status != OK {
-			break
+			return status
 		}
 	}
 	return status

@@ -36,18 +36,8 @@ var callChannel chan connection
 
 //Basic modem struct
 type Modem struct {
-	// Configuration
-	echoInCmdMode bool
-	speakerMode int
-	speakerVolume int
-	verbose bool
-	quiet bool
-	connectMsgSpeed bool
-	busyDetect bool
-	extendedResultCodes bool
-	dcdControl bool
-
 	// State
+	currentConfig int
 	mode int
 	lastCmd string
 	lastDialed string
@@ -61,7 +51,8 @@ type Modem struct {
 }
 
 var m Modem
-var registers *Registers
+var conf *ConfigType
+var registers Registers
 var phonebook *Phonebook
 var netConn connection
 var serial *serialPort
@@ -117,7 +108,7 @@ func handlePINs() {
 			led_HS_off()
 		}
 
-		if m.dcd || m.dcdControl {
+		if m.dcd || conf.dcdControl {
 			raiseCD()
 		} else {
 			lowerCD()
@@ -171,25 +162,24 @@ func stopTimer() {
 	}
 }
 
-// Consume bytes from the serial port and process or send to
-// remote as per m.mode
+// Consume bytes from the serial port and process or send to remote as
+// per conf.mode
 func readSerial() {
 	var c byte
 	var s string
 	var lastThree [3]byte
 	var idx int
-	var regs *Registers
 	var countAtTick uint64
 	var countAtLastTick uint64
 	var waitForOneTick bool
+	var status error
 
 	countAtTick = 0
 	for {
-		regs = registers // Reload regs in case we reset the modem
 
 		select {
 		case <- timer.C:
-			if m.mode == COMMANDMODE { // Skip this if in COMMAND mode
+			if m.mode == COMMANDMODE { // Skip if in COMMAND mode
 				continue
 			}
 
@@ -224,7 +214,7 @@ func readSerial() {
 
 		switch m.mode {
 		case COMMANDMODE:
-			if m.echoInCmdMode { // Echo back to the DTE
+			if conf.echoInCmdMode { // Echo back to the DTE
 				serial.WriteByte(c)
 			}
 
@@ -237,16 +227,18 @@ func readSerial() {
 				if m.lastCmd == "" {
 					prstatus(ERROR)
 				} else {
-					command(m.lastCmd)
+					status = runCommand(m.lastCmd)
+					prstatus(status)
 				}
 				s = ""
-			} else if c == regs.Read(REG_CR_CH) && s != "" {
-				command(s)
+			} else if c == registers.Read(REG_CR_CH) && s != "" {
+				status = runCommand(s)
+				prstatus(status)
 				s = ""
-			} else if c == regs.Read(REG_BS_CH)  && len(s) > 0 {
+			} else if c == registers.Read(REG_BS_CH)  && len(s) > 0 {
 				s = s[0:len(s) - 1]
-			} else if c == regs.Read(REG_CR_CH)  ||
-				c == regs.Read(REG_BS_CH) && len(s) == 0 {
+			} else if c == registers.Read(REG_CR_CH)  ||
+				c == registers.Read(REG_BS_CH) && len(s) == 0 {
 				// ignore naked CR's & BS if s is already empty
 			} else {
 				s += string(c)
@@ -282,17 +274,20 @@ func main() {
 	logger.Print("------------ Starting up")
 	logger.Printf("Cmdline: %s", strings.Join(os.Args, " "))
 
-	registers = NewRegisters()
 	callChannel = make(chan connection)
 	charchannel = make(chan byte)
 	serial = setupSerialPort(*_flags_serialPort, *_flags_serialSpeed,
 		charchannel, logger)
-	serial.Chars(registers.Read(REG_BS_CH), registers.Read(REG_CR_CH),
-		registers.Read(REG_LF_CH))
 
 	setupPins()
 
-	reset()	      // Setup modem inital state (or reset initial state)
+	// Setup modem inital state 
+	registers = NewRegisters()
+	config = resetConfig()
+
+	// If there's stored profiles, load them and make the active one active.
+//	loadStoredConfigs()
+//	switchStoredConfig(config.PowerUpConfig)
 	
 	go handleSignals()	// Catch signals in a different thread
 	go handlePINs()         // Monitor input pins & internal registers

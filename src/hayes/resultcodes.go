@@ -74,19 +74,20 @@ func prstatus(e error) {
 	var ok bool
 	var merr *MError
 
-	if m.quiet {
+	if conf.quiet {
+		logger.Printf("Quiet mode, status: %s", e)
 		return
 	}
 
-	if e == CONNECT && m.connectMsgSpeed {
+	if e == CONNECT && conf.connectMsgSpeed {
 		e = speedToResult(m.connectSpeed)
 	}
 
-	if e == BUSY && !m.busyDetect {
+	if e == BUSY && !conf.busyDetect {
 		e = OK
 	}
 
-	if (e == NO_DIALTONE || e == NO_ANSWER) && !m.extendedResultCodes {
+	if (e == NO_DIALTONE || e == NO_ANSWER) && !conf.extendedResultCodes {
 		e = OK
 	}
 	
@@ -102,7 +103,7 @@ func prstatus(e error) {
 	s := fmt.Sprintf("Result Code: %s (%s)", merr.Error(), merr.Code())
 	logger.Print(strings.Replace(s, "\n", "", -1))
 	
-	if !m.verbose {
+	if !conf.verbose {
 		serial.Println(merr.Code())
 	} else {
 		serial.Println(merr.Error())

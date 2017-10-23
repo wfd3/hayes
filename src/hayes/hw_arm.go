@@ -22,8 +22,8 @@ var pins hwPins
 // LED and data pins
 const (
 	// LEDs - controlled in handleLeds()
-	HS_LED  = 2		// Connected at High speed (m.speed > 14400)
-	AA_LED  = 3		// Auto Answer configured (m.r[0] > 0)
+	HS_LED  = 2		// Connected at High speed (conf.speed > 14400)
+	AA_LED  = 3		// Auto Answer configured (conf.r[0] > 0)
 	TR_LED  = 9		// Terminal Ready (turn on if read(DTR) is high)
 	OH_LED  = 27		// Is the modem off hook (m.offHook() == true)
 

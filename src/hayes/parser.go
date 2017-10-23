@@ -25,6 +25,8 @@ func parseAmpersand(cmdstr string) (string, int, error) {
 	var opts string
 
 	switch strings.ToUpper(cmdstr[:2]) {
+	case "&F":
+		opts = "0"
 	case "&V":
 		opts = "0"
 	case "&C":
@@ -59,10 +61,10 @@ func parseAmpersand(cmdstr string) (string, int, error) {
 }
 
 // +++ 
-func command(cmdstring string) {
+func parseCommand(cmdstring string) ([]string, error) {
 	var commands []string
-	var s, opts string
-	var i int
+	var s, opts, cmd string
+	var i, c int
 	var status error
 	var err error
 
@@ -78,28 +80,21 @@ func command(cmdstring string) {
 	// in the extended dial command (ATDE, specifically).
 
 
-	if strings.ToUpper(cmdstring) == "AT" {
-		m.lastCmd = "AT"
-		prstatus(OK)
-		return
-	}
 	
 	if len(cmdstring) < 2  {
 		logger.Print("Cmd too short: ", cmdstring)
-		prstatus(ERROR)
-		return
+		return nil, ERROR
 	}
 
 	if strings.ToUpper(cmdstring[:2]) != "AT" {
 		logger.Print("Malformed command: ", cmdstring)
-		prstatus(ERROR)
-		return
+		return nil, ERROR
 	}
 
 	logger.Printf("command: %s", cmdstring)
 
-	cmd := cmdstring[2:] 		// Skip the 'AT'
-	c := 0
+	cmd = cmdstring[2:] 		// Skip the 'AT'
+	c = 0
 
 	commands = nil
 	status = OK
@@ -133,27 +128,39 @@ func command(cmdstring string) {
 			s, i, err = parse(cmd[c:], opts)
 		default:
 			logger.Printf("Unknown command: %s", cmd)
-			prstatus(ERROR)
-			return
+			return nil, ERROR
 		}
 
 		if err != nil {
-			prstatus(ERROR)
-			return
+			return nil, ERROR
 		}
 		commands = append(commands, s)
 		c += i
 	}
 
 	logger.Printf("Command array: %+v", commands)
-	status = processCommands(commands)
 
+	return commands, nil
+}
+
+func runCommand(cmdstring string) error {
+	var err error
+	if strings.ToUpper(cmdstring) == "AT" {
+		m.lastCmd = "AT"
+		return OK
+	}
+
+	commands, err := parseCommand(cmdstring)
+	if err != nil {
+		return nil
+	}
+
+	err = processCommands(commands)
 	time.Sleep(500 * time.Millisecond) // Simulate command delay
 
-	prstatus(status)
-
-	if status == OK || status == CONNECT {
+	if err == OK || err == CONNECT {
 		logger.Printf("Saving command string '%s'", cmdstring)
 		m.lastCmd = cmdstring
 	}
+	return err
 }

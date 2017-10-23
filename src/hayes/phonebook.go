@@ -52,7 +52,7 @@ func (p *Phonebook) Write() error {
 		p.log.Print(err)
 		return err
 	}
-	err = ioutil.WriteFile("newnew", b, 0644)
+	err = ioutil.WriteFile(p.filename, b, 0644)
 	if err != nil {
 		p.log.Print(err)
 	}
@@ -61,7 +61,7 @@ func (p *Phonebook) Write() error {
 
 func (p *Phonebook) String() string {
 	if len(p.entries) == 0 {
-		return "Phone Book is empty\n"
+		return "0=\n1=\n2=\n3=\n"
 	}
 
 	var s string
@@ -73,7 +73,7 @@ func (p *Phonebook) String() string {
 	max := keys[len(keys)-1]
 
 	for i := 0; i <= max; i++ {
-		s += fmt.Sprintf(" -- %d: %+v\n", i, p.entries[i])
+		s += fmt.Sprintf("%d=%+v\n", i, p.entries[i])
 	}
 	return s
 }

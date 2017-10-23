@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -71,7 +72,7 @@ type Registers struct {
 	rlock sync.RWMutex
 }
 
-func NewRegisters() *Registers {
+func NewRegisters() Registers {
 	var r Registers
 	r.regs = make(map[byte]byte, __NUM_REGS)
 	r.current = 0
@@ -81,13 +82,11 @@ func NewRegisters() *Registers {
 		r.regs[i] = 0
 	}
 
-	r.Reset()
-
-	return &r
+	return r
 }
 
 // Setup register defaults for the modem
-func (r *Registers) Reset() {
+func (r Registers) Reset() {
 
 	logger.Print("Initializing registers")
 
@@ -106,7 +105,7 @@ func (r *Registers) Reset() {
 	r.Write(REG_ESC_CODE_GUARD_TIME, 50)
 }
 
-func (r *Registers) valid(regnum byte) bool {
+func (r Registers) valid(regnum byte) bool {
 	_, ok := r.regs[regnum]
 	return ok
 }
@@ -128,7 +127,7 @@ func ( r *Registers) ShowCurrent() byte {
 	return r.current
 }
 
-func (r *Registers) Write(regnum, val byte) {
+func (r Registers) Write(regnum, val byte) {
 	if !r.valid(regnum) {
 		panic("Writing to a non-existant register")
 	}
@@ -137,7 +136,7 @@ func (r *Registers) Write(regnum, val byte) {
 	r.regs[regnum] = val
 }
 
-func (r *Registers) Read(regnum byte) byte {
+func (r Registers) Read(regnum byte) byte {
 	if !r.valid(regnum) {
 		panic("Reading from a non-existant register")
 	}
@@ -146,7 +145,7 @@ func (r *Registers) Read(regnum byte) byte {
 	return r.regs[regnum]
 }
 
-func (r *Registers) Inc(regnum byte) byte {
+func (r Registers) Inc(regnum byte) byte {
 	if _, ok := r.regs[regnum]; !ok {
 		panic("Writing to a non-existant register")
 	}
@@ -156,7 +155,7 @@ func (r *Registers) Inc(regnum byte) byte {
 	return r.regs[regnum]
 }
 
-func (r *Registers) activeRegisters() (i []byte) {
+func (r Registers) activeRegisters() (i []byte) {
 	r.rlock.RLock()
 	defer r.rlock.RUnlock()
 	for f := range r.regs {
@@ -166,7 +165,7 @@ func (r *Registers) activeRegisters() (i []byte) {
 	return i
 }
 
-func (r *Registers) String() string {
+func (r Registers) String() string {
 	var s, t string
 	for _, f := range r.activeRegisters() {
 		t = fmt.Sprintf("S%02d:%03d ", f, r.Read(f))
@@ -176,6 +175,43 @@ func (r *Registers) String() string {
 		}
 	}
 	return s
+}
+
+func (r Registers) CommandStr() string {
+	s := "AT"
+	for _, f := range r.activeRegisters() {
+		s += fmt.Sprintf("S%d=%d", f, r.Read(f))
+	}
+	return s
+}
+
+func (r Registers) JsonMap() map[string]byte {
+	s := make(map[string]byte)
+	for _, f := range r.activeRegisters() {
+		k := strconv.Itoa(int(f))
+		s[k] = r.Read(f)
+	}
+	return s
+}
+
+func registersJsonUnmap(m map[string]byte) Registers {
+	var regnum byte
+
+	nr := NewRegisters()
+	for key, val := range m {
+		i, err := strconv.Atoi(key)
+		if err != nil {
+			logger.Printf("Atoi(): %s", err)
+			continue
+		}
+		if i < 0 || i > 255 {
+			logger.Printf("Bad register in config: regnum = %d", i)
+		} else {
+			regnum = byte(i)
+			nr.Write(regnum, val)
+		}
+	}
+	return nr
 }
 
 // Given a parsed register command, execute it.
@@ -237,9 +273,6 @@ func registerCmd(cmd string) error {
 		}
 
 		r.Write(byte(reg), byte(val))
-		serial.Chars(registers.Read(REG_BS_CH), registers.Read(REG_CR_CH),
-			registers.Read(REG_LF_CH))
-
 		return OK
 	}
 

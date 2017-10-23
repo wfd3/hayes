@@ -24,18 +24,18 @@ func outputState(debugf out)  {
 	} else {
 		debugf("Hook      : OFF HOOK\n")	
 	}
-	debugf("EchoInCmd : %t\n", m.echoInCmdMode)
+	debugf("EchoInCmd : %t\n", conf.echoInCmdMode)
 	if m.mode == COMMANDMODE {
 		debugf( "Mode      : Command\n")
 	} else {
 		debugf( "Mode      : Data\n")
 	}
-	debugf("Quiet     : %t\n", m.quiet)
-	debugf("Verbose   : %t\n", m.verbose)
+	debugf("Quiet     : %t\n", conf.quiet)
+	debugf("Verbose   : %t\n", conf.verbose)
 	debugf("Line Busy : %t\n", getLineBusy())
 	debugf("Speed     : %d\n", m.connectSpeed)
-	debugf("Volume    : %d\n", m.speakerVolume)
-	debugf("SpkrMode  : %d\n", m.speakerMode)
+	debugf("Volume    : %d\n", conf.speakerVolume)
+	debugf("SpkrMode  : %d\n", conf.speakerMode)
 	debugf("Last Cmd  : %s\n", m.lastCmd)
 	debugf("Last num  : %s\n", m.lastDialed)
 	debugf("Phonebook:\n")
