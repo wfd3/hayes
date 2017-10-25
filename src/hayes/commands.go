@@ -29,6 +29,8 @@ func answer() error {
 func amperV() error {
 	serial.Println("ACTIVE PROFILE:")
 	serial.Println(conf.String())
+	serial.Println(registers)
+	serial.Println()
 
 	serial.Println(profiles)
 	

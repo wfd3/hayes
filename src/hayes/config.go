@@ -61,7 +61,6 @@ func (c *Config) String() string {
 	s += "W" + b(c.connectMsgSpeed)
 	s += "X" + x(c.extendedResultCodes, c.busyDetect)
 	s += "&C" + b(c.dcdControl)
-	s += "\n"
 
 	return s
 }
