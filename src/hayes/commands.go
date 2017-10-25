@@ -28,12 +28,11 @@ func answer() error {
 // TODO: THis needs to be fixed
 func amperV() error {
 	serial.Println("ACTIVE PROFILE:")
-	serial.Println(profile.Active())
+	serial.Println(conf.String())
 
-	serial.Printf("\nSTORED PROFILE \n")
-	serial.Println("profile.String()")
-
-	serial.Println("\nTELEPHONE NUMBERS:")
+	serial.Println(profiles)
+	
+	serial.Println("TELEPHONE NUMBERS:")
 	serial.Println(phonebook)
 
 	return OK
@@ -66,7 +65,7 @@ func processAmpersand(cmd string) error {
 		conf.dcdControl = true
 		return OK
 	case "&F0":
-		return factoryReset()
+		return FactoryReset()
 	case "&V0":
 		return amperV()
 	}
@@ -87,10 +86,9 @@ func processSingleCommand(cmd string) error {
 		case '0': c = 0
 		case '1': c = 1
 		}				
-		status = softReset(c)
+		status = SoftReset(c)
 		time.Sleep(250 * time.Millisecond)
 		if status == OK {
-			conf = profile.Switch(c) // TODO: correct?
 			raiseDSR()
 			raiseCTS()
 		}

@@ -51,9 +51,10 @@ type Modem struct {
 }
 
 var m Modem
-var conf *ConfigType
+var conf Config
 var registers Registers
 var phonebook *Phonebook
+var profiles *storedProfiles
 var netConn connection
 var serial *serialPort
 
@@ -274,6 +275,13 @@ func main() {
 	logger.Print("------------ Starting up")
 	logger.Printf("Cmdline: %s", strings.Join(os.Args, " "))
 
+	// Setup modem inital state 
+	registers = NewRegisters()
+	conf.Reset()
+
+	// If there's stored profiles, load them and make the active one active.
+	profiles, _ = newStoredProfiles()
+
 	callChannel = make(chan connection)
 	charchannel = make(chan byte)
 	serial = setupSerialPort(*_flags_serialPort, *_flags_serialSpeed,
@@ -281,13 +289,10 @@ func main() {
 
 	setupPins()
 
-	// Setup modem inital state 
-	registers = NewRegisters()
-	config = resetConfig()
-
-	// If there's stored profiles, load them and make the active one active.
-//	loadStoredConfigs()
-//	switchStoredConfig(config.PowerUpConfig)
+	FactoryReset()
+	if profiles.PowerUpConfig != -1 {
+		profiles.Switch(profiles.PowerUpConfig)
+	}
 	
 	go handleSignals()	// Catch signals in a different thread
 	go handlePINs()         // Monitor input pins & internal registers
