@@ -6,10 +6,8 @@ import (
 	"io/ioutil"
 )
 
-type ConfigType struct {            
-	registers Registers
-	
-	// Configuration
+// Configuration
+type Config struct {            
 	echoInCmdMode bool       
 	speakerMode int          
 	speakerVolume int        
@@ -20,15 +18,9 @@ type ConfigType struct {
 	extendedResultCodes bool 
 	dcdControl bool          
 }
-type storedConfigs struct {
-	powerUpConfig int        
-	Config [3]ConfigType
-	currentConfig int
-}
-var profile storedConfigs
-var config ConfigType
+var config Config
 
-type jsonConfig struct {
+type storedConfig struct {
 	PowerUpConfig int                `json:"PowerUpConfig"`
 	Config [2]struct {              // `json:"Config"`
 		Regs map[string]byte     `json:"Regs"`
@@ -45,20 +37,19 @@ type jsonConfig struct {
 		DCDControl bool          `json:"DCDControl"`
 	}
 }
+var profiles storedConfig
 
-func resetConfig() ConfigType {
-	var m ConfigType
-	m.echoInCmdMode = true  // Echo local keypresses
-	m.quiet = false		// Modem offers return status
-	m.verbose = true	// Text return codes
-	m.speakerVolume = 1	// moderate volume
-	m.speakerMode = 1	// on until other modem heard
-	m.busyDetect = true
-	m.extendedResultCodes = true
-	m.dcdControl = false	
-	m.connectMsgSpeed = true
-
-	return m
+func (c *Config) reset() {
+	var m Config
+	c.echoInCmdMode = true  // Echo local keypresses
+	c.quiet = false		// Modem offers return status
+	c.verbose = true	// Text return codes
+	c.speakerVolume = 1	// moderate volume
+	c.speakerMode = 1	// on until other modem heard
+	c.busyDetect = true
+	c.extendedResultCodes = true
+	c.dcdControl = false	
+	c.connectMsgSpeed = true
 }
 
 // Need:
@@ -67,7 +58,7 @@ func resetConfig() ConfigType {
 // - Abstract StoredConfig (call it Profiles), w/ methods as needed.
 // 
 
-func profileString(m ConfigType) string {
+func (c *Config) String() string {
 	b := func(p bool) (string) {
 		if p {
 			return"1 "
@@ -90,31 +81,33 @@ func profileString(m ConfigType) string {
 		return "0 "
 	};
 
-	s := "E" + b(m.echoInCmdMode)
+	s := "E" + b(c.echoInCmdMode)
 	s += "F1 "		// For Hayes 1200 compatability 
-	s += "L" + i(m.speakerVolume)
-	s += "M" + i(m.speakerMode)
-	s += "Q" + b(m.quiet)
-	s += "V" + b(m.verbose)
-	s += "W" + b(m.connectMsgSpeed)
-	s += "X" + x(m.extendedResultCodes, m.busyDetect)
+	s += "L" + i(c.speakerVolume)
+	s += "M" + i(c.speakerMode)
+	s += "Q" + b(c.quiet)
+	s += "V" + b(c.verbose)
+	s += "W" + b(c.connectMsgSpeed)
+	s += "X" + x(c.extendedResultCodes, c.busyDetect)
 	s += "&C" + b(m.dcdControl)
 	s += "\n"
-	s += m.registers.String()
+
+	// Need to move this.
+	// s += m.registers.String()
 
 	return s
 }
 
 func (c *storedConfigs) String() string {
-	return profileString(c.Config[0]) + profileString(c.Config[1])
+	return c.Config[0].String() + c.Config[1].String()
 }
 
-func (c *storedConfigs) Active() *ConfigType { return &c.Config[c.currentConfig] }
+func (c *storedConfigs) Active() *Config { return &c.Config[c.currentConfig] }
 
 // TODO: this needs to make a copy of i, not return it.
 //       and need to add 1 to i
-func (c *storedConfigs) Switch(i int) *ConfigType {
-	return &c.Config[i]
+func (c storedConfigs) Switch(i int) *Config {
+	return c.Config[i]
 }
 
 
@@ -136,7 +129,7 @@ func (c *storedConfigs) loadStoredConfigs() error {
 	}
 
 	newconf.powerUpConfig = j.PowerUpConfig
-	for i :=0; i < 3; i++ {
+	for i :=0; i < 2; i++ {
 		newconf.Config[i].registers =
 			registersJsonUnmap(j.Config[i].Regs)
 		newconf.Config[i].echoInCmdMode = j.Config[i].EchoInCmdMode
@@ -156,27 +149,24 @@ func (c *storedConfigs) loadStoredConfigs() error {
 }
 
 // AT&Wn
-// TODO: THis needs to be done.
+func (c *storedConfigs) writeActiveConfig(i int) error {
 
-func (c *storedConfigs) writeActiveConfig(i int) error { return nil }
+	storedProfile.Config[i].Regs = registers.JsonMap()
+	storedProfile.Config[i].EchoInCmdMode = config.echoInCmdMode
+	storedProfile.Config[i].SpeakerVolume = config.speakerVolume
+	storedProfile.Config[i].SpeakerMode = config.speakerMode
+	storedProfile.Config[i].Quiet = config.quiet
+	storedProfile.Config[i].Verbose = config.verbose
+	storedProfile.Config[i].ConnectMsgSpeed = config.connectMsgSpeed
+	storedProfile.Config[i].ExtendedResultCodes = config.extendedResultCodes
+	storedProfile.Config[i].BusyDetect = config.busyDetect
+	storedProfile.Config[i].DCDControl = config.dcdControl
+
+	return writeConfig()
+}
 
 func (c *storedConfigs) writeConfig() error {
 	var j jsonConfig
-
-	j.PowerUpConfig = c.powerUpConfig
-	for i :=0; i < 3; i++ {
-		j.Config[i].Regs = c.Config[i].registers.JsonMap()
-		j.Config[i].EchoInCmdMode = c.Config[i].echoInCmdMode
-		j.Config[i].SpeakerVolume = c.Config[i].speakerVolume
-		j.Config[i].SpeakerMode = c.Config[i].speakerMode
-		j.Config[i].Quiet = c.Config[i].quiet
-		j.Config[i].Verbose = c.Config[i].verbose
-		j.Config[i].ConnectMsgSpeed = c.Config[i].connectMsgSpeed
-		j.Config[i].ExtendedResultCodes = c.Config[i].extendedResultCodes
-		j.Config[i].BusyDetect = c.Config[i].busyDetect
-		j.Config[i].DCDControl = c.Config[i].dcdControl
-	}
-	
 
 	b, err := json.MarshalIndent(j, "", "\t")
 	if err != nil {
