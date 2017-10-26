@@ -25,11 +25,9 @@ func parseAmpersand(cmdstr string) (string, int, error) {
 	var opts string
 
 	switch strings.ToUpper(cmdstr[:2]) {
-	case "&F":
+	case "&F", "&V":
 		opts = "0"
-	case "&V":
-		opts = "0"
-	case "&C":
+	case "&C", "&W", "&Y":
 		opts = "01"
 	case "&Z":
 		var idx int

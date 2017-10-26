@@ -70,6 +70,15 @@ func processAmpersand(cmd string) error {
 		return FactoryReset()
 	case "&V0":
 		return amperV()
+	case "&W0":
+		return profiles.writeActive(0)
+	case "&W1":
+		return profiles.writeActive(1)
+	case "&Y0":
+		return profiles.setPowerUpConfig(0)
+	case "&Y1":
+		return profiles.setPowerUpConfig(1)
+
 	}
 	return ERROR
 }
