@@ -5,6 +5,52 @@ import (
 	"fmt"
 )
 
+// ATZn - 0 == config 0, 1 == config 1
+func softReset(i int) error {
+	c, r, err := profiles.Switch(i)
+	if err != nil {
+		return err
+	}
+	logger.Printf("Switching config/registers")
+	factoryReset()
+	conf = c
+	registers = r
+
+	return nil
+}
+
+// AT&F - reset to factory defaults
+func factoryReset() error {
+	var err error = OK
+
+	logger.Print("Resetting modem")
+
+	// Reset state
+	goOnHook()
+	setLineBusy(false)
+	lowerDSR()
+	lowerCTS()
+	lowerRI()
+	stopTimer()
+	m.dcd = false
+	m.lastCmd = ""
+	m.lastDialed = ""
+	m.connectSpeed = 0
+
+	
+	registers.Reset()
+	conf.Reset()
+
+	phonebook = NewPhonebook(*_flags_phoneBook, logger)
+	err = phonebook.Load()
+	if err != nil {
+		logger.Print(err)
+	}
+	
+	resetTimer()
+	return err
+}
+
 // ATA
 func answer() error {
 	if offHook() {
@@ -67,7 +113,7 @@ func processAmpersand(cmd string) error {
 		conf.dcdControl = true
 		return OK
 	case "&F0":
-		return FactoryReset()
+		return factoryReset()
 	case "&V0":
 		return amperV()
 	case "&W0":
@@ -97,18 +143,14 @@ func processSingleCommand(cmd string) error {
 		case '0': c = 0
 		case '1': c = 1
 		}				
-		status = SoftReset(c)
+		status = softReset(c)
 		time.Sleep(250 * time.Millisecond)
 		if status == OK {
 			raiseDSR()
 			raiseCTS()
 		}
-		case 'E':
-		if cmd[1] == '0' {
-			conf.echoInCmdMode = false
-		} else {
-			conf.echoInCmdMode = true
-		}
+	case 'E':
+		conf.echoInCmdMode = cmd[1] == '0' 
 	case 'F':	// Online Echo mode, F1 assumed for backwards
 		// compatability after Hayes 1200
 		status = OK 
@@ -121,17 +163,9 @@ func processSingleCommand(cmd string) error {
 			status = ERROR
 		}
 	case 'Q':
-		if cmd[1] == '0' {
-			conf.quiet = true
-		} else {
-			conf.quiet = false
-		}
+		conf.quiet = cmd[1] == '0'
 	case 'V':
-		if cmd[1] == '0' {
-			conf.verbose = true
-		} else {
-			conf.verbose = false
-		}
+		conf.verbose = cmd[1] == '0'
 	case 'L':
 		switch cmd[1] {
 		case '0': conf.speakerVolume = 0
@@ -152,6 +186,7 @@ func processSingleCommand(cmd string) error {
 		switch cmd[1] {
 		case '0': conf.connectMsgSpeed = false
 		case '1', '2': conf.connectMsgSpeed = true
+		default: status = ERROR
 		}
 	case 'X':	// Change result codes displayed
 		switch cmd[1] {

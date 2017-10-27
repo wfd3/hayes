@@ -289,9 +289,8 @@ func main() {
 
 	setupPins()
 
-	FactoryReset()
 	if profiles.PowerUpConfig != -1 {
-		profiles.Switch(profiles.PowerUpConfig)
+		softReset(profiles.PowerUpConfig)
 	}
 	
 	go handleSignals()	// Catch signals in a different thread
