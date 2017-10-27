@@ -105,20 +105,38 @@ func (s *storedProfiles) String() string {
 
 	var str string
 	for p := 0; p < 2; p++ {
-		str += fmt.Sprintf("STORED PROFILE %d:\n", p)
-		str += "E" + b(s.Config[p].EchoInCmdMode)
-		str += "F1 "		// For Hayes 1200 compatability 
-		str += "L" + i(s.Config[p].SpeakerVolume)
-		str += "M" + i(s.Config[p].SpeakerMode)
-		str += "Q" + b(s.Config[p].Quiet)
-		str += "V" + b(s.Config[p].Verbose)
-		str += "W" + b(s.Config[p].ConnectMsgSpeed)
-		str += "X" +
+		t := "B16 B1 B41 B60 "
+		t += "E" + b(s.Config[p].EchoInCmdMode)
+		t += "F1 "		// For Hayes 1200 compatability 
+		t += "L" + i(s.Config[p].SpeakerVolume)
+		t += "M" + i(s.Config[p].SpeakerMode)
+		t += "N1 "
+		t += "Q" + b(s.Config[p].Quiet)
+		t += "V" + b(s.Config[p].Verbose)
+		t += "W" + b(s.Config[p].ConnectMsgSpeed)
+		t += "X" +
 			x(s.Config[p].ExtendedResultCodes, s.Config[p].BusyDetect)
-		str += "&C" + b(s.Config[p].DCDControl)
-		str += "\n"
+		t += "Y0 "
+		t += "&A0 "	// TODO: fake
+		t += "&C" + b(s.Config[p].DCDControl)
+		t += "&D0 " 	// TODO: do 
+		t += "&G0 "	// TODO: fake
+		t += "&J0 "
+		t += "&K3 "	// TODO: do
+		t += "&Q5 "
+		t += "&R0 "	// TODO: do
+		t += "&S0 "	// TODO: do
+		t += "&T4 "
+		t += "&U0 "
+		t += "&X4 "
+
+		str += fmt.Sprintf("STORED PROFILE %d:\n", p) + lineWrap(t, 80) +
+			"\n"
 		str += r(s.Config[p].Regs)
 		str += "\n"
+		if p == 0 {
+			str += "\n"
+		}
 	}
 	return str
 }

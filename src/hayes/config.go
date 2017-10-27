@@ -52,15 +52,28 @@ func (c *Config) String() string {
 		return "0 "
 	};
 
-	s := "E" + b(c.echoInCmdMode)
-	s += "F1 "		// For Hayes 1200 compatability 
-	s += "L" + i(c.speakerVolume)
-	s += "M" + i(c.speakerMode)
-	s += "Q" + b(c.quiet)
-	s += "V" + b(c.verbose)
-	s += "W" + b(c.connectMsgSpeed)
-	s += "X" + x(c.extendedResultCodes, c.busyDetect)
-	s += "&C" + b(c.dcdControl)
+	str := "B16 B1 B41 B60 "
+	str += "E" + b(c.echoInCmdMode)
+	str += "F1 "		// For Hayes 1200 compatability 
+	str += "L" + i(c.speakerVolume)
+	str += "M" + i(c.speakerMode)
+	str += "Q" + b(c.quiet)
+	str += "V" + b(c.verbose)
+	str += "W" + b(c.connectMsgSpeed)
+	str += "X" + x(c.extendedResultCodes, c.busyDetect)
+	str += "Y0 "
+	str += "&A0 "	// TODO: fake
+	str += "&C" + b(c.dcdControl)
+	str += "&D0 " 	// TODO: do 
+	str += "&G0 "	// TODO: fake
+	str += "&J0 "
+	str += "&K3 "	// TODO: do
+	str += "&Q5 "
+	str += "&R0 "	// TODO: do
+	str += "&S0 "	// TODO: do
+	str += "&T4 "
+	str += "&U0 "
+	str += "&X4 "
 
-	return s
+	return lineWrap(str, 80)
 }

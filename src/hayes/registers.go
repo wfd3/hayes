@@ -193,13 +193,9 @@ func (r *Registers) activeRegisters() (i []int) {
 func (r *Registers) String() string {
 	var s string
 	for _, f := range r.activeRegisters() {
-		t := fmt.Sprintf("S%02d:%03d ", f, r.Read(f))
-		s += t
-		if (len(s) % 80) + len(t) > 80 {
-			s += "\n"
-		}
+		s += fmt.Sprintf("S%02d:%03d ", f, r.Read(f))
 	}
-	return s
+	return lineWrap(s, 80)
 }
 
 func (r Registers) JsonMap() map[string]byte {

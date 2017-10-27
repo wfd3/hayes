@@ -77,6 +77,7 @@ func amperV() error {
 	serial.Println(conf.String())
 	serial.Println(registers.String())
 
+	serial.Println()
 	serial.Println(profiles)
 	
 	serial.Println("TELEPHONE NUMBERS:")
