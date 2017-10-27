@@ -8,6 +8,15 @@ import (
 	"strings"
 )
 
+type Registers struct {
+	regs [__NUM_REGS]struct {
+		val byte
+		valid bool
+	}
+	current int
+	rlock sync.RWMutex
+}
+
 // Register constants
 // TODO: Fill this out as per the manual
 const (
@@ -53,40 +62,12 @@ const (
 	// prior to and following the escape sequence.  In 1/50's of a
 	// second.  Factory default is 50 (1 second)
 	REG_ESC_CODE_GUARD_TIME			  // 12
-
-	__NUM_REGS		// This must be last
-
 )
 
-var escSequence [3]byte = [3]byte{'+','+','+'}
-
-// Because sort.Bytes() doesn't exist.
-type byBytes []byte
-func (b byBytes) Len() int { return len(b) }
-func (b byBytes) Swap(i, j int) { b[i], b[j] = b[j], b[i] }
-func (b byBytes) Less(i, j int) bool { return b[i] < b[j] }
-
-type Registers struct {
-	regs map[byte]byte
-	current byte
-	rlock sync.RWMutex
-}
-
-func NewRegisters() Registers {
-	var r Registers
-	r.regs = make(map[byte]byte, __NUM_REGS)
-	r.current = 0
-
-	// fill in the existing registers so valid() works
-	for i := byte(0); i < __NUM_REGS; i++ {
-		r.regs[i] = 0
-	}
-
-	return r
-}
+const __NUM_REGS = 256
 
 // Setup register defaults for the modem
-func (r Registers) Reset() {
+func (r *Registers) Reset() {
 
 	logger.Print("Initializing registers")
 
@@ -103,11 +84,46 @@ func (r Registers) Reset() {
 	r.Write(REG_DELAY_BETWEEN_LOST_CARRIER_AND_HANGUP, 14)
 	r.Write(REG_MULTIFREQ_TONE_DURATION, 95)
 	r.Write(REG_ESC_CODE_GUARD_TIME, 50)
+
+	// These are cosmetic, not functional.
+	r.Write(18, 0)
+	r.Write(25, 5)
+	r.Write(26, 1)
+	r.Write(36, 7)
+	r.Write(37, 0)
+	r.Write(38, 20)
+	r.Write(44, 3)
+	r.Write(46, 2)
+	r.Write(48, 7)
+	r.Write(49, 8)
+	r.Write(50, 16)
+	r.Write(97, 30)
+	r.Write(108, 2)
+	r.Write(109, 62)
+	r.Write(110, 2)
 }
 
-func (r Registers) valid(regnum byte) bool {
-	_, ok := r.regs[regnum]
-	return ok
+
+var escSequence [3]byte = [3]byte{'+','+','+'}
+
+func NewRegisters() Registers {
+	var r Registers
+
+	r.current = 0
+
+	// fill in the existing registers so valid() works
+	for i := 0; i < __NUM_REGS; i++ {
+		r.regs[i].val = 0
+		r.regs[i].valid = false
+	}
+
+	return r
+}
+
+func (r *Registers) valid(regnum uint) bool {
+	r.rlock.Lock()
+	defer r.rlock.Unlock()
+	return r.regs[regnum].valid
 }
 
 func ( r *Registers) ReadCurrent() byte {
@@ -115,60 +131,69 @@ func ( r *Registers) ReadCurrent() byte {
 }
 
 // Note the locks here.
-func ( r *Registers) SetCurrent(cur byte) {
+func ( r *Registers) SetCurrent(regnum int) error {
+	if regnum < 0 || regnum > __NUM_REGS {
+		return fmt.Errorf("Invalid register numnber: %d", regnum)
+	}
 	r.rlock.Lock()
 	defer r.rlock.Unlock()
-	r.current = cur
+	r.current = regnum
+	return nil
 }
 
-func ( r *Registers) ShowCurrent() byte {
+func ( r *Registers) ShowCurrent() int {
 	r.rlock.RLock()
 	defer r.rlock.RUnlock()
 	return r.current
 }
 
-func (r Registers) Write(regnum, val byte) {
-	if !r.valid(regnum) {
-		panic("Writing to a non-existant register")
+func (r *Registers) Write(regnum int, val byte) error {
+	if regnum < 0 || regnum > __NUM_REGS {
+		return fmt.Errorf("Invalid register numnber: %d", regnum)
 	}
 	r.rlock.Lock()
 	defer r.rlock.Unlock()
-	r.regs[regnum] = val
+	r.regs[regnum].val = val
+	r.regs[regnum].valid = true
+	return nil
 }
 
-func (r Registers) Read(regnum byte) byte {
-	if !r.valid(regnum) {
-		panic("Reading from a non-existant register")
+func (r *Registers) Read(regnum int) byte {
+	if regnum < 0 || regnum > __NUM_REGS {
+		panic("invalid read register")
 	}
 	r.rlock.RLock()
 	defer r.rlock.RUnlock()
-	return r.regs[regnum]
+	if r.regs[regnum].valid {
+		return r.regs[regnum].val
+	}
+	return 0
 }
 
-func (r Registers) Inc(regnum byte) byte {
-	if _, ok := r.regs[regnum]; !ok {
-		panic("Writing to a non-existant register")
-	}
+func (r *Registers) Inc(regnum int) byte {
 	r.rlock.Lock()
 	defer r.rlock.Unlock()
-	r.regs[regnum]++
-	return r.regs[regnum]
+	r.regs[regnum].val++
+	r.regs[regnum].valid = true
+	return r.regs[regnum].val
 }
 
-func (r Registers) activeRegisters() (i []byte) {
+func (r *Registers) activeRegisters() (i []int) {
 	r.rlock.RLock()
 	defer r.rlock.RUnlock()
-	for f := range r.regs {
-		i = append(i, f)
+	for f := 0; f < __NUM_REGS; f++ {
+		if r.regs[f].valid {
+			i = append(i, f)
+		}
 	}
-	sort.Sort(byBytes(i))
+	sort.Ints(i)
 	return i
 }
 
-func (r Registers) String() string {
-	var s, t string
+func (r *Registers) String() string {
+	var s string
 	for _, f := range r.activeRegisters() {
-		t = fmt.Sprintf("S%02d:%03d ", f, r.Read(f))
+		t := fmt.Sprintf("S%02d:%03d ", f, r.Read(f))
 		s += t
 		if (len(s) % 80) + len(t) > 80 {
 			s += "\n"
@@ -177,25 +202,16 @@ func (r Registers) String() string {
 	return s
 }
 
-func (r Registers) CommandStr() string {
-	s := "AT"
-	for _, f := range r.activeRegisters() {
-		s += fmt.Sprintf("S%d=%d", f, r.Read(f))
-	}
-	return s
-}
-
 func (r Registers) JsonMap() map[string]byte {
 	s := make(map[string]byte)
 	for _, f := range r.activeRegisters() {
-		k := strconv.Itoa(int(f))
+		k := strconv.Itoa(f)
 		s[k] = r.Read(f)
 	}
 	return s
 }
 
 func registersJsonUnmap(m map[string]byte) Registers {
-	var regnum byte
 
 	nr := NewRegisters()
 	for key, val := range m {
@@ -207,8 +223,7 @@ func registersJsonUnmap(m map[string]byte) Registers {
 		if i < 0 || i > 255 {
 			logger.Printf("Bad register in config: regnum = %d", i)
 		} else {
-			regnum = byte(i)
-			nr.Write(regnum, val)
+			nr.Write(i, val)
 		}
 	}
 	return nr
@@ -219,13 +234,11 @@ func registerCmd(cmd string) error {
 	var err error
 	var reg, val int
 
-	r := registers
-
 	// NOTE: The order of these stanzas is critical.
 
 	// S? - query selected register
 	if cmd[:2] == "S?" {
-		serial.Printf("%d\n", r.ReadCurrent())
+		serial.Printf("%d\n", registers.ReadCurrent())
 		return OK
 	}
 
@@ -272,7 +285,7 @@ func registerCmd(cmd string) error {
 			}
 		}
 
-		r.Write(byte(reg), byte(val))
+		registers.Write(reg, byte(val))
 		return OK
 	}
 
@@ -283,8 +296,8 @@ func registerCmd(cmd string) error {
 			logger.Printf("Register index over/underflow: %d", reg)
 			return ERROR
 		}
-		
-		serial.Printf("%d\n", r.ReadCurrent())
+		logger.Printf("Reading register %d", reg)
+		serial.Printf("%d\n", registers.Read(reg))
 		return OK
 	}
 
@@ -295,7 +308,7 @@ func registerCmd(cmd string) error {
 			logger.Printf("Register index over/underflow: %d", reg)
 			return ERROR
 		}
-		r.SetCurrent(byte(reg))
+		registers.SetCurrent(reg)
 		return OK
 	}
 

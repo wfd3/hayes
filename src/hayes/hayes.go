@@ -278,7 +278,8 @@ func main() {
 	// Setup modem inital state 
 	registers = NewRegisters()
 	conf.Reset()
-
+	registers.Reset()
+	
 	// If there's stored profiles, load them and make the active one active.
 	profiles, _ = newStoredProfiles()
 
@@ -287,6 +288,8 @@ func main() {
 	serial = setupSerialPort(*_flags_serialPort, *_flags_serialSpeed,
 		charchannel, logger)
 
+	factoryReset()
+	
 	setupPins()
 
 	if profiles.PowerUpConfig != -1 {

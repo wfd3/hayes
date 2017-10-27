@@ -61,8 +61,8 @@ func answer() error {
 	goOffHook()
 
 	// Simulate Carrier Detect delay
-	delay := time.Duration(registers.Read(REG_CARRIER_DETECT_RESPONSE_TIME))
-	delay = delay * 100 * time.Millisecond
+	cd := registers.Read(REG_CARRIER_DETECT_RESPONSE_TIME)
+	delay := time.Duration(cd) * 100 * time.Millisecond
 	time.Sleep(delay)
 	m.dcd = true
 	m.mode = DATAMODE
@@ -75,8 +75,7 @@ func answer() error {
 func amperV() error {
 	serial.Println("ACTIVE PROFILE:")
 	serial.Println(conf.String())
-	serial.Println(registers)
-	serial.Println()
+	serial.Println(registers.String())
 
 	serial.Println(profiles)
 	

@@ -73,7 +73,13 @@ func (p *Phonebook) String() string {
 	max := keys[len(keys)-1]
 
 	for i := 0; i <= max; i++ {
-		s += fmt.Sprintf("%d=%+v\n", i, p.entries[i])
+		phone, _ := sanitizeNumber(p.entries[i].Phone)
+		if phone == "" {
+			phone = p.entries[i].Phone
+		}
+		s += fmt.Sprintf("%d=%s (%s, '%s'/'%s')\n", i, phone, 	
+			p.entries[i].Host, p.entries[i].Username,
+			p.entries[i].Password)
 	}
 	return s
 }

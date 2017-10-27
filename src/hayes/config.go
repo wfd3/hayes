@@ -21,7 +21,7 @@ func (c *Config) Reset() {
 	c.echoInCmdMode = true  // Echo local keypresses
 	c.quiet = false		// Modem offers return status
 	c.verbose = true	// Text return codes
-	c.speakerVolume = 1	// moderate volume
+	c.speakerVolume = 2	// moderate volume
 	c.speakerMode = 1	// on until other modem heard
 	c.busyDetect = true
 	c.extendedResultCodes = true

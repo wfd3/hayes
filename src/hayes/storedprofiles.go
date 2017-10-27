@@ -105,7 +105,7 @@ func (s *storedProfiles) String() string {
 
 	var str string
 	for p := 0; p < 2; p++ {
-		str += fmt.Sprintf("STORED PROFILE %d\n", p)
+		str += fmt.Sprintf("STORED PROFILE %d:\n", p)
 		str += "E" + b(s.Config[p].EchoInCmdMode)
 		str += "F1 "		// For Hayes 1200 compatability 
 		str += "L" + i(s.Config[p].SpeakerVolume)
@@ -119,9 +119,6 @@ func (s *storedProfiles) String() string {
 		str += "\n"
 		str += r(s.Config[p].Regs)
 		str += "\n"
-		if p == 0 {
-			str += "\n"
-		}
 	}
 	return str
 }

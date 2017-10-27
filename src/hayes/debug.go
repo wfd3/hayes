@@ -118,6 +118,7 @@ func debug(cmd string) error {
 		return nil
 	}
 
+
 	// *n=x - write x to n
 	_, err = fmt.Sscanf(cmd, "*%d=%d", &reg, &val)
 	if err != nil {
