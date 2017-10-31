@@ -21,8 +21,8 @@ func softReset(i int) error {
 
 // AT&F - reset to factory defaults
 func factoryReset() error {
-	var err error = OK
 
+	err := OK
 	logger.Print("Resetting modem")
 
 	// Reset state
@@ -36,7 +36,6 @@ func factoryReset() error {
 	m.lastCmd = ""
 	m.lastDialed = ""
 	m.connectSpeed = 0
-
 	
 	registers.Reset()
 	conf.Reset()
@@ -71,7 +70,6 @@ func answer() error {
 }
 
 // AT&V
-// TODO: THis needs to be fixed
 func amperV() error {
 	serial.Println("ACTIVE PROFILE:")
 	serial.Println(conf.String())
@@ -86,10 +84,97 @@ func amperV() error {
 	return OK
 }
 
-// AT&...
-// Only support &V and &C for now
-func processAmpersand(cmd string) error {
+// Given a parsed register command, execute it.
+func registerCmd(cmd string) error {
+	var err error
+	var reg, val int
 
+	// NOTE: The order of these stanzas is critical.
+
+	// S? - query selected register
+	if cmd[:2] == "S?" {
+		serial.Printf("%d\n", registers.ReadCurrent())
+		return OK
+	}
+
+	// Sn=x - write x to n
+	_, err = fmt.Sscanf(cmd, "S%d=%d", &reg, &val)
+	if err == nil {
+		if reg > __NUM_REGS || reg < 0 {
+			logger.Printf("Register index over/underflow: %d", reg)
+			return ERROR
+		}
+		if val > 255 || val < 0 {
+			logger.Printf("Register value over/underflow: %d", val)
+			return ERROR
+		}
+
+		// Update modem state
+		switch reg {
+		case REG_AUTO_ANSWER:
+			if val == 0 {
+				led_AA_off()
+			} else {
+				led_AA_on()
+			}
+		case REG_ESC_CODE_GUARD_TIME:
+			if val > 255 {
+				return ERROR
+			}
+			resetTimer()
+		case REG_ESC_CH:
+			escSequence[0] = byte(val)
+			escSequence[1] = byte(val)
+			escSequence[2] = byte(val)
+		case REG_BLIND_DIAL_WAIT:
+			if val < 2 || val > 255 {
+				return ERROR
+			}
+		case REG_COMMA_DELAY:
+			if val > 65 {
+				return ERROR
+			}
+		case REG_BS_CH, REG_LF_CH, REG_CR_CH:
+			if val > 127 {
+				return ERROR
+			}
+		}
+
+		registers.Write(reg, byte(val))
+		return OK
+	}
+
+	// Sn? - query register n
+	_, err = fmt.Sscanf(cmd, "S%d?", &reg)
+	if err == nil {
+		if reg > __NUM_REGS || reg < 0 {	
+			logger.Printf("Register index over/underflow: %d", reg)
+			return ERROR
+		}
+		logger.Printf("Reading register %d", reg)
+		serial.Printf("%d\n", registers.Read(reg))
+		return OK
+	}
+
+	// Sn - slect register
+	_, err = fmt.Sscanf(cmd, "S%d", &reg)
+	if err == nil {
+		if reg > __NUM_REGS || reg < 0 {	
+			logger.Printf("Register index over/underflow: %d", reg)
+			return ERROR
+		}
+		registers.SetCurrent(reg)
+		return OK
+	}
+
+	if err != nil {
+		logger.Printf("registers(): err = %s", err)
+	}
+	return ERROR
+}
+
+// AT&...
+func processAmpersand(cmd string) error {
 	if cmd[0] != '&' {
 		return fmt.Errorf("Malformed AT& command: %s", cmd)
 	}
@@ -99,7 +184,7 @@ func processAmpersand(cmd string) error {
 	switch cmd[0] {
 	case 'C':
 		conf.dcdControl = cmd[1] == '1'
-		return OK
+		return nil
 
 	case 'F':
 		switch cmd[1] {
@@ -138,11 +223,11 @@ func processAmpersand(cmd string) error {
 		return phonebook.Add(i, s)
 
 	// Faked out AT& commands
-	case 'A', 'B', 'D', 'G', 'J', 'K', 'L', 'O', 'Q', 'R', 'S', 'T', 'U', 'X':
-		return OK
+	case 'A','B','D','G','J','K','L','M','O','Q','R','S','T','U','X':
+		return nil
 	}
 
-	return OK
+	return nil
 }
 
 // process each command

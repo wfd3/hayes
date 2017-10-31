@@ -14,8 +14,8 @@
 		"Password": ""
 	},
 	"2": {
-		"Phone": "badnum",
-		"Host": "badnum",
+		"Phone": "1234567",
+		"Host": "butthead.ddns.org",
 		"Protocol": "telnet",
 		"Username": "",
 		"Password": ""

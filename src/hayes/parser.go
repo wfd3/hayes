@@ -22,30 +22,74 @@ func parse(cmd string, opts string) (string, int, error) {
 	return "", 0, fmt.Errorf("Bad command: %s", cmd)
 }
 
+// ATS...
+// Given a string that looks like a "S" command, parse & normalize it
+func parseRegisters(cmd string) (string, int, error) {
+	var s string
+	var err error
+	var reg, val int
+
+	// NOTE: The order of these stanzas is critical.
+
+	if  len(cmd) < 2  {
+		return "", 0, fmt.Errorf("Bad command: %s", cmd)
+	}
+
+	c := strings.ToUpper(cmd)
+
+	// S? - query selected register
+	if c[:2] == "S?" {
+		s = "S?"
+		return s, 2, nil
+	}
+
+	// Sn=x - write x to n
+	_, err = fmt.Sscanf(c, "S%d=%d", &reg, &val)
+	if err == nil {
+		s = fmt.Sprintf("S%d=%d", reg, val)
+		return s, len(s), nil
+	}
+
+	// Sn? - query register n
+	_, err = fmt.Sscanf(c, "S%d?", &reg)
+	if err == nil {
+		s = fmt.Sprintf("S%d?", reg)
+		return s, len(s), nil
+	}
+
+	// Sn - slect register
+	_, err = fmt.Sscanf(c, "S%d", &reg)
+	if err == nil {
+		s = fmt.Sprintf("S%d", reg)
+		return s, len(s), nil
+	}
+
+	return "", 0, fmt.Errorf("Bad S command: %s", cmd)
+}
+
 // parse AT&...
 func parseAmpersand(cmdstr string) (string, int, error) {
 	var opts string
 
 	c := strings.ToUpper(cmdstr[1:2])[0]
-		
+
+	// AT&A, AT&B, AT&D, AT&G, AT&J, AT&K, AT&L, AT&M, AT&O, AT&Q,
+	// AT&R, AT&S, AT&T, AT&U, AT&X
+
 	switch c {
 	case 'F', 'V':
 		opts = "0"
-	case 'C', 'W', 'Y', 'R':
+	case 'A', 'B', 'C', 'J', 'L', 'R', 'S', 'U', 'W', 'Y':
 		opts = "01"
-	case 'A', 'B', 'J', 'L', 'U':
-		opts = "01"
-	case 'G', 'S', 'X':
+	case 'G', 'X', 'P':
 		opts = "012"
 	case 'D':
 		opts = "0123"
-	case 'O':
+	case 'O', 'K', 'M':
 		opts = "01234"		
-	case 'K':
-		opts = "012345"
 	case 'Q':
-		opts = "0123456"
-	case  'T':
+		opts = "05689"
+	case 'T':
 		opts = "0123456789"
 	case 'Z':
 		var idx int
@@ -132,11 +176,11 @@ func parseCommand(cmdstring string) ([]string, error) {
 		case 'E', 'H', 'Q', 'V', 'Z':
 			opts = "01"
 			s, i, err = parse(cmd[c:], opts)
-		case 'L':
-			opts = "0123"
-			s, i, err = parse(cmd[c:], opts)
 		case 'M', 'W':
 			opts = "012"
+			s, i, err = parse(cmd[c:], opts)
+		case 'L':
+			opts = "0123"
 			s, i, err = parse(cmd[c:], opts)
 		case 'O':
 			opts = "O"
@@ -144,7 +188,6 @@ func parseCommand(cmdstring string) ([]string, error) {
 		case 'X':
 			opts = "01234567"
 			s, i, err = parse(cmd[c:], opts)
-
 		case 'I':
 			opts = "012345"
 			s, i, err = parse(cmd[c:], opts)

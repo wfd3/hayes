@@ -68,7 +68,7 @@ func splitATDE(cmd string) (string, string, string, error) {
 	return s[0], s[1], s[2], nil
 }
 
-// ATD...
+// ATD command (ATD, ATDT, ATDP, ATDL and the extensions ATDH (host) and ATDE (SSH)
 // See http://www.messagestick.net/modem/Hayes_Ch1-1.html on ATD... result codes
 func dial(to string) error {
 	var conn connection
@@ -95,41 +95,40 @@ func dial(to string) error {
 		"!", "",
 		";", "")
 
-	
+	// Is this ATD<number>?  If so, dial it
 	if unicode.IsDigit(rune(cmd)) {
 		clean_to = r.Replace(to[1:])
 		conn, err = dialNumber(clean_to)
-		goto out
-	}
+	} else {		// ATD<modifier>
 
-	clean_to = r.Replace(to[2:])
+		clean_to = r.Replace(to[2:])
 
-	switch cmd {
-	case 'H':		// Hostname (ATDH hostname)
-		logger.Print("Opening telnet connection to: ", clean_to)
-		conn, err = dialTelnet(clean_to, logger)
-	case 'E':		// Encrypted host (ATDE hostname)
-		logger.Print("Opening SSH connection to: ", clean_to)
-		host, user, pw, e := splitATDE(clean_to)
-		if e != nil {
-			logger.Print(e)
-			conn = nil
-			err = e
-		} else {
-			conn, err = dialSSH(host, logger, user, pw)
+		switch cmd {
+		case 'H':		// Hostname (ATDH hostname)
+			logger.Print("Opening telnet connection to: ", clean_to)
+			conn, err = dialTelnet(clean_to, logger)
+		case 'E':		// Encrypted host (ATDE hostname)
+			logger.Print("Opening SSH connection to: ", clean_to)
+			host, user, pw, e := splitATDE(clean_to)
+			if e != nil {
+				logger.Print(e)
+				conn = nil
+				err = e
+			} else {
+				conn, err = dialSSH(host, logger, user, pw)
+			}
+		case 'T', 'P':	// Fake number from address book (ATDT 5551212)
+			logger.Print("Dialing fake number: ", clean_to)
+			conn, err = dialNumber(clean_to)
+		case 'S':		// Stored number (ATDS3)
+			conn, err = dialStoredNumber(clean_to[1:])
+		default:
+			logger.Printf("Dial mode '%c' not supported\n", cmd)
+			goOnHook()
+			err = fmt.Errorf("Dial mode '%c' not supported", cmd)
 		}
-	case 'T', 'P':		// Fake number from address book (ATDT 5551212)
-		logger.Print("Dialing fake number: ", clean_to)
-		conn, err = dialNumber(clean_to)
-	case 'S':		// Stored number (ATDS3)
-		conn, err = dialStoredNumber(clean_to[1:])
-	default:
-		logger.Printf("Dial mode '%c' not supported\n", cmd)
-		goOnHook()
-		err = fmt.Errorf("Dial mode '%c' not supported", cmd)
 	}
 
-out:
 	// if we're connected, setup the connected state in the modem,
 	// otherwise return a BUSY or NO_ANSWER result code.
 	if err != nil {

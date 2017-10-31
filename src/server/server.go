@@ -23,7 +23,7 @@ func main() {
 		panic(err)
 	}
 	defer l.Close()
-	fmt.Println("Echo server at port %s", PORT)
+	fmt.Printf("Echo server at port %s\n", PORT)
 
 	b := make([]byte, 1)
 	for {

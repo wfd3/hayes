@@ -19,5 +19,8 @@ var _flags_telnetPort  = flag.Uint("t", 20000,
 var _flags_sshdPort    = flag.Uint("s", 22000,
 	"Network `port number` for inbound sshd sessions")
 var _flags_privateKey  = flag.String("k", __ID_RSA_FILE, "SSH Private Key `file`")
-
+var _flags_skipTelnet  = flag.Bool("T", false,
+	"Skip starting telnet server (default false)")
+var _flags_skipSSH     = flag.Bool("X", false,
+	"Skip starting SSH server (default false)")
 

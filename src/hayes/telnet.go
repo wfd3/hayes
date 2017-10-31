@@ -38,6 +38,34 @@ const (
 	LINEMODE byte = 34
 	ENVVAR   byte = 36
 )
+var decodeMap map[byte]string = map[byte]string {
+	IAC: "IAC ",
+	DONT: "DONT ",
+	DO: "DO ",
+	WONT: "WONT ",
+	WILL: "WILL ",
+	SB: "SB ",
+	GA: "GA ",
+	EL: "EL ",
+	EC: "EC ",
+	AYT: "AYT ",
+	AO: "AO ",
+	IP: "IP ",
+	BRK: "BRK ",
+	DM: "DM ",
+	NOP: "NOP ",
+	SE: "SE ",
+	ECHO: "ECHO ",
+	SGA: "SGA ",
+	STATUS: "STATUS ",
+	TIMINGMK: "TIMINGMK ",
+	TERM: "TERM ",
+	WINSIZE: "WINSIZE ",
+	TERMSPD: "TERMSPD ",
+	REMFLOW: "REMFLOW ",
+	LINEMODE: "LINEMODE ",
+	ENVVAR: "ENVVAR ",
+}
 
 // Implements connection for in- and out-bound telnet
 type telnetReadWriteCloser struct {
@@ -48,34 +76,72 @@ type telnetReadWriteCloser struct {
 	recv uint64
 }
 
+
+func decode(b byte) string {
+	s, ok := decodeMap[b]
+	if !ok {
+		return fmt.Sprintf("%d", b)
+	}
+	return s
+}
+
 func (m *telnetReadWriteCloser) command(p []byte) (i int, err error) {
-	// TODO - What if len(p) > 1?
-	// TODO - Do we need to respond to recv'ed WILL/DO commands?
+	if p[0] != IAC {
+		return 0, nil
+	}
 
+	s := ""
 	done := false
-	for !done{
-		i, err = m.c.Read(p)
 
-		if p[0] == IAC { // Two in a row, it's just ASCII 255
-			done = true
-			break
-		}
-		
+	for !done {
+		s += decode(p[0])
+
 		switch p[0] {
+		case IAC:
+			m.c.Read(p)
+			if p[0] == IAC { // Two in a row, it's just ASCII 255
+				done = true
+				break
+			}
+			
 		case NOP, DM, BRK, IP, AO, AYT, EC, EL, GA, SE:
-			// Do nothing
+			logger.Printf("Ignoring: %s", s)			
+
 		case SB:
+			// Comsume options until we read a final SE
 			for p[0] != SE {
 				i, err = m.c.Read(p)
+				s += decode(p[0])
 			}
+			logger.Printf("Ignoring: %s", s)
+
 		case WILL:
 			m.c.Read(p)
+			s += decode(p[0])
+			logger.Printf("Reading: %s", s)
+			m.c.Write([]byte{IAC, DONT, p[0]})
+			logger.Printf("Sending: IAC DONT %s", decode(p[0]))
+
 		case DO:
 			m.c.Read(p)
+			s += decode(p[0])
+			logger.Printf("Reading: %s", s)
+			m.c.Write([]byte{IAC, WONT, p[0]})
+			logger.Printf("Sending: IAC WONT %s", decode(p[0]))
+			
 		case DONT:
 			m.c.Read(p)
+			s += decode(p[0])
+			logger.Printf("Reading: %s", s)
+			m.c.Write([]byte{IAC, WONT, p[0]})			
+			logger.Printf("Sending: IAC WONT %s", decode(p[0]))			
 		case WONT:
 			m.c.Read(p)
+			s += decode(p[0])
+			logger.Printf("Reading: %s", s)
+			m.c.Write([]byte{IAC, DONT, p[0]})
+			logger.Printf("Sending: IAC DONT %s", decode(p[0]))
+			
 		default:
 			done = true
 		}
@@ -88,7 +154,7 @@ func (m *telnetReadWriteCloser) Read(p []byte) (int, error) {
 	i, err := m.c.Read(p)
 
 	// If it's a telnet command, process it
-	if  p[0] == IAC {
+	if p[0] == IAC {
 		i, err = m.command(p) 
 	}
 	m.recv += uint64(i)

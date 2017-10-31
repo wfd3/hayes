@@ -29,7 +29,6 @@ type connection interface {
 	Stats() (uint64, uint64)
 }
 
-
 func answerIncomming(conn connection) bool {
 	const __DELAY_MS = 20
 
@@ -136,12 +135,10 @@ func handleConnection() {
 	buf := make([]byte, 1)
 
 	for {
-		if _, err := netConn.Read(buf); err != nil {// TODO: timeout
-			// carrier lost
+		if _, err := netConn.Read(buf); err != nil { // carrier lost
 			logger.Print("netConn.Read(): ", err)
 			return
 		}
-
 		if m.dcd == false {
 			logger.Print("No carrier at network read")
 			return
@@ -167,19 +164,28 @@ func handleModem() {
 	go clearRingCounter()
 	
 	started_ok := make(chan error)
-	go acceptTelnet(callChannel, checkBusy, logger, started_ok)
-	if err := <- started_ok; err != nil {
-		logger.Printf("Telnet server failed to start: %s", err)
+
+	if !*_flags_skipTelnet {
+		go acceptTelnet(callChannel, checkBusy, logger, started_ok)
+		if err := <- started_ok; err != nil {
+			logger.Printf("Telnet server failed to start: %s", err)
+		} else {
+			logger.Print("Telnet server started")
+		}
 	} else {
-		logger.Print("Telnet server started")
+		logger.Print("Telnet server not started by command line flag")
 	}
 
-	go acceptSSH(callChannel, *_flags_privateKey, checkBusy, logger,
-		started_ok)
-	if err := <- started_ok; err != nil {
-		logger.Printf("SSH server failed to start: %s", err)
+	if !*_flags_skipSSH {
+		go acceptSSH(callChannel, *_flags_privateKey, checkBusy, logger,
+			started_ok)
+		if err := <- started_ok; err != nil {
+			logger.Printf("SSH server failed to start: %s", err)
+		} else {
+			logger.Print("SSH server started")
+		}
 	} else {
-		logger.Print("SSH server started")
+		logger.Print("SSH server not started by command line flag")
 	}
 	
 	// If we have an incoming call, answer it.  If we have an outgoing call or

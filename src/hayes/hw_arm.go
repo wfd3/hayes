@@ -51,6 +51,7 @@ const (
 
 func setupPins() {
 
+	logger.Print("Setting up RPi pins")
 	if err := rpio.Open(); err != nil {
 		logger.Fatal("Fatal Error: ", err)
 	}

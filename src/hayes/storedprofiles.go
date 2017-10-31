@@ -163,7 +163,6 @@ func (s storedProfiles) Switch(i int) (Config, Registers, error) {
 }
 
 // AT&Wn
-// todo pass in pointer to conf
 func (s *storedProfiles) writeActive(i int) error {
 	if i != 0 && i != 1 {
 		return fmt.Errorf("Invalid config number %d", i)

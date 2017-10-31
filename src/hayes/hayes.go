@@ -274,6 +274,15 @@ func main() {
 	logger.Print("------------ Starting up")
 	logger.Printf("Cmdline: %s", strings.Join(os.Args, " "))
 
+	// Setup the comms channels
+	callChannel = make(chan connection)
+	charchannel = make(chan byte)
+
+	// Setup the hardware
+	setupPins()
+	serial = setupSerialPort(*_flags_serialPort, *_flags_serialSpeed,
+		charchannel, logger)
+
 	// Setup modem inital state 
 	registers = NewRegisters()
 	conf.Reset()
@@ -281,20 +290,12 @@ func main() {
 	
 	// If there's stored profiles, load them and make the active one active.
 	profiles, _ = newStoredProfiles()
-
-	callChannel = make(chan connection)
-	charchannel = make(chan byte)
-	serial = setupSerialPort(*_flags_serialPort, *_flags_serialSpeed,
-		charchannel, logger)
-
 	factoryReset()
-	
-	setupPins()
-
 	if profiles.PowerUpConfig != -1 {
 		softReset(profiles.PowerUpConfig)
 	}
-	
+
+	// Setup the helper tasks
 	go handleSignals()	// Catch signals in a different thread
 	go handlePINs()         // Monitor input pins & internal registers
 	go handleModem()	// Handle in-bound bytes in a seperate goroutine
