@@ -254,7 +254,6 @@ func readSerial() {
 				lastThree[idx] = c
 				idx = (idx + 1) % 3
 			}
-			
 			// Send to remote, blinking the SD LED
 			if offHook() && netConn != nil {
 				led_SD_on()

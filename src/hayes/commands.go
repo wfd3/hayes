@@ -90,11 +90,44 @@ func amperV() error {
 // Only support &V and &C for now
 func processAmpersand(cmd string) error {
 
+	if cmd[0] != '&' {
+		return fmt.Errorf("Malformed AT& command: %s", cmd)
+	}
 	logger.Print(cmd)
-	if cmd[:2] == "&Z" {
+	cmd = cmd[1:]
+
+	switch cmd[0] {
+	case 'C':
+		conf.dcdControl = cmd[1] == '1'
+		return OK
+
+	case 'F':
+		switch cmd[1] {
+		case '0': return factoryReset()
+		}
+
+	case 'V':
+		switch cmd[1] {
+		case '0': return amperV()
+		default: return ERROR
+		}
+		
+	case 'W':
+		switch cmd[1] {
+		case '0': return profiles.writeActive(0)
+		case '1': return profiles.writeActive(1)
+		}
+		
+	case 'Y':
+		switch cmd[1] {
+		case '0': return profiles.setPowerUpConfig(0)
+		case '1': return profiles.setPowerUpConfig(1)
+		}
+
+	case 'Z':
 		var s string
 		var i int
-		_ , err := fmt.Sscanf(cmd, "&Z%d=%s", &i, &s)
+		_ , err := fmt.Sscanf(cmd, "Z%d=%s", &i, &s)
 		if err != nil {
 			logger.Print(err)
 			return err
@@ -103,32 +136,14 @@ func processAmpersand(cmd string) error {
 			return phonebook.Delete(i)
 		}
 		return phonebook.Add(i, s)
+
+	// Faked out AT& commands
+	case 'A', 'B', 'D', 'G', 'J', 'K', 'L', 'O', 'Q', 'R', 'S', 'T', 'U', 'X':
+		return OK
 	}
 
-	switch cmd {
-	case "&C0":
-		conf.dcdControl = false
-		return OK
-	case "&C1":
-		conf.dcdControl = true
-		return OK
-	case "&F0":
-		return factoryReset()
-	case "&V0":
-		return amperV()
-	case "&W0":
-		return profiles.writeActive(0)
-	case "&W1":
-		return profiles.writeActive(1)
-	case "&Y0":
-		return profiles.setPowerUpConfig(0)
-	case "&Y1":
-		return profiles.setPowerUpConfig(1)
-
-	}
-	return ERROR
+	return OK
 }
-
 
 // process each command
 func processSingleCommand(cmd string) error {
@@ -137,6 +152,7 @@ func processSingleCommand(cmd string) error {
 	switch cmd[0] {
 	case 'A':
 		status = answer()
+
 	case 'Z':
 		var c int
 		switch cmd[1] {
@@ -149,23 +165,50 @@ func processSingleCommand(cmd string) error {
 			raiseDSR()
 			raiseCTS()
 		}
+
 	case 'E':
 		conf.echoInCmdMode = cmd[1] == '0' 
+
 	case 'F':	// Online Echo mode, F1 assumed for backwards
-		// compatability after Hayes 1200
+		        // compatability after Hayes 1200
 		status = OK 
+
 	case 'H':
-		if cmd[1] == '0' { 
-			status = goOnHook()
-		} else if cmd[1] == '1' {
-			status = goOffHook()
-		} else {
-			status = ERROR
+		switch cmd[1] {
+		case '0': status = goOnHook()
+		case '1': status = goOffHook()
 		}
+
+	case 'I':
+		switch cmd[1] {
+		case '0': serial.Println("14400")
+		case '1': serial.Println("058") // From my Hayes Ultra 96
+		case '2':
+			time.Sleep(500 * time.Millisecond)
+			prstatus(OK)
+			serial.Println()
+		case '3':
+			serial.Println("04-0045012 240 PASS\n")
+			serial.Println("04-00471-3143 080 PASS\n")
+			serial.Println("04-00472-3143 190 PASS\n")
+		case '4':
+			serial.Println("a097841F284C6403F00000090\n")
+			serial.Println("bF60437000\n");
+			serial.Println("r1031111111010000\n")
+			serial.Println("r3000111010000000\n")
+		case '5':
+			serial.Println("004")
+			serial.Println("a 001 001 003 PASS")
+		}
+		status = OK
+
+
 	case 'Q':
 		conf.quiet = cmd[1] == '0'
+
 	case 'V':
 		conf.verbose = cmd[1] == '0'
+
 	case 'L':
 		switch cmd[1] {
 		case '0': conf.speakerVolume = 0
@@ -173,21 +216,25 @@ func processSingleCommand(cmd string) error {
 		case '2': conf.speakerVolume = 2
 		case '3': conf.speakerVolume = 3
 		}
+
 	case 'M':
 		switch cmd[1] {
 		case '0': conf.speakerMode = 0
 		case '1': conf.speakerMode = 1
 		case '2': conf.speakerMode = 2
 		}
+
 	case 'O':
 		m.mode = DATAMODE
 		status = OK
+
 	case 'W':
 		switch cmd[1] {
 		case '0': conf.connectMsgSpeed = false
 		case '1', '2': conf.connectMsgSpeed = true
 		default: status = ERROR
 		}
+
 	case 'X':	// Change result codes displayed
 		switch cmd[1] {
 		case '0':
@@ -200,16 +247,24 @@ func processSingleCommand(cmd string) error {
 			conf.extendedResultCodes = true
 			conf.busyDetect = true
 		}
+
 	case 'D':
 		status = dial(cmd)
+
 	case 'S':
 		status = registerCmd(cmd)
+
 	case '&':
 		status = processAmpersand(cmd)
+
 	case '*':
 		status = debug(cmd)
+
+	case 'B', 'C', 'N', 'P', 'T', 'Y': // faked out commands
+		status = OK	
+
 	default:
-		status = ERROR
+		status = OK
 	}
 
 	return status

@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
-	"strings"
-	"strconv"
-	"time"
 	"net"
+	"strconv"
+	"strings"
+	"time"
+	"unicode"
 )
 
 const __CONNECT_TIMEOUT = __MAX_RINGS * 6 * time.Second
@@ -72,6 +73,7 @@ func splitATDE(cmd string) (string, string, string, error) {
 func dial(to string) error {
 	var conn connection
 	var err error
+	var clean_to string
 
 	goOffHook()
 
@@ -92,8 +94,15 @@ func dial(to string) error {
 		" ", "",
 		"!", "",
 		";", "")
+
 	
-	clean_to := r.Replace(to[2:])
+	if unicode.IsDigit(rune(cmd)) {
+		clean_to = r.Replace(to[1:])
+		conn, err = dialNumber(clean_to)
+		goto out
+	}
+
+	clean_to = r.Replace(to[2:])
 
 	switch cmd {
 	case 'H':		// Hostname (ATDH hostname)
@@ -103,6 +112,7 @@ func dial(to string) error {
 		logger.Print("Opening SSH connection to: ", clean_to)
 		host, user, pw, e := splitATDE(clean_to)
 		if e != nil {
+			logger.Print(e)
 			conn = nil
 			err = e
 		} else {
@@ -119,6 +129,7 @@ func dial(to string) error {
 		err = fmt.Errorf("Dial mode '%c' not supported", cmd)
 	}
 
+out:
 	// if we're connected, setup the connected state in the modem,
 	// otherwise return a BUSY or NO_ANSWER result code.
 	if err != nil {
@@ -149,8 +160,24 @@ func dial(to string) error {
 func parseDial(cmd string) (string, int, error) {
 	var s string
 	var c int
-	
+
+	if len(cmd) <= 1 {
+		return "", 0, fmt.Errorf("Bad/unsupported dial command: %s", cmd)
+	}
+
 	c = 1			// Skip the 'D'
+
+	// Parse 'ATD555555'
+	if unicode.IsDigit(rune(cmd[c])) {
+		e := strings.LastIndexAny(cmd, "0123456789,;@!")
+		if e == -1 {
+			return "", 0, fmt.Errorf("Bad phone number: %s", cmd)
+		}
+		s = fmt.Sprintf("D%s", cmd[1:e+1])
+		return s, len(s), nil
+	}
+
+	
 	switch cmd[c] {
 	case 'T', 't', 'P', 'p':	// Number dialing
 		e := strings.LastIndexAny(cmd, "0123456789,;@!")

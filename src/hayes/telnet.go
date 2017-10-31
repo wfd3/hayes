@@ -96,12 +96,15 @@ func (m *telnetReadWriteCloser) Read(p []byte) (int, error) {
 }
 func (m *telnetReadWriteCloser) Write(p []byte) (int, error) {
 	i, err := m.c.Write(p)
+	if err != nil {
+		logger.Print(err)
+	}
 	m.sent += uint64(i)
 	return i, err
 }
 func (m *telnetReadWriteCloser) Close() error {
-	err := m.c.Close()
-	return err
+	logger.Printf("Closing telnet connection to %s", m.RemoteAddr())
+	return m.c.Close()
 }
 func (m *telnetReadWriteCloser) Mode() int {
 	return m.mode
@@ -172,6 +175,7 @@ func dialTelnet(remote string, log *log.Logger) (connection, error) {
 		return nil, err
 	}
 
+	log.Printf("Connected to %s", conn.RemoteAddr())
 	return &telnetReadWriteCloser{OUTBOUND, DATAMODE, conn, 0, 0}, nil
 }
 

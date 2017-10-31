@@ -75,7 +75,6 @@ func (s *storedProfiles) Write() error {
 	return err
 }
 
-
 func (s *storedProfiles) String() string {
 	b := func(p bool) (string) {
 		if p {
@@ -117,15 +116,15 @@ func (s *storedProfiles) String() string {
 		t += "X" +
 			x(s.Config[p].ExtendedResultCodes, s.Config[p].BusyDetect)
 		t += "Y0 "
-		t += "&A0 "	// TODO: fake
+		t += "&A0 "
 		t += "&C" + b(s.Config[p].DCDControl)
-		t += "&D0 " 	// TODO: do 
-		t += "&G0 "	// TODO: fake
+		t += "&D0 "
+		t += "&G0 "
 		t += "&J0 "
-		t += "&K3 "	// TODO: do
+		t += "&K3 "
 		t += "&Q5 "
-		t += "&R0 "	// TODO: do
-		t += "&S0 "	// TODO: do
+		t += "&R0 "
+		t += "&S0 "
 		t += "&T4 "
 		t += "&U0 "
 		t += "&X4 "
@@ -158,7 +157,7 @@ func (s storedProfiles) Switch(i int) (Config, Registers, error) {
 	c.connectMsgSpeed = s.Config[i].ConnectMsgSpeed 
 	c.extendedResultCodes = s.Config[i].ExtendedResultCodes 
 	c.busyDetect = s.Config[i].BusyDetect 
-	c.dcdControl = s.Config[i].DCDControl 
+	c.dcdControl = s.Config[i].DCDControl
 		
 	return c, registersJsonUnmap(s.Config[i].Regs), nil
 }

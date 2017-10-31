@@ -14,7 +14,7 @@ type Config struct {
 	connectMsgSpeed bool     
 	busyDetect bool          
 	extendedResultCodes bool 
-	dcdControl bool          
+	dcdControl bool
 }
 
 func (c *Config) Reset() {
@@ -62,15 +62,15 @@ func (c *Config) String() string {
 	str += "W" + b(c.connectMsgSpeed)
 	str += "X" + x(c.extendedResultCodes, c.busyDetect)
 	str += "Y0 "
-	str += "&A0 "	// TODO: fake
+	str += "&A0 "	
 	str += "&C" + b(c.dcdControl)
-	str += "&D0 " 	// TODO: do 
-	str += "&G0 "	// TODO: fake
+	str += "&D0 " 	
+	str += "&G0 "
 	str += "&J0 "
-	str += "&K3 "	// TODO: do
+	str += "&K3 "	
 	str += "&Q5 "
-	str += "&R0 "	// TODO: do
-	str += "&S0 "	// TODO: do
+	str += "&R0 "	
+	str += "&S0 "	
 	str += "&T4 "
 	str += "&U0 "
 	str += "&X4 "

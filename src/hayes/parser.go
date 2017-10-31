@@ -18,23 +18,41 @@ func parse(cmd string, opts string) (string, int, error) {
 		return cmd[:2],  2, nil
 	}
 
+	logger.Printf("Bad command: %s", cmd)
 	return "", 0, fmt.Errorf("Bad command: %s", cmd)
 }
 
+// parse AT&...
 func parseAmpersand(cmdstr string) (string, int, error) {
 	var opts string
 
-	switch strings.ToUpper(cmdstr[:2]) {
-	case "&F", "&V":
+	c := strings.ToUpper(cmdstr[1:2])[0]
+		
+	switch c {
+	case 'F', 'V':
 		opts = "0"
-	case "&C", "&W", "&Y":
+	case 'C', 'W', 'Y', 'R':
 		opts = "01"
-	case "&Z":
+	case 'A', 'B', 'J', 'L', 'U':
+		opts = "01"
+	case 'G', 'S', 'X':
+		opts = "012"
+	case 'D':
+		opts = "0123"
+	case 'O':
+		opts = "01234"		
+	case 'K':
+		opts = "012345"
+	case 'Q':
+		opts = "0123456"
+	case  'T':
+		opts = "0123456789"
+	case 'Z':
 		var idx int
 		var str string
 		var err error
 		
-		switch cmdstr[1] {
+		switch cmdstr[1] { // username/passwd could be case-sensitive
 		case 'Z': _, err = fmt.Sscanf(cmdstr, "&Z%d=%s", &idx, &str)
 		case 'z': _, err = fmt.Sscanf(cmdstr, "&z%d=%s", &idx, &str)
 		default: err = fmt.Errorf("Badly formated &Z command: ", cmdstr)
@@ -46,7 +64,6 @@ func parseAmpersand(cmdstr string) (string, int, error) {
 		}
 		s := fmt.Sprintf("&Z%d=%s", idx, str)
 		return s, len(s), nil
-
 	default:
 		logger.Printf("Unknown &cmd: %s", cmdstr)
 		return "", 0, ERROR
@@ -76,8 +93,6 @@ func parseCommand(cmdstring string) ([]string, error) {
 	// to work, but the entire command string should be left as it
 	// was handed to us.  This is so that we can embed passwords
 	// in the extended dial command (ATDE, specifically).
-
-
 	
 	if len(cmdstring) < 2  {
 		logger.Print("Cmd too short: ", cmdstring)
@@ -96,34 +111,52 @@ func parseCommand(cmdstring string) ([]string, error) {
 
 	commands = nil
 	status = OK
+	f := strings.ToUpper(cmd)
 	for  c < len(cmd) && status == OK {
-		switch (cmd[c]) {
-		case 'D', 'd':
+		switch (f[c]) {
+		case 'P', 'T':
+			s = f[c:1]
+			i = 1
+			err = nil
+		case 'D':
 			s, i, err = parseDial(cmd[c:])
-		case 'S', 's':
+		case 'S':
 			s, i, err = parseRegisters(cmd[c:])
 		case '*': 	// Custom debug registers
 			s, i, err = parseDebug(cmd[c:])
 		case '&':
 			s, i, err = parseAmpersand(cmd)
-		case 'A', 'a':
+		case 'A':
 			opts = "0"
 			s, i, err = parse(cmd[c:], opts)
-		case 'E', 'e', 'H', 'h', 'Q', 'q', 'V', 'v', 'Z', 'z':
+		case 'E', 'H', 'Q', 'V', 'Z':
 			opts = "01"
 			s, i, err = parse(cmd[c:], opts)
-		case 'L', 'l':
+		case 'L':
 			opts = "0123"
 			s, i, err = parse(cmd[c:], opts)
-		case 'M', 'm', 'W', 'w':
+		case 'M', 'W':
 			opts = "012"
 			s, i, err = parse(cmd[c:], opts)
-		case 'O', 'o':
+		case 'O':
 			opts = "O"
 			s, i, err = parse(cmd[c:], opts)
-		case 'X', 'x':
+		case 'X':
 			opts = "01234567"
 			s, i, err = parse(cmd[c:], opts)
+
+		case 'I':
+			opts = "012345"
+			s, i, err = parse(cmd[c:], opts)
+
+		// faked out commands
+		case 'Y', 'C':
+			opts = "01"
+			s, i, err = parse(cmd[c:], opts)
+		case 'N', 'B':
+			opts = "012345"
+			s, i, err = parse(cmd[c:], opts)
+
 		default:
 			logger.Printf("Unknown command: %s", cmd)
 			return nil, ERROR
@@ -150,7 +183,7 @@ func runCommand(cmdstring string) error {
 
 	commands, err := parseCommand(cmdstring)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	err = processCommands(commands)

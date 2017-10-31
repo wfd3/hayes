@@ -5,58 +5,73 @@ import (
 	"fmt"
 )
 
+
+// This is a telnet session, negotiate char-at-a-time
+const (
+	IAC = 0377
+	DO = 0375
+	WILL = 0373
+	ECHO = 0001
+	LINEMODE = 0042
+)
+
+const PORT = ":30000"
+
 func main() {
-	l, err := net.Listen("tcp", ":30000")
+	l, err := net.Listen("tcp", PORT)
 	if err != nil {
 		panic(err)
 	}
 	defer l.Close()
+	fmt.Println("Echo server at port %s", PORT)
 
-	var b[]byte
-	var c byte
-	b = make([]byte, 1)
-	
+	b := make([]byte, 1)
 	for {
 		fmt.Println("Waiting for connection")
 		conn, err := l.Accept()
 		if err != nil {
-			fmt.Printf("l.Accept(): %s\n", err)
+			fmt.Printf("Accept(): %s\n", err)
 			continue
 		}
 		fmt.Printf("Connection accepted from %s\n", conn.RemoteAddr())
-				
-		// This is a telnet session, negotiate char-at-a-time
-		const (
-			IAC = 0377
-			DO = 0375
-			WILL = 0373
-			ECHO = 0001
-			LINEMODE = 0042
-		)
 		conn.Write([]byte{IAC, DO, LINEMODE, IAC, WILL, ECHO})
 
-		done := false
-		for !done {
-			_, err = conn.Read(b)
+		for {
+			_, err := conn.Read(b)
 			if err != nil {
-				done = true
-				continue
+				fmt.Printf("Read(): %s", err)
+				break
 			}
-			c = b[0]
-			if c == IAC {
-				_, err = conn.Read(b)
-				_, err = conn.Read(b)
-				continue
+			if b[0] == IAC {
+				if _, err := conn.Read(b); err != nil {
+					fmt.Printf("Read(): %s", err)
+					break
+				}
+				if _, err := conn.Read(b); err != nil {
+					fmt.Printf("Read(): %s", err)
+					break
+				}
 			}
-
-			if c == 13 {
+			
+			if b[0]== 13 {
 				fmt.Println()
 				continue
 			}
 			fmt.Printf("%s", string(b))
-
+			if _, err :=conn.Write(b); err != nil {
+				fmt.Printf("Write(): %s", err)
+				break
+			}
+			
+			if b[0] == '*' {
+				s := "1234567890"
+				i, err :=conn.Write([]byte(s))
+				fmt.Printf("sent %d (%s)\n", i, err)
+				break
+			}
 		}
+			
 		conn.Close()
-		fmt.Println("Connection closed by remote")
+		fmt.Println("\nConnection closed by remote")
 	}
 }
