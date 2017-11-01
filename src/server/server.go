@@ -23,6 +23,7 @@ func main() {
 		panic(err)
 	}
 	defer l.Close()
+
 	fmt.Printf("Echo server at port %s\n", PORT)
 
 	b := make([]byte, 1)
@@ -43,13 +44,11 @@ func main() {
 				break
 			}
 			if b[0] == IAC {
-				if _, err := conn.Read(b); err != nil {
-					fmt.Printf("Read(): %s", err)
-					break
-				}
-				if _, err := conn.Read(b); err != nil {
-					fmt.Printf("Read(): %s", err)
-					break
+				for i :=0; i < 3; i++ {
+					if _, err := conn.Read(b); err != nil {
+						fmt.Printf("Read(): %s", err)
+						break
+					}
 				}
 			}
 			
@@ -57,6 +56,7 @@ func main() {
 				fmt.Println()
 				continue
 			}
+
 			fmt.Printf("%s", string(b))
 			if _, err :=conn.Write(b); err != nil {
 				fmt.Printf("Write(): %s", err)
@@ -67,7 +67,12 @@ func main() {
 				s := "1234567890"
 				i, err :=conn.Write([]byte(s))
 				fmt.Printf("sent %d (%s)\n", i, err)
-				break
+			}
+
+			if b[0] == '!' {
+				conn.Write([]byte("\nIAC TEST START\n"))
+				conn.Write([]byte{IAC, IAC, 'A', 'B', 'C'})
+				conn.Write([]byte("\nIAC TEST END\n"))
 			}
 		}
 			
