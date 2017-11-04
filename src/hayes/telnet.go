@@ -39,33 +39,42 @@ const (
 	ENVVAR   byte = 36
 )
 var decodeMap map[byte]string = map[byte]string {
-	IAC: "IAC ",
-	DONT: "DONT ",
-	DO: "DO ",
-	WONT: "WONT ",
-	WILL: "WILL ",
-	SB: "SB ",
-	GA: "GA ",
-	EL: "EL ",
-	EC: "EC ",
-	AYT: "AYT ",
-	AO: "AO ",
-	IP: "IP ",
-	BRK: "BRK ",
-	DM: "DM ",
-	NOP: "NOP ",
-	SE: "SE ",
-	ECHO: "ECHO ",
-	SGA: "SGA ",
-	STATUS: "STATUS ",
-	TIMINGMK: "TIMINGMK ",
-	TERM: "TERM ",
-	WINSIZE: "WINSIZE ",
-	TERMSPD: "TERMSPD ",
-	REMFLOW: "REMFLOW ",
-	LINEMODE: "LINEMODE ",
-	ENVVAR: "ENVVAR ",
+	IAC:      "IAC",
+	DONT:     "DONT",
+	DO:       "DO",
+	WONT:     "WONT",
+	WILL:     "WILL",
+	SB:       "SB",
+	GA:       "GA",
+	EL:       "EL",
+	EC:       "EC",
+	AYT:      "AYT",
+	AO:       "AO",
+	IP:       "IP",
+	BRK:      "BRK",
+	DM:       "DM",
+	NOP:      "NOP",
+	SE:       "SE",
+	ECHO:     "ECHO",
+	SGA:      "SGA",
+	STATUS:   "STATUS",
+	TIMINGMK: "TIMINGMK",
+	TERM:     "TERM",
+	WINSIZE:  "WINSIZE",
+	TERMSPD:  "TERMSPD",
+	REMFLOW:  "REMFLOW",
+	LINEMODE: "LINEMODE",
+	ENVVAR:   "ENVVAR",
 }
+
+func decode(b byte) string {
+	s, ok := decodeMap[b]
+	if !ok {
+		return fmt.Sprintf("%d ", b)
+	}
+	return s + " "
+}
+
 
 // Implements connection for in- and out-bound telnet
 type telnetReadWriteCloser struct {
@@ -76,14 +85,6 @@ type telnetReadWriteCloser struct {
 	recv uint64
 }
 
-
-func decode(b byte) string {
-	s, ok := decodeMap[b]
-	if !ok {
-		return fmt.Sprintf("%d", b)
-	}
-	return s
-}
 
 func (m *telnetReadWriteCloser) command(p []byte) (i int, err error) {
 	if p[0] != IAC {
@@ -160,6 +161,7 @@ func (m *telnetReadWriteCloser) Read(p []byte) (int, error) {
 	m.recv += uint64(i)
 	return i, err
 }
+
 func (m *telnetReadWriteCloser) Write(p []byte) (int, error) {
 	i, err := m.c.Write(p)
 	if err != nil {
@@ -168,25 +170,31 @@ func (m *telnetReadWriteCloser) Write(p []byte) (int, error) {
 	m.sent += uint64(i)
 	return i, err
 }
+
 func (m *telnetReadWriteCloser) Close() error {
 	logger.Printf("Closing telnet connection to %s", m.RemoteAddr())
 	return m.c.Close()
 }
+
 func (m *telnetReadWriteCloser) Mode() int {
 	return m.mode
 }
+
 func (m *telnetReadWriteCloser) Direction() int {
 	return m.direction
 }
+
 func (m *telnetReadWriteCloser) RemoteAddr() net.Addr {
 	return m.c.RemoteAddr()
 }
+
 func (m *telnetReadWriteCloser) SetMode(mode int) {
 	if mode != DATAMODE || mode != COMMANDMODE {
 		panic("Bad mode")
 	}
 	m.mode = mode
 }
+
 func (m *telnetReadWriteCloser) Stats() (uint64, uint64) {
 	return m.sent, m.recv
 }
