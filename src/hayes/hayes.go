@@ -94,6 +94,7 @@ func handlePINs() {
 
 	for {
 		// TODO: Do I need to support DTR state changes (&Q & &D)?
+		// http://www.messagestick.net/modem/Hayes_Ch1-1.html
 		if readDTR() {
 			led_TR_on()
 		} else {

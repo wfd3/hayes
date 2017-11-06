@@ -193,14 +193,15 @@ func handleModem() {
 	for {
 		conn = <- callChannel
 		setLineBusy(true)
-
-		if conn.Direction() == INBOUND {
+		
+		switch conn.Direction() {
+		case INBOUND:
 			logger.Printf("Incomming call from %s", conn.RemoteAddr())
 			if !answerIncomming(conn) {
 				conn.Close()
 				continue
 			}
-		} else {
+		case OUTBOUND: 
 			logger.Printf("Outgoing call to %s ", conn.RemoteAddr())
 		}
 
