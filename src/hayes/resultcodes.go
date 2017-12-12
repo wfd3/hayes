@@ -12,100 +12,114 @@ type MError struct {
 	text string
 }
 
+var (
+	OK             error = nil
+	CONNECT        error = NewMerror(1, "CONNECT")
+	RING           error = NewMerror(2, "RING\n") // RING has CR/LF after it.
+	NO_CARRIER     error = NewMerror(3, "NO CARRIER")
+	ERROR          error = NewMerror(4, "ERROR")
+	CONNECT_1200   error = NewMerror(5, "CONNECT 1200")
+	NO_DIALTONE    error = NewMerror(6, "NO DIALTONE")
+	BUSY           error = NewMerror(7, "BUSY")
+	NO_ANSWER      error = NewMerror(8, "NO ANSWER")
+	CONNECT_2400   error = NewMerror(10, "CONNECT 2400")
+	CONNECT_4800   error = NewMerror(11, "CONNECT 4800")
+	CONNECT_9600   error = NewMerror(12, "CONNECT 9600")
+	CONNECT_14400  error = NewMerror(13, "CONNECT 14400")
+	CONNECT_19200  error = NewMerror(14, "CONNECT 19200")
+	CONNECT_57600  error = NewMerror(18, "CONNECT 57600")
+	CONNECT_7200   error = NewMerror(24, "CONNECT 7200")
+	CONNECT_12000  error = NewMerror(25, "CONNECT 12000")
+	CONNECT_38400  error = NewMerror(28, "CONNECT 38400")
+	CONNECT_300    error = NewMerror(40, "CONNECT 300")
+	CONNECT_115200 error = NewMerror(87, "CONNECT 115200")
+)
+
 func NewMerror(c byte, s string) error {
 	return &MError{c, s}
 }
 
-var OK error            = nil
-var CONNECT error       = NewMerror(1,  "CONNECT")
-var RING error          = NewMerror(2,  "RING\n") // RING has CR/LF after it.
-var NO_CARRIER error    = NewMerror(3,  "NO CARRIER")
-var ERROR error         = NewMerror(4,  "ERROR")
-var CONNECT_1200 error  = NewMerror(5,  "CONNECT 1200")
-var NO_DIALTONE error   = NewMerror(6,  "NO DIALTONE")
-var BUSY error          = NewMerror(7,  "BUSY")
-var NO_ANSWER error     = NewMerror(8,  "NO ANSWER")
-var CONNECT_2400 error  = NewMerror(10, "CONNECT 2400")
-var CONNECT_4800 error  = NewMerror(11, "CONNECT 4800")
-var CONNECT_9600 error  = NewMerror(12, "CONNECT 9600")
-var CONNECT_14400 error = NewMerror(13, "CONNECT 14400")
-var CONNECT_19200 error = NewMerror(14, "CONNECT 19200")
-var CONNECT_57600 error = NewMerror(18, "CONNECT 57600")
-var CONNECT_7200 error  = NewMerror(24, "CONNECT 7200")
-var CONNECT_12000 error = NewMerror(25, "CONNECT 12000")
-var CONNECT_38400 error = NewMerror(28, "CONNECT 38400")
-var CONNECT_300 error   = NewMerror(40, "CONNECT 300")
-var CONNECT_115200 error= NewMerror(87, "CONNECT 115200")
-
 func speedToResult(speed int) error {
 	switch speed {
-	case 300:    return CONNECT_300
-	case 1200:   return CONNECT_1200
-	case 2400:   return CONNECT_2400
-	case 4800:   return CONNECT_4800
-	case 7200:   return CONNECT_7200
-	case 9600:   return CONNECT_9600
-	case 12000:  return CONNECT_12000
-	case 14400:  return CONNECT_14400
-	case 19200:  return CONNECT_19200
-	case 38400:  return CONNECT_38400
-	case 57600:  return CONNECT_57600
-	case 115200: return CONNECT_115200
-	default:     return CONNECT
+	case 300:
+		return CONNECT_300
+	case 1200:
+		return CONNECT_1200
+	case 2400:
+		return CONNECT_2400
+	case 4800:
+		return CONNECT_4800
+	case 7200:
+		return CONNECT_7200
+	case 9600:
+		return CONNECT_9600
+	case 12000:
+		return CONNECT_12000
+	case 14400:
+		return CONNECT_14400
+	case 19200:
+		return CONNECT_19200
+	case 38400:
+		return CONNECT_38400
+	case 57600:
+		return CONNECT_57600
+	case 115200:
+		return CONNECT_115200
+	default:
+		return CONNECT
 	}
 }
 
 func (e *MError) Error() string {
-	if e == nil {
-		return "OK"
-	}
-	return fmt.Sprintf("%s",e.text)
-}
-
-func (e *MError) Code() string {
-	if e == nil {
-		return "0"
-	}
-	return fmt.Sprintf("%d", e.code)
-}
-
-// Print command status, subject to quiet mode and verbose mode flags
-func prstatus(e error) {
-	var ok bool
-	var merr *MError
-
 	if conf.quiet {
 		logger.Printf("Quiet mode, status: %s", e)
-		return
+		return ""
 	}
 
 	if e == CONNECT && conf.connectMsgSpeed {
-		e = speedToResult(m.connectSpeed)
+		me := speedToResult(m.connectSpeed)
+		return me.Error()
 	}
 
 	if e == BUSY && !conf.busyDetect {
-		e = OK
+		e = nil
 	}
 
 	if (e == NO_DIALTONE || e == NO_ANSWER) && !conf.extendedResultCodes {
-		e = OK
+		e = nil
 	}
-	
-	if e != nil { // nil is "OK", so that's OK.  
-		merr, ok = e.(*MError)
-		if !ok {
-			logger.Print("Underlying error: ", e)
-			prstatus(ERROR)
-			return
+
+	var s string
+	switch conf.verbose {
+	case true:
+		if e != nil {
+			s = fmt.Sprintf("%s", e.text)
+		} else {
+			s = "OK"
+		}
+	case false:
+		if e != nil {
+			s = fmt.Sprintf("%d", e.code)
+		} else {
+			s = "0"
 		}
 	}
 	
-	s := fmt.Sprintf("Result Code: %s (%s)", merr.Error(), merr.Code())
-	logger.Print(strings.Replace(s, "\n", "", -1))
-	
-	if !conf.verbose {
-		serial.Println(merr.Code())
-	} else {
-		serial.Println(merr.Error())
-	} 
+	logentry := fmt.Sprintf("Result Code: %s", s)
+        logger.Print(strings.Replace(logentry, "\n", "", -1))
+
+	return s
 }
+
+// This is needed because nil errors are "OK", but Prinln(OK) can't work.
+// I'm starting to think overloading error as result codes is a massive mistake.
+func prstatus(e error) {
+	if e == nil {
+		switch conf.verbose {
+		case true:  serial.Println("OK")
+		case false: serial.Println("0")
+		}
+	} else {
+		serial.Println(e)
+	}
+}	

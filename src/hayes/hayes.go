@@ -13,7 +13,6 @@ package main
 //
 
 import (
-	"flag"
 	"log"
 	"log/syslog"
 	"os"
@@ -34,20 +33,18 @@ const (
 
 var callChannel chan connection
 
-//Basic modem struct
+//Basic modem state
 type Modem struct {
-	// State
 	currentConfig int
-	mode int
-	lastCmd string
-	lastDialed string
-	connectSpeed int
-	dcd bool
-	lineBusy bool
-	lineBusyLock sync.RWMutex
-	hook int
-	hookLock sync.RWMutex
-
+	mode          int
+	lastCmd       string
+	lastDialed    string
+	connectSpeed  int
+	dcd           bool
+	lineBusy      bool
+	lineBusyLock  sync.RWMutex
+	hook          int
+	hookLock      sync.RWMutex
 }
 
 var m Modem
@@ -65,26 +62,26 @@ var logger *log.Logger
 func setupLogging() *log.Logger {
 	var err error
 
-	flags := log.Ldate | log.Ltime | log.Lmicroseconds | log.Lshortfile
-	
-	if *_flags_syslog {
-		logger, err := syslog.NewLogger(syslog.LOG_CRIT, flags)
+	logflags := log.Ldate | log.Ltime | log.Lmicroseconds | log.Lshortfile
+
+	if flags.syslog {
+		logger, err := syslog.NewLogger(syslog.LOG_CRIT, logflags)
 		if err != nil {
 			panic("Can't open syslog")
 		}
 		return logger
 	}
 
-	logger := os.Stderr	// default to StdErr
-	if *_flags_logfile != "" {
-		logger, err = os.OpenFile(*_flags_logfile,
+	logger := os.Stderr // default to StdErr
+	if flags.logfile != "" {
+		logger, err = os.OpenFile(flags.logfile,
 			os.O_RDWR|os.O_APPEND|os.O_CREATE, 0644)
 		if err != nil {
 			panic("Can't open logfile")
 		}
 	}
 	prefix := path.Base(os.Args[0]) + ": "
-	return log.New(logger, prefix, flags)
+	return log.New(logger, prefix, logflags)
 
 }
 
@@ -152,7 +149,7 @@ func handleSignals() {
 func resetTimer() {
 	stopTimer()
 	gt := registers.Read(REG_ESC_CODE_GUARD_TIME)
-	guardTime := time.Duration(float64(gt) * 0.02) * time.Second
+	guardTime := time.Duration(float64(gt)*0.02) * time.Second
 
 	logger.Printf("Setting timer for %v", guardTime)
 	timer = time.NewTicker(guardTime)
@@ -180,7 +177,7 @@ func readSerial() {
 	for {
 
 		select {
-		case <- timer.C:
+		case <-timer.C:
 			if m.mode == COMMANDMODE { // Skip if in COMMAND mode
 				continue
 			}
@@ -194,12 +191,12 @@ func readSerial() {
 			// countAtTick == 3 && CountAtLastTick == 0 && the last
 			// three characters are "+++", wait one more tick.  If
 			// countAtTick == 0, the guard sequence was detected.
-			
+
 			if countAtTick == 3 && countAtLastTick == 0 &&
-				lastThree == escSequence { 
+				lastThree == escSequence {
 				waitForOneTick = true
 			} else if waitForOneTick && countAtTick == 0 {
-				logger.Print("Escape sequence detected, ", 
+				logger.Print("Escape sequence detected, ",
 					"entering command mode")
 				m.mode = COMMANDMODE
 				prstatus(OK) // signal that we're in command mode
@@ -210,7 +207,7 @@ func readSerial() {
 			countAtTick = 0
 			continue
 
-		case c = <- charchannel:
+		case c = <-charchannel:
 			countAtTick++
 		}
 
@@ -227,7 +224,7 @@ func readSerial() {
 			if (s == "A" || s == "a") && c == '/' {
 				serial.Println()
 				if m.lastCmd == "" {
-					prstatus(ERROR)
+					serial.Println(ERROR)
 				} else {
 					status = runCommand(m.lastCmd)
 					prstatus(status)
@@ -237,9 +234,9 @@ func readSerial() {
 				status = runCommand(s)
 				prstatus(status)
 				s = ""
-			} else if c == registers.Read(REG_BS_CH)  && len(s) > 0 {
-				s = s[0:len(s) - 1]
-			} else if c == registers.Read(REG_CR_CH)  ||
+			} else if c == registers.Read(REG_BS_CH) && len(s) > 0 {
+				s = s[0 : len(s)-1]
+			} else if c == registers.Read(REG_CR_CH) ||
 				c == registers.Read(REG_BS_CH) && len(s) == 0 {
 				// ignore naked CR's & BS if s is already empty
 			} else {
@@ -261,7 +258,7 @@ func readSerial() {
 				out := make([]byte, 1)
 				out[0] = c
 				netConn.Write(out)
-				led_SD_off()	
+				led_SD_off()
 			}
 		}
 	}
@@ -269,8 +266,8 @@ func readSerial() {
 
 // Boot the modem
 func main() {
-	flag.Parse()
-	
+	initFlags()
+
 	logger = setupLogging()
 	logger.Print("------------ Starting up")
 	logger.Printf("Cmdline: %s", strings.Join(os.Args, " "))
@@ -281,14 +278,14 @@ func main() {
 
 	// Setup the hardware
 	setupPins()
-	serial = setupSerialPort(*_flags_serialPort, *_flags_serialSpeed,
+	serial = setupSerialPort(flags.serialPort, flags.serialSpeed,
 		charchannel, logger)
 
-	// Setup modem inital state 
+	// Setup modem inital state
 	registers = NewRegisters()
 	conf.Reset()
 	registers.Reset()
-	
+
 	// If there's stored profiles, load them and make the active one active.
 	profiles, _ = newStoredProfiles()
 	factoryReset()
@@ -297,9 +294,9 @@ func main() {
 	}
 
 	// Setup the helper tasks
-	go handleSignals()	// Catch signals in a different thread
-	go handlePINs()         // Monitor input pins & internal registers
-	go handleModem()	// Handle in-bound bytes in a seperate goroutine
+	go handleSignals() // Catch signals in a different thread
+	go handlePINs()    // Monitor input pins & internal registers
+	go handleModem()   // Handle in-bound bytes in a seperate goroutine
 
 	// Signal to DTE that we're ready
 	time.Sleep(250 * time.Millisecond) // make it look good
@@ -310,7 +307,5 @@ func main() {
 	logger.Print("Modem Ready")
 	prstatus(OK)
 
-	readSerial()		// never returns
+	readSerial() // never returns
 }
-
-

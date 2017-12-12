@@ -1,8 +1,8 @@
 package main
 
 import (
-	"time"
 	"fmt"
+	"time"
 )
 
 // ATZn - 0 == config 0, 1 == config 1
@@ -36,16 +36,16 @@ func factoryReset() error {
 	m.lastCmd = ""
 	m.lastDialed = ""
 	m.connectSpeed = 0
-	
+
 	registers.Reset()
 	conf.Reset()
 
-	phonebook = NewPhonebook(*_flags_phoneBook, logger)
+	phonebook = NewPhonebook(flags.phoneBook, logger)
 	err = phonebook.Load()
 	if err != nil {
 		logger.Print(err)
 	}
-	
+
 	resetTimer()
 	return err
 }
@@ -56,7 +56,7 @@ func answer() error {
 		logger.Print("Can't answer, line off hook already")
 		return ERROR
 	}
-	
+
 	goOffHook()
 
 	// Simulate Carrier Detect delay
@@ -65,7 +65,7 @@ func answer() error {
 	time.Sleep(delay)
 	m.dcd = true
 	m.mode = DATAMODE
-	m.connectSpeed = 38400	// We only go fast...
+	m.connectSpeed = 38400 // We only go fast...
 	return CONNECT
 }
 
@@ -77,7 +77,7 @@ func amperV() error {
 
 	serial.Println()
 	serial.Println(profiles)
-	
+
 	serial.Println("TELEPHONE NUMBERS:")
 	serial.Println(phonebook)
 
@@ -147,7 +147,7 @@ func registerCmd(cmd string) error {
 	// Sn? - query register n
 	_, err = fmt.Sscanf(cmd, "S%d?", &reg)
 	if err == nil {
-		if reg > __NUM_REGS || reg < 0 {	
+		if reg > __NUM_REGS || reg < 0 {
 			logger.Printf("Register index over/underflow: %d", reg)
 			return ERROR
 		}
@@ -159,7 +159,7 @@ func registerCmd(cmd string) error {
 	// Sn - slect register
 	_, err = fmt.Sscanf(cmd, "S%d", &reg)
 	if err == nil {
-		if reg > __NUM_REGS || reg < 0 {	
+		if reg > __NUM_REGS || reg < 0 {
 			logger.Printf("Register index over/underflow: %d", reg)
 			return ERROR
 		}
@@ -188,31 +188,38 @@ func processAmpersand(cmd string) error {
 
 	case 'F':
 		switch cmd[1] {
-		case '0': return factoryReset()
+		case '0':
+			return factoryReset()
 		}
 
 	case 'V':
 		switch cmd[1] {
-		case '0': return amperV()
-		default: return ERROR
+		case '0':
+			return amperV()
+		default:
+			return ERROR
 		}
-		
+
 	case 'W':
 		switch cmd[1] {
-		case '0': return profiles.writeActive(0)
-		case '1': return profiles.writeActive(1)
+		case '0':
+			return profiles.writeActive(0)
+		case '1':
+			return profiles.writeActive(1)
 		}
-		
+
 	case 'Y':
 		switch cmd[1] {
-		case '0': return profiles.setPowerUpConfig(0)
-		case '1': return profiles.setPowerUpConfig(1)
+		case '0':
+			return profiles.setPowerUpConfig(0)
+		case '1':
+			return profiles.setPowerUpConfig(1)
 		}
 
 	case 'Z':
 		var s string
 		var i int
-		_ , err := fmt.Sscanf(cmd, "Z%d=%s", &i, &s)
+		_, err := fmt.Sscanf(cmd, "Z%d=%s", &i, &s)
 		if err != nil {
 			logger.Print(err)
 			return err
@@ -223,7 +230,7 @@ func processAmpersand(cmd string) error {
 		return phonebook.Add(i, s)
 
 	// Faked out AT& commands
-	case 'A','B','D','G','J','K','L','M','O','Q','R','S','T','U','X':
+	case 'A', 'B', 'D', 'G', 'J', 'K', 'L', 'M', 'O', 'Q', 'R', 'S', 'T', 'U', 'X':
 		return nil
 	}
 
@@ -241,9 +248,11 @@ func processSingleCommand(cmd string) error {
 	case 'Z':
 		var c int
 		switch cmd[1] {
-		case '0': c = 0
-		case '1': c = 1
-		}				
+		case '0':
+			c = 0
+		case '1':
+			c = 1
+		}
 		status = softReset(c)
 		time.Sleep(250 * time.Millisecond)
 		if status == OK {
@@ -252,41 +261,51 @@ func processSingleCommand(cmd string) error {
 		}
 
 	case 'E':
-		conf.echoInCmdMode = cmd[1] == '0' 
+		conf.echoInCmdMode = cmd[1] == '0'
 
-	case 'F':	// Online Echo mode, F1 assumed for backwards
-		        // compatability after Hayes 1200
-		status = OK 
+	case 'F': // Online Echo mode, F1 assumed for backwards
+		// compatability after Hayes 1200
+		status = OK
 
 	case 'H':
 		switch cmd[1] {
-		case '0': status = goOnHook()
-		case '1': status = goOffHook()
+		case '0':
+			status = goOnHook()
+		case '1':
+			status = goOffHook()
 		}
 
 	case 'I':
 		switch cmd[1] {
-		case '0': serial.Println("14400")
-		case '1': serial.Println("058") // From my Hayes Ultra 96
+		case '0':
+			serial.Println("14400")
+		case '1':
+			serial.Println("058") // From my Hayes Ultra 96
 		case '2':
 			time.Sleep(500 * time.Millisecond)
 			prstatus(OK)
 			serial.Println()
 		case '3':
-			serial.Println("04-0045012 240 PASS\n")
-			serial.Println("04-00471-3143 080 PASS\n")
-			serial.Println("04-00472-3143 190 PASS\n")
+			serial.Println("04-0045012 240 PASS")
+			serial.Println()
+			serial.Println("04-00471-3143 080 PASS")
+			serial.Println()
+			serial.Println("04-00472-3143 190 PASS")
+			serial.Println()
 		case '4':
-			serial.Println("a097841F284C6403F00000090\n")
-			serial.Println("bF60437000\n");
-			serial.Println("r1031111111010000\n")
-			serial.Println("r3000111010000000\n")
+			serial.Println("a097841F284C6403F00000090")
+			serial.Println()
+			serial.Println("bF60437000")
+			serial.Println()
+			serial.Println("r1031111111010000")
+			serial.Println()
+			serial.Println("r3000111010000000")
+			serial.Println()
 		case '5':
 			serial.Println("004")
 			serial.Println("a 001 001 003 PASS")
 		}
 		status = OK
-
 
 	case 'Q':
 		conf.quiet = cmd[1] == '0'
@@ -296,17 +315,24 @@ func processSingleCommand(cmd string) error {
 
 	case 'L':
 		switch cmd[1] {
-		case '0': conf.speakerVolume = 0
-		case '1': conf.speakerVolume = 1
-		case '2': conf.speakerVolume = 2
-		case '3': conf.speakerVolume = 3
+		case '0':
+			conf.speakerVolume = 0
+		case '1':
+			conf.speakerVolume = 1
+		case '2':
+			conf.speakerVolume = 2
+		case '3':
+			conf.speakerVolume = 3
 		}
 
 	case 'M':
 		switch cmd[1] {
-		case '0': conf.speakerMode = 0
-		case '1': conf.speakerMode = 1
-		case '2': conf.speakerMode = 2
+		case '0':
+			conf.speakerMode = 0
+		case '1':
+			conf.speakerMode = 1
+		case '2':
+			conf.speakerMode = 2
 		}
 
 	case 'O':
@@ -315,12 +341,15 @@ func processSingleCommand(cmd string) error {
 
 	case 'W':
 		switch cmd[1] {
-		case '0': conf.connectMsgSpeed = false
-		case '1', '2': conf.connectMsgSpeed = true
-		default: status = ERROR
+		case '0':
+			conf.connectMsgSpeed = false
+		case '1', '2':
+			conf.connectMsgSpeed = true
+		default:
+			status = ERROR
 		}
 
-	case 'X':	// Change result codes displayed
+	case 'X': // Change result codes displayed
 		switch cmd[1] {
 		case '0':
 			conf.extendedResultCodes = false
@@ -346,7 +375,7 @@ func processSingleCommand(cmd string) error {
 		status = debug(cmd)
 
 	case 'B', 'C', 'N', 'P', 'T', 'Y': // faked out commands
-		status = OK	
+		status = OK
 
 	default:
 		status = OK
@@ -356,9 +385,9 @@ func processSingleCommand(cmd string) error {
 }
 
 func processCommands(commands []string) error {
-	var cmd string 
+	var cmd string
 	var status error
-	
+
 	status = OK
 	for _, cmd = range commands {
 		logger.Printf("Processing: %s", cmd)

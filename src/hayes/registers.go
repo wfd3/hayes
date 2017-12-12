@@ -2,25 +2,25 @@ package main
 
 import (
 	"fmt"
-	"sync"
 	"sort"
 	"strconv"
+	"sync"
 )
 
 type Registers struct {
 	regs [__NUM_REGS]struct {
-		val byte
+		val   byte
 		valid bool
 	}
 	current int
-	rlock sync.RWMutex
+	rlock   sync.RWMutex
 }
 
 // Register constants
 // TODO: Fill this out as per the manual
 const (
 	// Do auto answer (0 == false, 1 == true) - default 0
-	REG_AUTO_ANSWER    =  0
+	REG_AUTO_ANSWER = 0
 
 	// AA Ring counter (read only)
 	REG_RING_COUNT = 1
@@ -60,7 +60,7 @@ const (
 
 	// prior to and following the escape sequence.  In 1/50's of a
 	// second.  Factory default is 50 (1 second)
-	REG_ESC_CODE_GUARD_TIME	= 12
+	REG_ESC_CODE_GUARD_TIME = 12
 
 	REG_INACTIVITY_TIMER = 30
 )
@@ -102,8 +102,7 @@ func (r *Registers) Reset() {
 	r.Write(110, 2)
 }
 
-
-var escSequence [3]byte = [3]byte{'+','+','+'}
+var escSequence [3]byte = [3]byte{'+', '+', '+'}
 
 func NewRegisters() Registers {
 	var r Registers
@@ -125,12 +124,12 @@ func (r *Registers) valid(regnum uint) bool {
 	return r.regs[regnum].valid
 }
 
-func ( r *Registers) ReadCurrent() byte {
+func (r *Registers) ReadCurrent() byte {
 	return r.Read(r.current)
 }
 
 // Note the locks here.
-func ( r *Registers) SetCurrent(regnum int) error {
+func (r *Registers) SetCurrent(regnum int) error {
 	if regnum < 0 || regnum > __NUM_REGS {
 		return fmt.Errorf("Invalid register numnber: %d", regnum)
 	}
@@ -140,7 +139,7 @@ func ( r *Registers) SetCurrent(regnum int) error {
 	return nil
 }
 
-func ( r *Registers) ShowCurrent() int {
+func (r *Registers) ShowCurrent() int {
 	r.rlock.RLock()
 	defer r.rlock.RUnlock()
 	return r.current

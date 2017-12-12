@@ -1,26 +1,27 @@
 package main
 
 import (
+	"fmt"
 	"golang.org/x/crypto/ssh"
-	"io/ioutil"
 	"io"
+	"io/ioutil"
+	"log"
 	"net"
 	"time"
-	"fmt"
-	"log"
 )
 
 // Implements connection for in-bound ssh
 type sshAcceptReadWriteCloser struct {
-	direction int
-	mode int
-	c io.ReadWriteCloser
+	direction  int
+	mode       int
+	c          io.ReadWriteCloser
 	remoteAddr net.Addr
-	sent uint64
-	recv uint64
+	sent       uint64
+	recv       uint64
 }
+
 func (m *sshAcceptReadWriteCloser) Read(p []byte) (int, error) {
-	i, err :=  m.c.Read(p)
+	i, err := m.c.Read(p)
 	m.recv += uint64(i)
 	return i, err
 }
@@ -43,12 +44,12 @@ func (m *sshAcceptReadWriteCloser) Direction() int {
 	return m.direction
 }
 func (m *sshAcceptReadWriteCloser) SetMode(mode int) {
-	if mode != DATAMODE || mode != COMMANDMODE {
+	if mode != DATAMODE && mode != COMMANDMODE {
 		panic("bad mode")
 	}
 	m.mode = mode
 }
-func(m *sshAcceptReadWriteCloser) Stats() (uint64, uint64) {
+func (m *sshAcceptReadWriteCloser) Stats() (uint64, uint64) {
 	return m.sent, m.recv
 }
 
@@ -88,7 +89,7 @@ func acceptSSH(channel chan connection, private_key string, busy busyFunc,
 	config.AddHostKey(private)
 
 	// Once a ServerConfig has been configured, connections can be accepted.
-	address := "0.0.0.0:" + fmt.Sprintf("%d", *_flags_sshdPort)
+	address := "0.0.0.0:" + fmt.Sprintf("%d", flags.sshdPort)
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		log.Print("Fatal Error: ", err)
@@ -104,14 +105,14 @@ func acceptSSH(channel chan connection, private_key string, busy busyFunc,
 	for {
 		tcpConn, err := listener.Accept()
 		if err != nil {
-			log.Print("Failed to accept incoming connection (%s)", err)
+			log.Printf("Failed to accept incoming connection (%s)", err)
 			continue
 		}
 		// Before use, a handshake must be performed on the
 		// incoming net.Conn.
 		sshConn, chans, reqs, err := ssh.NewServerConn(tcpConn, config)
 		if err != nil {
-			log.Print("Failed to handshake (%s)", err)
+			log.Printf("Failed to handshake (%s)", err)
 			continue
 		}
 		go ssh.DiscardRequests(reqs)
@@ -124,7 +125,7 @@ func acceptSSH(channel chan connection, private_key string, busy busyFunc,
 				newChannel.Reject(ssh.UnknownChannelType,
 					"unknown channel type")
 				continue
-			} 
+			}
 
 			conn, _, err = newChannel.Accept()
 			if err != nil {
@@ -143,18 +144,19 @@ func acceptSSH(channel chan connection, private_key string, busy busyFunc,
 	}
 }
 
-// Implements connection, used to convert SSH ssh.Session for outbound SSH 
+// Implements connection, used to convert SSH ssh.Session for outbound SSH
 type sshDialReadWriteCloser struct {
-	direction int
-	mode int
-	in io.Reader
-	out io.WriteCloser
-	client *ssh.Client
-	session *ssh.Session
+	direction  int
+	mode       int
+	in         io.Reader
+	out        io.WriteCloser
+	client     *ssh.Client
+	session    *ssh.Session
 	remoteAddr net.Addr
-	sent uint64
-	recv uint64
+	sent       uint64
+	recv       uint64
 }
+
 func (m *sshDialReadWriteCloser) Read(p []byte) (int, error) {
 	i, err := m.in.Read(p)
 	m.recv += uint64(i)
@@ -182,7 +184,7 @@ func (m *sshDialReadWriteCloser) Mode() int {
 	return m.mode
 }
 func (m *sshDialReadWriteCloser) SetMode(mode int) {
-	if mode != DATAMODE || mode != COMMANDMODE {
+	if mode != DATAMODE && mode != COMMANDMODE {
 		panic("bad mode")
 	}
 	m.mode = mode
@@ -196,7 +198,7 @@ func dialSSH(remote string, log *log.Logger, username string, pw string) (*sshDi
 	if _, _, err := net.SplitHostPort(remote); err != nil {
 		remote += ":22"
 	}
-	
+
 	log.Printf("Connecting to %s [user '%s', pw '%s']", remote, username, pw)
 
 	config := &ssh.ClientConfig{
@@ -205,7 +207,7 @@ func dialSSH(remote string, log *log.Logger, username string, pw string) (*sshDi
 			ssh.Password(pw),
 		},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // Danger?
-		Timeout: time.Duration(__CONNECT_TIMEOUT),
+		Timeout:         time.Duration(__CONNECT_TIMEOUT),
 	}
 
 	client, err := ssh.Dial("tcp", remote, config)
@@ -215,45 +217,45 @@ func dialSSH(remote string, log *log.Logger, username string, pw string) (*sshDi
 			log.Print("ssh.Dial: Timed out")
 		}
 		return &sshDialReadWriteCloser{},
-		fmt.Errorf("ssh.Dial() failed: %s", err)
+			fmt.Errorf("ssh.Dial() failed: %s", err)
 	}
 
 	// Create a session
 	session, err := client.NewSession()
 	if err != nil {
-    		log.Print("unable to create session: ", err)
+		log.Printf("unable to create session: %s", err)
 		return &sshDialReadWriteCloser{},
-		fmt.Errorf("unable to create session: ", err)
+			fmt.Errorf("unable to create session: %s", err)
 	}
 
 	// Set up terminal modes
 	modes := ssh.TerminalModes{
-    		ssh.ECHO:          0,     // disable echoing
-    		ssh.TTY_OP_ISPEED: 14400, // input speed = 14.4kbaud
-    		ssh.TTY_OP_OSPEED: 14400, // output speed = 14.4kbaud
-	}	
+		ssh.ECHO:          0,     // disable echoing
+		ssh.TTY_OP_ISPEED: 14400, // input speed = 14.4kbaud
+		ssh.TTY_OP_OSPEED: 14400, // output speed = 14.4kbaud
+	}
 	// Request pseudo terminal
 	if err := session.RequestPty("xterm", 40, 80, modes); err != nil {
-    		log.Print("request for pseudo terminal failed: ", err)
+		log.Print("request for pseudo terminal failed: ", err)
 		return &sshDialReadWriteCloser{},
-		fmt.Errorf("request for pty failed: ", err)
+			fmt.Errorf("request for pty failed: %s", err)
 	}
 
 	// Start remote shell
-	send, err :=  session.StdinPipe()
+	send, err := session.StdinPipe()
 	if err != nil {
 		log.Print("StdinPipe(): ", err)
 		return &sshDialReadWriteCloser{},
-		fmt.Errorf("session.StdinPipe(): ", err)
+			fmt.Errorf("session.StdinPipe(): %s", err)
 	}
 	recv, err := session.StdoutPipe()
 	if err != nil {
 		log.Print("StdoutPipe(): ", err)
 		return &sshDialReadWriteCloser{},
-		fmt.Errorf("session.StdinOut(): ", err)
+			fmt.Errorf("session.StdinOut(): %s", err)
 	}
 
-        session.Shell()
+	session.Shell()
 
 	log.Printf("Connected to remote host '%s', SSH Server version %s",
 		client.Conn.RemoteAddr(), client.Conn.ServerVersion())

@@ -4,7 +4,7 @@ package main
 
 // Is the phone on or off hook?
 const (
-	ONHOOK = iota 
+	ONHOOK = iota
 	OFFHOOK
 )
 
@@ -65,7 +65,7 @@ func getLineBusy() bool {
 	m.lineBusyLock.RLock()
 	defer m.lineBusyLock.RUnlock()
 	return m.lineBusy
-}	
+}
 
 func setLineBusy(b bool) {
 	m.lineBusyLock.Lock()
@@ -75,5 +75,5 @@ func setLineBusy(b bool) {
 
 // "Busy" signal.
 func checkBusy() bool {
-	return  offHook() || getLineBusy()
+	return offHook() || getLineBusy()
 }

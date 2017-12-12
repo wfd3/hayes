@@ -4,23 +4,52 @@ import (
 	"flag"
 )
 
-
 const __ADDRESS_BOOK_FILE = "./phonebook.json"
-const __ID_RSA_FILE       = "./id_rsa"
+const __ID_RSA_FILE = "./id_rsa"
 
-var _flags_syslog      = flag.Bool("L", false, "Log to syslog (default false)")
-var _flags_logfile     = flag.String("l", "", "Default log `file` (default stderr)")
-var _flags_serialPort  = flag.String("p", "", "Serial `port` (eg, /dev/ttyS0")
-var _flags_serialSpeed = flag.Int("S", 115200,
-	"Serial Port `speed (bps)` between DTE and DCE")
-var _flags_phoneBook   = flag.String("a", __ADDRESS_BOOK_FILE, "Phonebook `file`")
-var _flags_telnetPort  = flag.Uint("t", 20000,
-	"Network `port number` for inbound telnet sessions")
-var _flags_sshdPort    = flag.Uint("s", 22000,
-	"Network `port number` for inbound sshd sessions")
-var _flags_privateKey  = flag.String("k", __ID_RSA_FILE, "SSH Private Key `file`")
-var _flags_skipTelnet  = flag.Bool("T", false,
-	"Skip starting telnet server (default false)")
-var _flags_skipSSH     = flag.Bool("X", false,
-	"Skip starting SSH server (default false)")
+var flags struct {
+	syslog      bool
+	logfile     string
+	serialPort  string
+	serialSpeed int
+	phoneBook   string
+	telnetPort  uint
+	sshdPort    uint
+	privateKey  string
+	skipTelnet  bool
+	skipSSH     bool
+}
 
+func initFlags() {
+	flag.BoolVar(&flags.syslog, "syslog", false,
+		"Log to syslog (default false)")
+
+	flag.StringVar(&flags.logfile, "logfile", "",
+		"Default log `file` (default stderr)")
+
+	flag.StringVar(&flags.serialPort, "serial", "",
+		"Serial `device` (eg, /dev/ttyS0)")
+
+	flag.IntVar(&flags.serialSpeed, "speed", 115200,
+		"Serial Port `speed` (bps) between DTE and DCE")
+
+	flag.StringVar(&flags.phoneBook, "addressbook", __ADDRESS_BOOK_FILE,
+		"Address Book `file`")
+
+	flag.UintVar(&flags.telnetPort, "telnetport", 20000,
+		"Network `port` number for inbound telnet sessions")
+
+	flag.UintVar(&flags.sshdPort, "sshport", 22000,
+		"Network `port` number for inbound sshd sessions")
+
+	flag.StringVar(&flags.privateKey, "keyfile", __ID_RSA_FILE,
+		"SSH Private Key `file`")
+
+	flag.BoolVar(&flags.skipTelnet, "notelnet", false,
+		"Don't start telnet server (default false)")
+
+	flag.BoolVar(&flags.skipSSH, "nossh", false,
+		"Don't start SSH server (default false)")
+
+	flag.Parse()
+}

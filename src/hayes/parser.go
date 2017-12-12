@@ -15,7 +15,7 @@ func parse(cmd string, opts string) (string, int, error) {
 	}
 
 	if strings.ContainsAny(cmd[1:2], opts) {
-		return cmd[:2],  2, nil
+		return cmd[:2], 2, nil
 	}
 
 	logger.Printf("Bad command: %s", cmd)
@@ -31,7 +31,7 @@ func parseRegisters(cmd string) (string, int, error) {
 
 	// NOTE: The order of these stanzas is critical.
 
-	if  len(cmd) < 2  {
+	if len(cmd) < 2 {
 		return "", 0, fmt.Errorf("Bad command: %s", cmd)
 	}
 
@@ -86,7 +86,7 @@ func parseAmpersand(cmdstr string) (string, int, error) {
 	case 'D':
 		opts = "0123"
 	case 'O', 'K', 'M':
-		opts = "01234"		
+		opts = "01234"
 	case 'Q':
 		opts = "05689"
 	case 'T':
@@ -95,11 +95,14 @@ func parseAmpersand(cmdstr string) (string, int, error) {
 		var idx int
 		var str string
 		var err error
-		
+
 		switch cmdstr[1] { // username/passwd could be case-sensitive
-		case 'Z': _, err = fmt.Sscanf(cmdstr, "&Z%d=%s", &idx, &str)
-		case 'z': _, err = fmt.Sscanf(cmdstr, "&z%d=%s", &idx, &str)
-		default: err = fmt.Errorf("Badly formated &Z command: ", cmdstr)
+		case 'Z':
+			_, err = fmt.Sscanf(cmdstr, "&Z%d=%s", &idx, &str)
+		case 'z':
+			_, err = fmt.Sscanf(cmdstr, "&z%d=%s", &idx, &str)
+		default:
+			err = fmt.Errorf("Badly formated &Z command: %s", cmdstr)
 		}
 
 		if err != nil {
@@ -112,14 +115,14 @@ func parseAmpersand(cmdstr string) (string, int, error) {
 		logger.Printf("Unknown &cmd: %s", cmdstr)
 		return "", 0, ERROR
 	}
-	
+
 	s, i, err := parse(cmdstr[1:], opts)
 	s = "&" + s
 	i++
 	return s, i, err
 }
 
-// +++ 
+// +++
 func parseCommand(cmdstring string) ([]string, error) {
 	var commands []string
 	var s, opts, cmd string
@@ -137,8 +140,8 @@ func parseCommand(cmdstring string) ([]string, error) {
 	// to work, but the entire command string should be left as it
 	// was handed to us.  This is so that we can embed passwords
 	// in the extended dial command (ATDE, specifically).
-	
-	if len(cmdstring) < 2  {
+
+	if len(cmdstring) < 2 {
 		logger.Print("Cmd too short: ", cmdstring)
 		return nil, ERROR
 	}
@@ -150,14 +153,14 @@ func parseCommand(cmdstring string) ([]string, error) {
 
 	logger.Printf("command: %s", cmdstring)
 
-	cmd = cmdstring[2:] 		// Skip the 'AT'
+	cmd = cmdstring[2:] // Skip the 'AT'
 	c = 0
 
 	commands = nil
 	status = OK
 	f := strings.ToUpper(cmd)
-	for  c < len(cmd) && status == OK {
-		switch (f[c]) {
+	for c < len(cmd) && status == OK {
+		switch f[c] {
 		case 'P', 'T':
 			s = f[c:1]
 			i = 1
@@ -166,7 +169,7 @@ func parseCommand(cmdstring string) ([]string, error) {
 			s, i, err = parseDial(cmd[c:])
 		case 'S':
 			s, i, err = parseRegisters(cmd[c:])
-		case '*': 	// Custom debug registers
+		case '*': // Custom debug registers
 			s, i, err = parseDebug(cmd[c:])
 		case '&':
 			s, i, err = parseAmpersand(cmd)

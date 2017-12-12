@@ -5,13 +5,13 @@ package main
 // Support for generic hardare (ie, not a Raspberry Pi)
 
 import (
-	"strings"
 	"runtime"
+	"strings"
 )
 
 const (
 	HS_LED = iota
-	AA_LED 
+	AA_LED
 	RI_LED
 	MR_LED
 	TR_LED
@@ -26,12 +26,13 @@ const (
 	DSR_PIN
 	CTS_PIN
 	DTR_PIN
-	RTS_PIN 
+	RTS_PIN
 
-	_PIN_LEN		// This needs to be last in the const list
+	_PIN_LEN // This needs to be last in the const list
 )
 
 type hwPins [_PIN_LEN]bool
+
 var leds hwPins
 var pins hwPins
 
@@ -57,14 +58,14 @@ func clearPins() {
 
 func showPins() string {
 
-	pp := func (n string, p int) (string) {
+	pp := func(n string, p int) string {
 		var s string
 		if pins[p] {
 			s = strings.ToUpper(n)
 		} else {
 			s = strings.ToLower(n)
 		}
-		s += " " 
+		s += " "
 		return s
 	}
 	s := "PINs: ["
@@ -76,9 +77,9 @@ func showPins() string {
 	s += pp("DTR", DTR_PIN)
 	s += "]\n"
 
-	pl := func (n string, p int) (string) {
+	pl := func(n string, p int) string {
 		var s string
-		if leds[p] {	// LED is on
+		if leds[p] { // LED is on
 			s = strings.ToUpper(n)
 		} else {
 			s = strings.ToLower(n)
@@ -158,7 +159,7 @@ func raiseRI() {
 func lowerRI() {
 	pins[RI_PIN] = false
 }
-func readRI() (bool) {
+func readRI() bool {
 	return pins[RI_PIN]
 }
 
@@ -171,7 +172,7 @@ func lowerCD() {
 	leds[CD_LED] = false
 	pins[CD_PIN] = false
 }
-func readCD() (bool) {
+func readCD() bool {
 	return pins[CD_PIN]
 }
 
@@ -186,7 +187,7 @@ func lowerDSR() {
 	pins[DSR_PIN] = false
 	logger.Print("lowerDSR()")
 }
-func readDSR() (bool) {
+func readDSR() bool {
 	return pins[DSR_PIN]
 }
 
@@ -201,18 +202,18 @@ func lowerCTS() {
 	pins[CTS_PIN] = false
 	logger.Print("lowerCTS()")
 }
-func readCTS() (bool) {
+func readCTS() bool {
 	return pins[CTS_PIN]
 }
 
 // DTR - Data Terminal Ready (input)
-func readDTR() (bool) {
+func readDTR() bool {
 	// Is the computer ready to send data?
 	return pins[DTR_PIN]
 }
 
 // RTS - Request to Send (input)
-func readRTS() (bool) {
+func readRTS() bool {
 	// Has the computer requested data be sent?
 	return pins[RTS_PIN]
 }

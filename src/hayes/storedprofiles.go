@@ -6,24 +6,24 @@ import (
 	"io/ioutil"
 )
 
-type configtype struct {              // `json:"Config"`
-	Regs map[string]byte     `json:"Regs"`
-	
+type configtype struct { // `json:"Config"`
+	Regs map[string]byte `json:"Regs"`
+
 	// Configuration
-	EchoInCmdMode bool       `json:"EchoInCmdMode"`
-	SpeakerMode int          `json:"SpeakerMode"`
-	SpeakerVolume int        `json:"SpeakerVolume"`
-	Verbose bool             `json:"Verbose"`
-	Quiet bool               `json:"Quiet"`
-	ConnectMsgSpeed bool     `json:"ConnectMsgSpeed"`
-	BusyDetect bool          `json:"BusyDetect"`
+	EchoInCmdMode       bool `json:"EchoInCmdMode"`
+	SpeakerMode         int  `json:"SpeakerMode"`
+	SpeakerVolume       int  `json:"SpeakerVolume"`
+	Verbose             bool `json:"Verbose"`
+	Quiet               bool `json:"Quiet"`
+	ConnectMsgSpeed     bool `json:"ConnectMsgSpeed"`
+	BusyDetect          bool `json:"BusyDetect"`
 	ExtendedResultCodes bool `json:"ExtendedResultCodes"`
-	DCDControl bool          `json:"DCDControl"`
+	DCDControl          bool `json:"DCDControl"`
 }
 
 type storedProfiles struct {
-	PowerUpConfig int                `json:"PowerUpConfig"`
-	Config [2]configtype
+	PowerUpConfig int `json:"PowerUpConfig"`
+	Config        [2]configtype
 }
 
 func (c *configtype) Reset() {
@@ -76,28 +76,28 @@ func (s *storedProfiles) Write() error {
 }
 
 func (s *storedProfiles) String() string {
-	b := func(p bool) (string) {
+	b := func(p bool) string {
 		if p {
 			return "1 "
-		} 
+		}
 		return "0 "
-	};
-	i := func(p int) (string) {
+	}
+	i := func(p int) string {
 		return fmt.Sprintf("%d ", p)
-	};
-	x := func(r, b bool) (string) {
-		if (r == false && b == false) {
+	}
+	x := func(r, b bool) string {
+		if r == false && b == false {
 			return "0 "
 		}
-		if (r == true && b == false) {
+		if r == true && b == false {
 			return "1 "
 		}
-		if (r == true && b == true) {
+		if r == true && b == true {
 			return "7 "
 		}
 		return "0 "
-	};
-	r := func(r map[string]byte) (string) {
+	}
+	r := func(r map[string]byte) string {
 		reg := registersJsonUnmap(r)
 		return reg.String()
 	}
@@ -106,7 +106,7 @@ func (s *storedProfiles) String() string {
 	for p := 0; p < 2; p++ {
 		t := "B16 B1 B41 B60 "
 		t += "E" + b(s.Config[p].EchoInCmdMode)
-		t += "F1 "		// For Hayes 1200 compatability 
+		t += "F1 " // For Hayes 1200 compatability
 		t += "L" + i(s.Config[p].SpeakerVolume)
 		t += "M" + i(s.Config[p].SpeakerMode)
 		t += "N1 "
@@ -141,24 +141,24 @@ func (s *storedProfiles) String() string {
 }
 
 func (s storedProfiles) Switch(i int) (Config, Registers, error) {
-	if i != 1 &&  i != 0 {
+	if i != 1 && i != 0 {
 		return Config{}, Registers{},
-		fmt.Errorf("Invalid stored profile %d", i)
+			fmt.Errorf("Invalid stored profile %d", i)
 	}
 
 	logger.Printf("Switching to profile %d", i)
 	var c Config
 	c.Reset()
-	c.echoInCmdMode = s.Config[i].EchoInCmdMode 
-	c.speakerVolume = s.Config[i].SpeakerVolume 
-	c.speakerMode = s.Config[i].SpeakerMode 
-	c.quiet = s.Config[i].Quiet 
-	c.verbose = s.Config[i].Verbose 
-	c.connectMsgSpeed = s.Config[i].ConnectMsgSpeed 
-	c.extendedResultCodes = s.Config[i].ExtendedResultCodes 
-	c.busyDetect = s.Config[i].BusyDetect 
+	c.echoInCmdMode = s.Config[i].EchoInCmdMode
+	c.speakerVolume = s.Config[i].SpeakerVolume
+	c.speakerMode = s.Config[i].SpeakerMode
+	c.quiet = s.Config[i].Quiet
+	c.verbose = s.Config[i].Verbose
+	c.connectMsgSpeed = s.Config[i].ConnectMsgSpeed
+	c.extendedResultCodes = s.Config[i].ExtendedResultCodes
+	c.busyDetect = s.Config[i].BusyDetect
 	c.dcdControl = s.Config[i].DCDControl
-		
+
 	return c, registersJsonUnmap(s.Config[i].Regs), nil
 }
 

@@ -1,10 +1,10 @@
 package main
 
 import (
-	"fmt"
-	"time"
-	"runtime"
 	"code.cloudfoundry.org/bytefmt"
+	"fmt"
+	"runtime"
+	"time"
 )
 
 func logf(format string, a ...interface{}) {
@@ -17,18 +17,18 @@ func pf(format string, a ...interface{}) {
 type out func(string, ...interface{})
 
 // Debug function
-func outputState(debugf out)  {
-	
+func outputState(debugf out) {
+
 	if onHook() {
 		debugf("Hook      : ON HOOK\n")
 	} else {
-		debugf("Hook      : OFF HOOK\n")	
+		debugf("Hook      : OFF HOOK\n")
 	}
 	debugf("EchoInCmd : %t\n", conf.echoInCmdMode)
 	if m.mode == COMMANDMODE {
-		debugf( "Mode      : Command\n")
+		debugf("Mode      : Command\n")
 	} else {
-		debugf( "Mode      : Data\n")
+		debugf("Mode      : Data\n")
 	}
 	debugf("Quiet     : %t\n", conf.quiet)
 	debugf("Verbose   : %t\n", conf.verbose)
@@ -75,8 +75,8 @@ func parseDebug(cmd string) (string, int, error) {
 	if len(cmd) == 1 && cmd[0] == '*' {
 		return "*", 1, nil
 	}
-	
-	if  len(cmd) < 2  {
+
+	if len(cmd) < 2 {
 		return "", 0, fmt.Errorf("Bad command: %s", cmd)
 	}
 
@@ -107,7 +107,7 @@ func parseDebug(cmd string) (string, int, error) {
 func debug(cmd string) error {
 	var err error
 	var reg, val int
-	
+
 	// NOTE: The order of these stanzas is critical.
 
 	logger.Printf("cmd = '%s'", cmd)
@@ -118,7 +118,6 @@ func debug(cmd string) error {
 		return nil
 	}
 
-
 	// *n=x - write x to n
 	_, err = fmt.Sscanf(cmd, "*%d=%d", &reg, &val)
 	if err != nil {
@@ -127,7 +126,7 @@ func debug(cmd string) error {
 	}
 
 	switch reg {
-	case 1:		// Toggle DSR/CTS
+	case 1: // Toggle DSR/CTS
 		switch val {
 		case 1:
 			lowerDSR()
@@ -136,7 +135,7 @@ func debug(cmd string) error {
 			raiseDSR()
 			raiseCTS()
 		}
-	case 2:		// Run ledTest
+	case 2: // Run ledTest
 		ledTest(val)
 	case 3:
 		for i := 0; i < val; i++ {
@@ -145,7 +144,7 @@ func debug(cmd string) error {
 		}
 	case 4:
 		phonebook.Write()
-	case 8:		// Toggle CD pin val times
+	case 8: // Toggle CD pin val times
 		for i := 0; i < val; i++ {
 			serial.Println("Toggling CD up")
 			raiseCD()
@@ -154,7 +153,7 @@ func debug(cmd string) error {
 			lowerCD()
 			time.Sleep(2 * time.Second)
 		}
-	case 9:		// Toggle RI pin val times
+	case 9: // Toggle RI pin val times
 		for i := 0; i < val; i++ {
 			serial.Println("Toggling RI up")
 			raiseRI()
@@ -163,7 +162,7 @@ func debug(cmd string) error {
 			lowerRI()
 			time.Sleep(2 * time.Second)
 		}
-	case 10: 	// Toggle DSR
+	case 10: // Toggle DSR
 		for i := 0; i < val; i++ {
 			serial.Println("Toggling DSR up")
 			raiseDSR()
@@ -172,7 +171,7 @@ func debug(cmd string) error {
 			lowerDSR()
 			time.Sleep(2 * time.Second)
 		}
-	case 11: 	// Toggle CTS
+	case 11: // Toggle CTS
 		for i := 0; i < val; i++ {
 			serial.Println("Toggling CTS up")
 			raiseCTS()
@@ -181,7 +180,7 @@ func debug(cmd string) error {
 			lowerCTS()
 			time.Sleep(2 * time.Second)
 		}
-	case 99: 		// All output
+	case 99: // All output
 		for i := 0; i < val; i++ {
 			serial.Println("Rasising: CD, RI, DSR, CTS")
 			raiseCD()

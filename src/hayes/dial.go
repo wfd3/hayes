@@ -13,8 +13,10 @@ const __CONNECT_TIMEOUT = __MAX_RINGS * 6 * time.Second
 
 func supportedProtocol(proto string) bool {
 	switch strings.ToUpper(proto) {
-	case "TELNET", "SSH": return true
-	default: return false
+	case "TELNET", "SSH":
+		return true
+	default:
+		return false
 	}
 }
 
@@ -32,7 +34,7 @@ func dialNumber(phone string) (connection, error) {
 	if !supportedProtocol(protocol) {
 		return nil, fmt.Errorf("Unsupported protocol '%s'", protocol)
 	}
-	
+
 	switch strings.ToUpper(protocol) {
 	case "SSH":
 		return dialSSH(host, logger, username, password)
@@ -99,15 +101,15 @@ func dial(to string) error {
 	if unicode.IsDigit(rune(cmd)) {
 		clean_to = r.Replace(to[1:])
 		conn, err = dialNumber(clean_to)
-	} else {		// ATD<modifier>
+	} else { // ATD<modifier>
 
 		clean_to = r.Replace(to[2:])
 
 		switch cmd {
-		case 'H':		// Hostname (ATDH hostname)
+		case 'H': // Hostname (ATDH hostname)
 			logger.Print("Opening telnet connection to: ", clean_to)
 			conn, err = dialTelnet(clean_to, logger)
-		case 'E':		// Encrypted host (ATDE hostname)
+		case 'E': // Encrypted host (ATDE hostname)
 			logger.Print("Opening SSH connection to: ", clean_to)
 			host, user, pw, e := splitATDE(clean_to)
 			if e != nil {
@@ -117,10 +119,10 @@ func dial(to string) error {
 			} else {
 				conn, err = dialSSH(host, logger, user, pw)
 			}
-		case 'T', 'P':	// Fake number from address book (ATDT 5551212)
+		case 'T', 'P': // Fake number from address book (ATDT 5551212)
 			logger.Print("Dialing fake number: ", clean_to)
 			conn, err = dialNumber(clean_to)
-		case 'S':		// Stored number (ATDS3)
+		case 'S': // Stored number (ATDS3)
 			conn, err = dialStoredNumber(clean_to[1:])
 		default:
 			logger.Printf("Dial mode '%c' not supported\n", cmd)
@@ -145,15 +147,15 @@ func dial(to string) error {
 	// By default, conn.Mode() will return DATAMODE here.
 	// Override and stay in command mode if ; present in the
 	// original command string
-	ret := CONNECT
+	err = CONNECT
 	if strings.Contains(to, ";") {
 		conn.SetMode(COMMANDMODE)
-		ret = OK
+		err = OK
 	}
-	
+
 	// Remote answered, hand off conneciton to handleModem()
 	callChannel <- conn
-	return ret
+	return err
 }
 
 func parseDial(cmd string) (string, int, error) {
@@ -164,7 +166,7 @@ func parseDial(cmd string) (string, int, error) {
 		return "", 0, fmt.Errorf("Bad/unsupported dial command: %s", cmd)
 	}
 
-	c = 1			// Skip the 'D'
+	c = 1 // Skip the 'D'
 
 	// Parse 'ATD555555'
 	if unicode.IsDigit(rune(cmd[c])) {
@@ -176,9 +178,8 @@ func parseDial(cmd string) (string, int, error) {
 		return s, len(s), nil
 	}
 
-	
 	switch cmd[c] {
-	case 'T', 't', 'P', 'p':	// Number dialing
+	case 'T', 't', 'P', 'p': // Number dialing
 		e := strings.LastIndexAny(cmd, "0123456789,;@!")
 		if e == -1 {
 			return "", 0, fmt.Errorf("Bad phone number: %s", cmd)
@@ -188,13 +189,13 @@ func parseDial(cmd string) (string, int, error) {
 	case 'H', 'h':
 		s = fmt.Sprintf("DH%s", cmd[c+1:])
 		return s, len(s), nil
-	case 'E', 'e':		// Host Dialing
+	case 'E', 'e': // Host Dialing
 		s = fmt.Sprintf("DE%s", cmd[c+1:])
 		return s, len(s), nil
-	case 'L', 'l':		// Dial last number
+	case 'L', 'l': // Dial last number
 		s = fmt.Sprintf("DL")
 		return s, len(s), nil
-	case 'S', 's': 		// Dial stored number
+	case 'S', 's': // Dial stored number
 		s = fmt.Sprintf("DS%s", cmd[c+1:])
 		return s, len(s), nil
 	}

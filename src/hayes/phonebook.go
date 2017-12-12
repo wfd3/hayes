@@ -1,22 +1,22 @@
 package main
 
 import (
-	"strings"
 	"encoding/json"
-	"io/ioutil"
 	"fmt"
-	"sort"
+	"io/ioutil"
 	"log"
+	"sort"
+	"strings"
 )
 
 type Phonebook struct {
-	entries map[int]pb_host
+	entries  map[int]pb_host
 	filename string
-	log *log.Logger
+	log      *log.Logger
 }
 type pb_host struct {
-	Phone    string `json:"Phone"` 
-	Host     string `json:"Host"` 
+	Phone    string `json:"Phone"`
+	Host     string `json:"Host"`
 	Protocol string `json:"Protocol"`
 	Username string `json:"Username"`
 	Password string `json:"Password"`
@@ -65,7 +65,7 @@ func (p *Phonebook) String() string {
 	}
 
 	var s string
-	var keys []int	
+	var keys []int
 	for k := range p.entries {
 		keys = append(keys, k)
 	}
@@ -77,7 +77,7 @@ func (p *Phonebook) String() string {
 		if phone == "" {
 			phone = p.entries[i].Phone
 		}
-		s += fmt.Sprintf("%d=%s (%s, '%s'/'%s')\n", i, phone, 	
+		s += fmt.Sprintf("%d=%s (%s, '%s'/'%s')\n", i, phone,
 			p.entries[i].Host, p.entries[i].Username,
 			p.entries[i].Password)
 	}
@@ -88,12 +88,16 @@ func isValidPhoneNumber(n string) bool {
 	// 0-9, A, B, C, D, #, * are valid Hayes phone number 'digits
 	check := func(r rune) rune {
 		switch r {
-		case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9': return r
-		case 'A', 'B', 'C', 'D', '#', '*': return r
-		case '(', ')', '-', '+': return r
-		default: return rune(-1)
+		case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+			return r
+		case 'A', 'B', 'C', 'D', '#', '*':
+			return r
+		case '(', ')', '-', '+':
+			return r
+		default:
+			return rune(-1)
 		}
-	};
+	}
 	m := strings.Map(check, n)
 	if m != n {
 		return false
@@ -105,10 +109,12 @@ func sanitizeNumber(n string) (string, error) {
 	// strip (, ), -, + from a phonenumber.
 	check := func(r rune) rune {
 		switch r {
-		case '(', ')', '-', '+': return rune(-1)
-		default: return r
+		case '(', ')', '-', '+':
+			return rune(-1)
+		default:
+			return r
 		}
-	};
+	}
 	if !isValidPhoneNumber(n) {
 		return "", fmt.Errorf("Invalid phone number '%s'", n)
 	}
@@ -118,7 +124,7 @@ func sanitizeNumber(n string) (string, error) {
 func (p *Phonebook) Lookup(number string) (string, string, string, string, error) {
 	if !isValidPhoneNumber(number) {
 		return "", "", "", "",
-		fmt.Errorf("Invalid phone number '%s'", number)
+			fmt.Errorf("Invalid phone number '%s'", number)
 	}
 	sanitized_index, err := sanitizeNumber(number)
 	if err != nil {
@@ -167,13 +173,11 @@ func (p *Phonebook) Add(pos int, phone string) error {
 	passed, _ := sanitizeNumber(phone)
 	inbook, _ := sanitizeNumber(p.entries[pos].Phone)
 	if inbook == passed {
-		return fmt.Errorf("Number alreasy exists at position %d in ",
-			"phonebook", pos)
+		return fmt.Errorf("Number alreasy exists at position %d in phonebook", pos)
 	}
-	
+
 	if _, _, _, _, err = p.Lookup(phone); err == nil {
-		return fmt.Errorf("Number already exisits at another ",
-			"position in phonebook")
+		return fmt.Errorf("Number already exisits at another position in phonebook")
 	}
 
 	p.entries[pos] = pb_host{host, phone, proto, username, pw}
