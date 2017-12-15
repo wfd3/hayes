@@ -71,6 +71,7 @@ func speedToResult(speed int) error {
 }
 
 func (e *MError) Error() string {
+
 	if conf.quiet {
 		logger.Printf("Quiet mode, status: %s", e)
 		return ""
@@ -120,6 +121,13 @@ func prstatus(e error) {
 		case false: serial.Println("0")
 		}
 	} else {
+		
+		// If the underlying type isn't MError, log it and print a
+		// generic ERROR
+		if _, ok := e.(*MError); !ok {
+			logger.Printf("Error not MError: %s", e.Error())
+			e = ERROR
+		}
 		serial.Println(e)
 	}
 }	

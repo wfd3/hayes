@@ -6,7 +6,6 @@ import (
 	"time"
 )
 
-const __MAX_RINGS = 15 // How many rings before giving up
 var last_ring_time time.Time
 
 type busyFunc func() bool
@@ -27,6 +26,7 @@ type connection interface {
 	Mode() int      // What command mode to be in after connection
 	SetMode(int)
 	Stats() (uint64, uint64)
+	String() string
 }
 
 func answerIncomming(conn connection) bool {

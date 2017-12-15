@@ -173,7 +173,7 @@ func parseCommand(cmdstring string) ([]string, error) {
 			s, i, err = parseDebug(cmd[c:])
 		case '&':
 			s, i, err = parseAmpersand(cmd)
-		case 'A':
+		case 'A', '!':
 			opts = "0"
 			s, i, err = parse(cmd[c:], opts)
 		case 'E', 'H', 'Q', 'V', 'Z':

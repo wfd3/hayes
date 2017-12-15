@@ -85,6 +85,15 @@ type telnetReadWriteCloser struct {
 	recv      uint64
 }
 
+func (m *telnetReadWriteCloser) String() string {
+	if m.direction == INBOUND {
+		return fmt.Sprintf("Inbound Telnet connection from %s",
+			m.c.RemoteAddr())
+	}
+
+	return fmt.Sprintf("Outbound Telnet connection to %s", m.c.RemoteAddr())
+}
+
 func (m *telnetReadWriteCloser) command(p []byte) (i int, err error) {
 	if p[0] != IAC {
 		return 0, nil

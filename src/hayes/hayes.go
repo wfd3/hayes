@@ -13,11 +13,8 @@ package main
 //
 
 import (
-	"log"
-	"log/syslog"
 	"os"
 	"os/signal"
-	"path"
 	"runtime/pprof"
 	"strings"
 	"sync"
@@ -31,7 +28,11 @@ const (
 	DATAMODE
 )
 
-var callChannel chan connection
+// How many rings before giving up
+const __MAX_RINGS = 15
+
+// How long to wait for the remote to ansewer
+const __CONNECT_TIMEOUT = __MAX_RINGS * 6 * time.Second
 
 //Basic modem state
 type Modem struct {
@@ -57,33 +58,8 @@ var serial *serialPort
 
 var timer *time.Ticker
 var charchannel chan byte
-var logger *log.Logger
 
-func setupLogging() *log.Logger {
-	var err error
-
-	logflags := log.Ldate | log.Ltime | log.Lmicroseconds | log.Lshortfile
-
-	if flags.syslog {
-		logger, err := syslog.NewLogger(syslog.LOG_CRIT, logflags)
-		if err != nil {
-			panic("Can't open syslog")
-		}
-		return logger
-	}
-
-	logger := os.Stderr // default to StdErr
-	if flags.logfile != "" {
-		logger, err = os.OpenFile(flags.logfile,
-			os.O_RDWR|os.O_APPEND|os.O_CREATE, 0644)
-		if err != nil {
-			panic("Can't open logfile")
-		}
-	}
-	prefix := path.Base(os.Args[0]) + ": "
-	return log.New(logger, prefix, logflags)
-
-}
+var callChannel chan connection
 
 // Watch a subset of pins and act as apropriate
 // Must be a goroutine

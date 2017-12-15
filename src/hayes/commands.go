@@ -2,8 +2,40 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"time"
 )
+
+// Show the user what our current network status is.
+func networkStatus() error {
+	serial.Println("LISTENING ON:")
+	ifaces, _ := net.Interfaces()
+	for _, i := range ifaces {
+		addrs, _ := i.Addrs()
+		for _, a := range addrs {
+			ip, _, _ := net.ParseCIDR(a.String())
+			if !ip.IsMulticast() && !ip.IsLoopback() &&
+				!ip.IsUnspecified() && !ip.IsLinkLocalUnicast() {
+				serial.Printf("  Interface %s: %s\n", i.Name, ip)
+			}
+		}
+	}
+	serial.Println("ACTIVE PROTOCOLS:")
+	if !flags.skipTelnet {
+		serial.Printf("  Telnet (%d)\n", flags.telnetPort)
+	}
+	if !flags.skipSSH {
+		serial.Printf("  SSH (%d)\n", flags.sshdPort)
+	}
+
+	serial.Println("ACTIVE CONNECTION:")
+	if netConn != nil {
+		serial.Printf("  %s\n", netConn)
+	}
+		
+	return OK
+}
+
 
 // ATZn - 0 == config 0, 1 == config 1
 func softReset(i int) error {
@@ -94,19 +126,17 @@ func registerCmd(cmd string) error {
 	// S? - query selected register
 	if cmd[:2] == "S?" {
 		serial.Printf("%d\n", registers.ReadCurrent())
-		return OK
+		return nil
 	}
 
 	// Sn=x - write x to n
 	_, err = fmt.Sscanf(cmd, "S%d=%d", &reg, &val)
 	if err == nil {
 		if reg > __NUM_REGS || reg < 0 {
-			logger.Printf("Register index over/underflow: %d", reg)
-			return ERROR
+			return fmt.Errorf("Register index over/underflow: %d", reg)
 		}
 		if val > 255 || val < 0 {
-			logger.Printf("Register value over/underflow: %d", val)
-			return ERROR
+			return fmt.Errorf("Register value over/underflow: %d", val)
 		}
 
 		// Update modem state
@@ -148,8 +178,7 @@ func registerCmd(cmd string) error {
 	_, err = fmt.Sscanf(cmd, "S%d?", &reg)
 	if err == nil {
 		if reg > __NUM_REGS || reg < 0 {
-			logger.Printf("Register index over/underflow: %d", reg)
-			return ERROR
+			return fmt.Errorf("Register index over/underflow: %d", reg)
 		}
 		logger.Printf("Reading register %d", reg)
 		serial.Printf("%d\n", registers.Read(reg))
@@ -160,8 +189,7 @@ func registerCmd(cmd string) error {
 	_, err = fmt.Sscanf(cmd, "S%d", &reg)
 	if err == nil {
 		if reg > __NUM_REGS || reg < 0 {
-			logger.Printf("Register index over/underflow: %d", reg)
-			return ERROR
+			return fmt.Errorf("Register index over/underflow: %d", reg)
 		}
 		registers.SetCurrent(reg)
 		return OK
@@ -170,7 +198,7 @@ func registerCmd(cmd string) error {
 	if err != nil {
 		logger.Printf("registers(): err = %s", err)
 	}
-	return ERROR
+	return err
 }
 
 // AT&...
@@ -230,7 +258,7 @@ func processAmpersand(cmd string) error {
 		return phonebook.Add(i, s)
 
 	// Faked out AT& commands
-	case 'A', 'B', 'D', 'G', 'J', 'K', 'L', 'M', 'O', 'Q', 'R', 'S', 'T', 'U', 'X':
+	case 'A','B','D','G','J','K','L','M','O','Q','R','S','T','U','X':
 		return nil
 	}
 
@@ -373,6 +401,9 @@ func processSingleCommand(cmd string) error {
 
 	case '*':
 		status = debug(cmd)
+
+	case '!':
+		status = networkStatus()
 
 	case 'B', 'C', 'N', 'P', 'T', 'Y': // faked out commands
 		status = OK

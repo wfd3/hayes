@@ -5,11 +5,8 @@ import (
 	"net"
 	"strconv"
 	"strings"
-	"time"
 	"unicode"
 )
-
-const __CONNECT_TIMEOUT = __MAX_RINGS * 6 * time.Second
 
 func supportedProtocol(proto string) bool {
 	switch strings.ToUpper(proto) {
