@@ -212,6 +212,7 @@ func handleModem() {
 		m.mode = conn.Mode()
 		m.dcd = true
 		handleConnection()
+		raiseDSR()
 
 		// If we're here, we lost "carrier" somehow.
 		sent, recv := conn.Stats()

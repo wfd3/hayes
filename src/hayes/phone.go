@@ -11,6 +11,7 @@ const (
 // ATH0
 func goOnHook() error {
 	m.dcd = false
+	lowerDSR()
 	m.hookLock.Lock()
 	m.hook = ONHOOK
 	m.hookLock.Unlock()

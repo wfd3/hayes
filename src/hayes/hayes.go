@@ -48,6 +48,16 @@ type Modem struct {
 	hookLock      sync.RWMutex
 }
 
+func (m *Modem) switchMode(newmode int) {
+	switch newmode {
+	case DATAMODE:
+		m.mode = DATAMODE
+	case COMMANDMODE:
+		m.mode = COMMANDMODE
+		prstatus(OK)
+	}
+}
+
 var m Modem
 var conf Config
 var registers Registers
@@ -61,34 +71,51 @@ var charchannel chan byte
 
 var callChannel chan connection
 
-// Watch a subset of pins and act as apropriate
+// Watch a subset of pins and/or config, and act as apropriate
 // Must be a goroutine
 func handlePINs() {
-
 	for {
-		// TODO: Do I need to support DTR state changes (&Q & &D)?
-		// http://www.messagestick.net/modem/Hayes_Ch1-1.html
-		if readDTR() {
-			led_TR_on()
-		} else {
-			if offHook() {
-				goOnHook()
-			}
-			led_TR_off()
-		}
-
-		if m.connectSpeed > 19200 {
+		// Check connect speed, set HS LED
+		switch {
+		case m.connectSpeed > 19200:
 			led_HS_on()
-		} else {
+		default:
 			led_HS_off()
 		}
 
+		// Check carrier, check CD LED
 		if m.dcd || conf.dcdControl {
 			raiseCD()
 		} else {
 			lowerCD()
 		}
-		time.Sleep(250 * time.Millisecond)
+
+		// Check DTR
+		if readDTR() {
+			led_TR_on()
+		} else {
+			// If DTR is down, do what conf.dtr says:
+			switch conf.dtr {
+			case 0:	// Do nothing
+				led_TR_on()
+			case 1:	// if AA, hangup.  Otherwise, enter command mode
+				led_TR_off()
+				if registers.Read(REG_AUTO_ANSWER) == 0 {
+					if offHook() {
+						goOnHook()
+					}
+				} else {
+					m.switchMode(COMMANDMODE)
+				}
+			case 3:	// Reset modem
+				led_TR_off()
+				softReset(m.currentConfig)
+			}
+		}
+
+		dt := registers.Read(REG_DELAY_TO_DTR_OFF)
+		delay := time.Duration(float64(dt)*0.01) * time.Second
+		time.Sleep(delay)
 	}
 }
 
@@ -139,7 +166,7 @@ func stopTimer() {
 
 // Consume bytes from the serial port and process or send to remote as
 // per conf.mode
-func readSerial() {
+func processBytes() {
 	var c byte
 	var s string
 	var lastThree [3]byte
@@ -174,8 +201,8 @@ func readSerial() {
 			} else if waitForOneTick && countAtTick == 0 {
 				logger.Print("Escape sequence detected, ",
 					"entering command mode")
-				m.mode = COMMANDMODE
-				prstatus(OK) // signal that we're in command mode
+				m.switchMode(COMMANDMODE)
+				break
 			} else {
 				waitForOneTick = false
 			}
@@ -283,5 +310,5 @@ func main() {
 	logger.Print("Modem Ready")
 	prstatus(OK)
 
-	readSerial() // never returns
+	processBytes() // never returns
 }

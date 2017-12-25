@@ -62,6 +62,8 @@ const (
 	// second.  Factory default is 50 (1 second)
 	REG_ESC_CODE_GUARD_TIME = 12
 
+	REG_DELAY_TO_DTR_OFF = 25
+
 	REG_INACTIVITY_TIMER = 30
 )
 
@@ -83,6 +85,7 @@ func (r *Registers) Reset() {
 	r.Write(REG_DELAY_BETWEEN_LOST_CARRIER_AND_HANGUP, 14)
 	r.Write(REG_MULTIFREQ_TONE_DURATION, 95)
 	r.Write(REG_ESC_CODE_GUARD_TIME, 50)
+	r.Write(REG_DELAY_TO_DTR_OFF, 5)
 
 	// These are cosmetic, not functional.
 	r.Write(18, 0)

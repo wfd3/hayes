@@ -19,6 +19,8 @@ type configtype struct { // `json:"Config"`
 	BusyDetect          bool `json:"BusyDetect"`
 	ExtendedResultCodes bool `json:"ExtendedResultCodes"`
 	DCDControl          bool `json:"DCDControl"`
+	DSRControl          bool `json:"DSRControl"`
+	DTR                 int  `json:"DSR"`
 }
 
 type storedProfiles struct {
@@ -39,6 +41,8 @@ func (c *configtype) Reset() {
 	c.BusyDetect = true
 	c.ExtendedResultCodes = true
 	c.DCDControl = false
+	c.DSRControl = false
+	c.DTR = 0
 }
 
 func newStoredProfiles() (*storedProfiles, error) {
@@ -118,13 +122,13 @@ func (s *storedProfiles) String() string {
 		t += "Y0 "
 		t += "&A0 "
 		t += "&C" + b(s.Config[p].DCDControl)
-		t += "&D0 "
+		t += "&D" + i(s.Config[p].DTR)
 		t += "&G0 "
 		t += "&J0 "
 		t += "&K3 "
 		t += "&Q5 "
 		t += "&R0 "
-		t += "&S0 "
+		t += "&S" + b(s.Config[p].DSRControl)
 		t += "&T4 "
 		t += "&U0 "
 		t += "&X4 "
@@ -158,6 +162,8 @@ func (s storedProfiles) Switch(i int) (Config, Registers, error) {
 	c.extendedResultCodes = s.Config[i].ExtendedResultCodes
 	c.busyDetect = s.Config[i].BusyDetect
 	c.dcdControl = s.Config[i].DCDControl
+	c.dsrControl = s.Config[i].DSRControl
+	c.dtr = s.Config[i].DTR
 
 	return c, registersJsonUnmap(s.Config[i].Regs), nil
 }
@@ -178,7 +184,9 @@ func (s *storedProfiles) writeActive(i int) error {
 	s.Config[i].ExtendedResultCodes = conf.extendedResultCodes
 	s.Config[i].BusyDetect = conf.busyDetect
 	s.Config[i].DCDControl = conf.dcdControl
-
+	s.Config[i].DSRControl = conf.dsrControl
+	s.Config[i].DTR = conf.dtr
+	
 	return s.Write()
 }
 

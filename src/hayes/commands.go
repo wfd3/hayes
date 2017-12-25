@@ -138,8 +138,8 @@ func registerCmd(cmd string) error {
 		if val > 255 || val < 0 {
 			return fmt.Errorf("Register value over/underflow: %d", val)
 		}
-
-		// Update modem state
+		
+		// Validate input and update modem state
 		switch reg {
 		case REG_AUTO_ANSWER:
 			if val == 0 {
@@ -220,6 +220,10 @@ func processAmpersand(cmd string) error {
 			return factoryReset()
 		}
 
+	case 'S':
+		conf.dsrControl = cmd[1] == '1'
+		return nil
+		
 	case 'V':
 		switch cmd[1] {
 		case '0':
@@ -258,7 +262,7 @@ func processAmpersand(cmd string) error {
 		return phonebook.Add(i, s)
 
 	// Faked out AT& commands
-	case 'A','B','D','G','J','K','L','M','O','Q','R','S','T','U','X':
+	case 'A','B','D','G','J','K','L','M','O','Q','R','T','U','X':
 		return nil
 	}
 
