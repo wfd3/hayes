@@ -12,7 +12,7 @@ import (
 
 // Implements connection for in-bound ssh
 type sshAcceptReadWriteCloser struct {
-	mode       int
+	mode       bool
 	c          io.ReadWriteCloser
 	remoteAddr net.Addr
 	sent       uint64
@@ -21,7 +21,6 @@ type sshAcceptReadWriteCloser struct {
 
 func (m *sshAcceptReadWriteCloser) String() string {
 	return fmt.Sprintf("Inbound SSH connection from %s", m.RemoteAddr)
-
 }
 
 func (m *sshAcceptReadWriteCloser) Read(p []byte) (int, error) {
@@ -29,30 +28,34 @@ func (m *sshAcceptReadWriteCloser) Read(p []byte) (int, error) {
 	m.recv += uint64(i)
 	return i, err
 }
+
 func (m *sshAcceptReadWriteCloser) Write(p []byte) (int, error) {
 	i, err := m.c.Write(p)
 	m.sent += uint64(i)
 	return i, err
 }
+
 func (m *sshAcceptReadWriteCloser) Close() error {
 	err := m.c.Close()
 	return err
 }
-func (m *sshAcceptReadWriteCloser) Mode() int {
+
+func (m *sshAcceptReadWriteCloser) Mode() bool {
 	return m.mode
 }
+
 func (m *sshAcceptReadWriteCloser) RemoteAddr() net.Addr {
 	return m.remoteAddr
 }
+
 func (m *sshAcceptReadWriteCloser) Direction() int {
 	return INBOUND
 }
-func (m *sshAcceptReadWriteCloser) SetMode(mode int) {
-	if mode != DATAMODE && mode != COMMANDMODE {
-		panic("bad mode")
-	}
+
+func (m *sshAcceptReadWriteCloser) SetMode(mode bool) {
 	m.mode = mode
 }
+
 func (m *sshAcceptReadWriteCloser) Stats() (uint64, uint64) {
 	return m.sent, m.recv
 }
@@ -150,7 +153,7 @@ func acceptSSH(channel chan connection, private_key string, busy busyFunc,
 
 // Implements connection, used to convert SSH ssh.Session for outbound SSH
 type sshDialReadWriteCloser struct {
-	mode       int
+	mode       bool
 	in         io.Reader
 	out        io.WriteCloser
 	client     *ssh.Client
@@ -169,11 +172,13 @@ func (m *sshDialReadWriteCloser) Read(p []byte) (int, error) {
 	m.recv += uint64(i)
 	return i, err
 }
+
 func (m *sshDialReadWriteCloser) Write(p []byte) (int, error) {
 	i, err := m.out.Write(p)
 	m.sent += uint64(i)
 	return i, err
 }
+
 func (m *sshDialReadWriteCloser) Close() error {
 	// Remember, in is an io.Reader so it doesn't Close()
 	err := m.out.Close()
@@ -181,21 +186,23 @@ func (m *sshDialReadWriteCloser) Close() error {
 	m.client.Close()
 	return err
 }
+
 func (m *sshDialReadWriteCloser) Direction() int {
 	return OUTBOUND
 }
+
 func (m *sshDialReadWriteCloser) RemoteAddr() net.Addr {
 	return m.remoteAddr
 }
-func (m *sshDialReadWriteCloser) Mode() int {
+
+func (m *sshDialReadWriteCloser) Mode() bool {
 	return m.mode
 }
-func (m *sshDialReadWriteCloser) SetMode(mode int) {
-	if mode != DATAMODE && mode != COMMANDMODE {
-		panic("bad mode")
-	}
+
+func (m *sshDialReadWriteCloser) SetMode(mode bool) {
 	m.mode = mode
 }
+
 func (m *sshDialReadWriteCloser) Stats() (uint64, uint64) {
 	return m.sent, m.recv
 }

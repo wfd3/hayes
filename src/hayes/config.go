@@ -61,6 +61,7 @@ func (c *Config) String() string {
 	str += "F1 " // For Hayes 1200 compatability
 	str += "L" + i(c.speakerVolume)
 	str += "M" + i(c.speakerMode)
+	str += "N1 "
 	str += "Q" + b(c.quiet)
 	str += "V" + b(c.verbose)
 	str += "W" + b(c.connectMsgSpeed)

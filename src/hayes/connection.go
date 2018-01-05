@@ -23,8 +23,8 @@ type connection interface {
 	Close() error
 	RemoteAddr() net.Addr
 	Direction() int // INBOUND or OUTBOUND
-	Mode() int      // What command mode to be in after connection
-	SetMode(int)
+	Mode() bool      // What command mode to be in after connection
+	SetMode(bool)
 	Stats() (uint64, uint64)
 	String() string
 }

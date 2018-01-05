@@ -4,8 +4,8 @@ package main
 
 // Is the phone on or off hook?
 const (
-	ONHOOK = iota
-	OFFHOOK
+	ONHOOK = true
+	OFFHOOK = false
 )
 
 // ATH0

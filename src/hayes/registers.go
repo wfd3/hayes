@@ -59,11 +59,15 @@ const (
 	REG_MULTIFREQ_TONE_DURATION = 11
 
 	// prior to and following the escape sequence.  In 1/50's of a
-	// second.  Factory default is 50 (1 second)
+	// second, or in 20's of ms.  Factory default is 50 (1 second)
 	REG_ESC_CODE_GUARD_TIME = 12
 
-	REG_DELAY_TO_DTR_OFF = 25
+	// How long to wait to check DTR status (1/100ths of a second,
+	// or in 10's ofms).  Factory default is 5 (50ms)
+	REG_DTR_DETECTION_TIME= 25
 
+	// If no data transfered in INACTIVITY_TIMER seconds, hangup
+	// and return to command mode.  Default is 0, disabled.
 	REG_INACTIVITY_TIMER = 30
 )
 
@@ -85,11 +89,11 @@ func (r *Registers) Reset() {
 	r.Write(REG_DELAY_BETWEEN_LOST_CARRIER_AND_HANGUP, 14)
 	r.Write(REG_MULTIFREQ_TONE_DURATION, 95)
 	r.Write(REG_ESC_CODE_GUARD_TIME, 50)
-	r.Write(REG_DELAY_TO_DTR_OFF, 5)
+	r.Write(REG_DTR_DETECTION_TIME, 5)
+	r.Write(REG_INACTIVITY_TIMER, 0)
 
 	// These are cosmetic, not functional.
 	r.Write(18, 0)
-	r.Write(25, 5)
 	r.Write(26, 1)
 	r.Write(36, 7)
 	r.Write(37, 0)

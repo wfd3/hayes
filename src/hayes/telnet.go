@@ -79,7 +79,7 @@ func decode(b byte) string {
 // Implements connection for in- and out-bound telnet
 type telnetReadWriteCloser struct {
 	direction int
-	mode      int
+	mode      bool
 	c         net.Conn
 	sent      uint64
 	recv      uint64
@@ -114,7 +114,7 @@ func (m *telnetReadWriteCloser) command(p []byte) (i int, err error) {
 			}
 
 		case NOP, DM, BRK, IP, AO, AYT, EC, EL, GA, SE:
-			logger.Printf("Ignoring: %s", s)
+			// Ignore
 
 		case SB:
 			// Comsume options until we read a final SE
@@ -122,34 +122,26 @@ func (m *telnetReadWriteCloser) command(p []byte) (i int, err error) {
 				i, err = m.c.Read(p)
 				s += decode(p[0])
 			}
-			logger.Printf("Ignoring: %s", s)
 
 		case WILL:
 			m.c.Read(p)
 			s += decode(p[0])
-			logger.Printf("Reading: %s", s)
 			m.c.Write([]byte{IAC, DONT, p[0]})
-			logger.Printf("Sending: IAC DONT %s", decode(p[0]))
 
 		case DO:
 			m.c.Read(p)
 			s += decode(p[0])
-			logger.Printf("Reading: %s", s)
 			m.c.Write([]byte{IAC, WONT, p[0]})
-			logger.Printf("Sending: IAC WONT %s", decode(p[0]))
-
+			
 		case DONT:
 			m.c.Read(p)
 			s += decode(p[0])
-			logger.Printf("Reading: %s", s)
 			m.c.Write([]byte{IAC, WONT, p[0]})
-			logger.Printf("Sending: IAC WONT %s", decode(p[0]))
+
 		case WONT:
 			m.c.Read(p)
 			s += decode(p[0])
-			logger.Printf("Reading: %s", s)
 			m.c.Write([]byte{IAC, DONT, p[0]})
-			logger.Printf("Sending: IAC DONT %s", decode(p[0]))
 
 		default:
 			done = true
@@ -184,7 +176,7 @@ func (m *telnetReadWriteCloser) Close() error {
 	return m.c.Close()
 }
 
-func (m *telnetReadWriteCloser) Mode() int {
+func (m *telnetReadWriteCloser) Mode() bool {
 	return m.mode
 }
 
@@ -196,10 +188,7 @@ func (m *telnetReadWriteCloser) RemoteAddr() net.Addr {
 	return m.c.RemoteAddr()
 }
 
-func (m *telnetReadWriteCloser) SetMode(mode int) {
-	if mode != DATAMODE && mode != COMMANDMODE {
-		panic("Bad mode")
-	}
+func (m *telnetReadWriteCloser) SetMode(mode bool) {
 	m.mode = mode
 }
 

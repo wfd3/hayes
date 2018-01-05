@@ -285,7 +285,7 @@ func raiseDSR() {
 	pins[DSR_PIN].Low()
 }
 func lowerDSR() {
-	if !config.dsrControl {
+	if !conf.dsrControl {
 		return
 	}
 	leds[MR_LED].Low()

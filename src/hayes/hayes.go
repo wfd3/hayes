@@ -24,38 +24,31 @@ import (
 
 // What mode is the modem in?
 const (
-	COMMANDMODE = iota
-	DATAMODE
+	COMMANDMODE bool = true
+	DATAMODE    bool = false
 )
 
 // How many rings before giving up
 const __MAX_RINGS = 15
 
-// How long to wait for the remote to ansewer
+// How long to wait for the remote to answer.  6 seconds is the default
+// ring-silence time
 const __CONNECT_TIMEOUT = __MAX_RINGS * 6 * time.Second
 
-//Basic modem state
+// Basic modem state.  This is ephemeral.
+// TODO - I think the mutexes around lineBusy and hook are not required.
 type Modem struct {
-	currentConfig int
-	mode          int
-	lastCmd       string
-	lastDialed    string
-	connectSpeed  int
-	dcd           bool
-	lineBusy      bool
+	currentConfig int             // Which stored config are we using
+	mode          bool             // DATA or COMMAND mode
+	lastCmd       string          // Last command (for A/ command)
+	lastDialed    string          // Last number dialed (for ATDL)
+	connectSpeed  int             // What speed did we connect at (0 or 38k)
+	dcd           bool            // Data Carrier Detect -- active connection?
+	lineBusy      bool            // Is the "phone line" busy --
+				      // accepting or dialing?
 	lineBusyLock  sync.RWMutex
-	hook          int
+	hook          bool            // Is the phone on or off hook?
 	hookLock      sync.RWMutex
-}
-
-func (m *Modem) switchMode(newmode int) {
-	switch newmode {
-	case DATAMODE:
-		m.mode = DATAMODE
-	case COMMANDMODE:
-		m.mode = COMMANDMODE
-		prstatus(OK)
-	}
 }
 
 var m Modem
@@ -65,59 +58,9 @@ var phonebook *Phonebook
 var profiles *storedProfiles
 var netConn connection
 var serial *serialPort
-
 var timer *time.Ticker
 var charchannel chan byte
-
 var callChannel chan connection
-
-// Watch a subset of pins and/or config, and act as apropriate
-// Must be a goroutine
-func handlePINs() {
-	for {
-		// Check connect speed, set HS LED
-		switch {
-		case m.connectSpeed > 19200:
-			led_HS_on()
-		default:
-			led_HS_off()
-		}
-
-		// Check carrier, check CD LED
-		if m.dcd || conf.dcdControl {
-			raiseCD()
-		} else {
-			lowerCD()
-		}
-
-		// Check DTR
-		if readDTR() {
-			led_TR_on()
-		} else {
-			// If DTR is down, do what conf.dtr says:
-			switch conf.dtr {
-			case 0:	// Do nothing
-				led_TR_on()
-			case 1:	// if AA, hangup.  Otherwise, enter command mode
-				led_TR_off()
-				if registers.Read(REG_AUTO_ANSWER) == 0 {
-					if offHook() {
-						goOnHook()
-					}
-				} else {
-					m.switchMode(COMMANDMODE)
-				}
-			case 3:	// Reset modem
-				led_TR_off()
-				softReset(m.currentConfig)
-			}
-		}
-
-		dt := registers.Read(REG_DELAY_TO_DTR_OFF)
-		delay := time.Duration(float64(dt)*0.01) * time.Second
-		time.Sleep(delay)
-	}
-}
 
 // Catch ^C, reset the HW pins
 // Must be a goroutine
@@ -152,8 +95,9 @@ func handleSignals() {
 func resetTimer() {
 	stopTimer()
 	gt := registers.Read(REG_ESC_CODE_GUARD_TIME)
-	guardTime := time.Duration(float64(gt)*0.02) * time.Second
-
+	// REG_ESC_CODE_GUARD_TIME is in 50th of a second (20ms)
+	guardTime := time.Duration(float64(gt) * 20) * time.Millisecond
+		
 	logger.Printf("Setting timer for %v", guardTime)
 	timer = time.NewTicker(guardTime)
 }
@@ -201,7 +145,8 @@ func processBytes() {
 			} else if waitForOneTick && countAtTick == 0 {
 				logger.Print("Escape sequence detected, ",
 					"entering command mode")
-				m.switchMode(COMMANDMODE)
+				m.mode = COMMANDMODE
+				prstatus(OK)
 				break
 			} else {
 				waitForOneTick = false
@@ -296,9 +241,11 @@ func main() {
 		softReset(profiles.PowerUpConfig)
 	}
 
+	// Setup the "hardware"
+	setupHW()
+
 	// Setup the helper tasks
 	go handleSignals() // Catch signals in a different thread
-	go handlePINs()    // Monitor input pins & internal registers
 	go handleModem()   // Handle in-bound bytes in a seperate goroutine
 
 	// Signal to DTE that we're ready

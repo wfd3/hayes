@@ -47,13 +47,15 @@ func softReset(i int) error {
 	factoryReset()
 	conf = c
 	registers = r
+	time.Sleep(250 * time.Millisecond) // Cosmetic pause... 
+	raiseDSR()
+	raiseCTS()
 
 	return nil
 }
 
 // AT&F - reset to factory defaults
 func factoryReset() error {
-
 	err := OK
 	logger.Print("Resetting modem")
 
@@ -214,6 +216,15 @@ func processAmpersand(cmd string) error {
 		conf.dcdControl = cmd[1] == '1'
 		return nil
 
+	case 'D':
+		switch cmd[1] {
+		case '0': conf.dtr = 0
+		case '1': conf.dtr = 1
+		case '2': conf.dtr = 2
+		case '3': conf.dtr = 3
+		default: return fmt.Errorf("Malformed AT&D command: %s", cmd)
+		}
+
 	case 'F':
 		switch cmd[1] {
 		case '0':
@@ -262,7 +273,7 @@ func processAmpersand(cmd string) error {
 		return phonebook.Add(i, s)
 
 	// Faked out AT& commands
-	case 'A','B','D','G','J','K','L','M','O','Q','R','T','U','X':
+	case 'A','B','G','J','K','L','M','O','Q','R','T','U','X':
 		return nil
 	}
 
@@ -286,11 +297,6 @@ func processSingleCommand(cmd string) error {
 			c = 1
 		}
 		status = softReset(c)
-		time.Sleep(250 * time.Millisecond)
-		if status == OK {
-			raiseDSR()
-			raiseCTS()
-		}
 
 	case 'E':
 		conf.echoInCmdMode = cmd[1] == '0'
@@ -368,7 +374,7 @@ func processSingleCommand(cmd string) error {
 		}
 
 	case 'O':
-		m.mode = DATAMODE
+		m.mode = COMMANDMODE 
 		status = OK
 
 	case 'W':
