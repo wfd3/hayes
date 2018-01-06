@@ -48,7 +48,6 @@ func softReset(i int) error {
 	conf = c
 	registers = r
 	time.Sleep(250 * time.Millisecond) // Cosmetic pause... 
-	raiseDSR()
 	raiseCTS()
 
 	return nil
@@ -150,16 +149,13 @@ func registerCmd(cmd string) error {
 				led_AA_on()
 			}
 		case REG_ESC_CODE_GUARD_TIME:
-			if val > 255 {
-				return ERROR
-			}
 			resetTimer()
 		case REG_ESC_CH:
 			escSequence[0] = byte(val)
 			escSequence[1] = byte(val)
 			escSequence[2] = byte(val)
 		case REG_BLIND_DIAL_WAIT:
-			if val < 2 || val > 255 {
+			if val < 2 {
 				return ERROR
 			}
 		case REG_COMMA_DELAY:
@@ -213,7 +209,7 @@ func processAmpersand(cmd string) error {
 
 	switch cmd[0] {
 	case 'C':
-		conf.dcdControl = cmd[1] == '1'
+		conf.dcdPinned = cmd[1] == '0'
 		return nil
 
 	case 'D':
@@ -232,7 +228,7 @@ func processAmpersand(cmd string) error {
 		}
 
 	case 'S':
-		conf.dsrControl = cmd[1] == '1'
+		conf.dsrPinned = cmd[1] == '0'
 		return nil
 		
 	case 'V':
@@ -320,7 +316,6 @@ func processSingleCommand(cmd string) error {
 		case '1':
 			serial.Println("058") // From my Hayes Ultra 96
 		case '2':
-			time.Sleep(500 * time.Millisecond)
 			prstatus(OK)
 			serial.Println()
 		case '3':

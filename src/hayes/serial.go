@@ -120,9 +120,9 @@ func (s *serialPort) Write(p []byte) (int, error) {
 			str = fmt.Sprintf("%c %c", registers.Read(REG_BS_CH),
 				registers.Read(REG_BS_CH))
 		}
-		return fmt.Printf("%s", str) // This should be the
-		// only fmt.Print* in the
-		// codebase
+
+		// This should be the only fmt.Print* in the codebase
+		return fmt.Printf("%s", str)
 	}
 
 	return s.port.Write(p)

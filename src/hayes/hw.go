@@ -4,12 +4,11 @@ import (
 	"time"
 )
 
-var dtrchan chan bool
+var dtrchan chan bool // "Interrupts" for DTR/S25 interactions
 
-// Watch a subset of pins and/or config, and act as apropriate
+// Watch a subset of pins and/or config, and act as apropriate. 
 // Must be a goroutine
 func handlePINs() {
-
 	t := time.Tick(100 * time.Millisecond)
 	for range t {
 		// Check connect speed, set HS LED
@@ -20,15 +19,29 @@ func handlePINs() {
 			led_HS_off()
 		}
 
-		// Check carrier, check CD LED
-		if m.dcd || conf.dcdControl {
+		// Check carrier, set CD LED
+		if conf.dcdPinned { // DCD is pinned high
 			raiseCD()
 		} else {
-			lowerCD()
+			switch m.dcd { // DCD is set by m.dcd
+			case true:  raiseCD()
+			case false: lowerCD()
+			}
+		}
+
+		// Check dsrPinned
+		if conf.dsrPinned { // DSR is pinned high
+			raiseDSR() 
+		} else {	// DSR high between DCD and Hangup
+			switch  m.dcd {
+			case true:  raiseDSR()
+			case false: lowerDSR()
+			}
 		}
 	}
 }
 
+// Handles DTR behavior as specified by &D and S25
 func handleDTR() {
 	var d byte
 	var lastb, waitForUp bool
@@ -37,12 +50,10 @@ func handleDTR() {
 
 	lastb = false
 	waitForUp = true
-
 	startDown = time.Now()
+
 	t := time.Tick(5 * time.Millisecond)
 	for now := range t { 
-		
-		// Has the S25 register changed?
 		dt := registers.Read(REG_DTR_DETECTION_TIME)
 		if d != dt {
 			d = dt
@@ -84,13 +95,14 @@ func handleDTR() {
 			logger.Printf("DTR down for %s", down)
 			if down >= S25time {
 				logger.Print("Triggering processDTR()")
-				dtrchan <- true
 				waitForUp = true
+				dtrchan <- true
 			}
 		}
 	}
 }
 
+// "Interrupt Handler" for DTR
 func processDTR() {
 	// If DTR is down, do what conf.dtr says:
 	for {
@@ -112,7 +124,8 @@ func processDTR() {
 			logger.Print("DTR toggled, &D2")
 			led_TR_off()
 			if offHook() {
-				goOnHook()
+				status := goOnHook()
+				prstatus(status)
 			}
 			
 		case 3:	// Reset modem
@@ -128,9 +141,8 @@ func processDTR() {
 }
 
 func setupHW() {
-
-	dtrchan = make(chan bool)
 	go handlePINs()    // Monitor input pins & internal registers
-	go handleDTR()
-	go processDTR()
+	dtrchan = make(chan bool)
+	go handleDTR()	   // Watch DTR, sent "interrupts"
+	go processDTR()	   // Catch DTR "interrupts"
 }

@@ -18,8 +18,8 @@ type configtype struct { // `json:"Config"`
 	ConnectMsgSpeed     bool `json:"ConnectMsgSpeed"`
 	BusyDetect          bool `json:"BusyDetect"`
 	ExtendedResultCodes bool `json:"ExtendedResultCodes"`
-	DCDControl          bool `json:"DCDControl"`
-	DSRControl          bool `json:"DSRControl"`
+	DCDPinned           bool `json:"DCDPinned"`
+	DSRPinned           bool `json:"DSRPinned"`
 	DTR                 int  `json:"DSR"`
 }
 
@@ -40,8 +40,8 @@ func (c *configtype) Reset() {
 	c.ConnectMsgSpeed = true
 	c.BusyDetect = true
 	c.ExtendedResultCodes = true
-	c.DCDControl = false
-	c.DSRControl = false
+	c.DCDPinned = false
+	c.DSRPinned = false
 	c.DTR = 0
 }
 
@@ -121,14 +121,14 @@ func (s *storedProfiles) String() string {
 			x(s.Config[p].ExtendedResultCodes, s.Config[p].BusyDetect)
 		t += "Y0 "
 		t += "&A0 "
-		t += "&C" + b(s.Config[p].DCDControl)
+		t += "&C" + b(s.Config[p].DCDPinned)
 		t += "&D" + i(s.Config[p].DTR)
 		t += "&G0 "
 		t += "&J0 "
 		t += "&K3 "
 		t += "&Q5 "
 		t += "&R0 "
-		t += "&S" + b(s.Config[p].DSRControl)
+		t += "&S" + b(s.Config[p].DSRPinned)
 		t += "&T4 "
 		t += "&U0 "
 		t += "&X4 "
@@ -161,8 +161,8 @@ func (s storedProfiles) Switch(i int) (Config, Registers, error) {
 	c.connectMsgSpeed = s.Config[i].ConnectMsgSpeed
 	c.extendedResultCodes = s.Config[i].ExtendedResultCodes
 	c.busyDetect = s.Config[i].BusyDetect
-	c.dcdControl = s.Config[i].DCDControl
-	c.dsrControl = s.Config[i].DSRControl
+	c.dcdPinned = s.Config[i].DCDPinned
+	c.dsrPinned = s.Config[i].DSRPinned
 	c.dtr = s.Config[i].DTR
 
 	return c, registersJsonUnmap(s.Config[i].Regs), nil
@@ -183,8 +183,8 @@ func (s *storedProfiles) writeActive(i int) error {
 	s.Config[i].ConnectMsgSpeed = conf.connectMsgSpeed
 	s.Config[i].ExtendedResultCodes = conf.extendedResultCodes
 	s.Config[i].BusyDetect = conf.busyDetect
-	s.Config[i].DCDControl = conf.dcdControl
-	s.Config[i].DSRControl = conf.dsrControl
+	s.Config[i].DCDPinned = conf.dcdPinned
+	s.Config[i].DSRPinned = conf.dsrPinned
 	s.Config[i].DTR = conf.dtr
 	
 	return s.Write()

@@ -15,7 +15,6 @@ package main
 import (
 	"os"
 	"os/signal"
-	"runtime/pprof"
 	"strings"
 	"sync"
 	"syscall"
@@ -46,8 +45,8 @@ type Modem struct {
 	dcd           bool            // Data Carrier Detect -- active connection?
 	lineBusy      bool            // Is the "phone line" busy --
 				      // accepting or dialing?
-	lineBusyLock  sync.RWMutex
 	hook          bool            // Is the phone on or off hook?
+	lineBusyLock  sync.RWMutex
 	hookLock      sync.RWMutex
 }
 
@@ -66,8 +65,7 @@ var callChannel chan connection
 // Must be a goroutine
 func handleSignals() {
 	c := make(chan os.Signal, 1)
-	signal.Notify(c, syscall.SIGINT, syscall.SIGUSR1, syscall.SIGUSR2,
-		syscall.SIGQUIT)
+	signal.Notify(c, syscall.SIGINT, syscall.SIGUSR1, syscall.SIGQUIT)
 
 	for {
 		// Block until a signal is received.
@@ -80,9 +78,6 @@ func handleSignals() {
 			os.Exit(0)
 
 		case syscall.SIGUSR1:
-			pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
-
-		case syscall.SIGUSR2:
 			logState()
 
 		case syscall.SIGQUIT:
@@ -110,7 +105,7 @@ func stopTimer() {
 
 // Consume bytes from the serial port and process or send to remote as
 // per conf.mode
-func processBytes() {
+func handleSerial() {
 	var c byte
 	var s string
 	var lastThree [3]byte
@@ -119,7 +114,13 @@ func processBytes() {
 	var countAtLastTick uint64
 	var waitForOneTick bool
 	var status error
+	
+	// Tell user & DTE we're ready
+	logger.Print("Modem Ready")
+	prstatus(OK)
+	raiseCTS()
 
+	// Start accepting and processing bytes from the DTE
 	countAtTick = 0
 	for {
 
@@ -172,11 +173,11 @@ func processBytes() {
 			if (s == "A" || s == "a") && c == '/' {
 				serial.Println()
 				if m.lastCmd == "" {
-					serial.Println(ERROR)
+					status = ERROR
 				} else {
 					status = runCommand(m.lastCmd)
-					prstatus(status)
 				}
+				prstatus(status)
 				s = ""
 			} else if c == registers.Read(REG_CR_CH) && s != "" {
 				status = runCommand(s)
@@ -219,12 +220,12 @@ func main() {
 	logger = setupLogging()
 	logger.Print("------------ Starting up")
 	logger.Printf("Cmdline: %s", strings.Join(os.Args, " "))
-
+	
 	// Setup the comms channels
 	callChannel = make(chan connection)
 	charchannel = make(chan byte)
 
-	// Setup the hardware
+	// Setup the GPIO and serial port hardware
 	setupPins()
 	serial = setupSerialPort(flags.serialPort, flags.serialSpeed,
 		charchannel, logger)
@@ -241,21 +242,8 @@ func main() {
 		softReset(profiles.PowerUpConfig)
 	}
 
-	// Setup the "hardware"
-	setupHW()
-
-	// Setup the helper tasks
-	go handleSignals() // Catch signals in a different thread
-	go handleModem()   // Handle in-bound bytes in a seperate goroutine
-
-	// Signal to DTE that we're ready
-	time.Sleep(250 * time.Millisecond) // make it look good
-	raiseDSR()
-	raiseCTS()
-
-	// Tell user we're ready
-	logger.Print("Modem Ready")
-	prstatus(OK)
-
-	processBytes() // never returns
+	setupHW()		// Setup the "hardware"
+	go handleSignals()	// Catch signals in a different thread
+	go handleCalls()        // Handle in-bound bytes in a seperate goroutine
+	handleSerial()	        // never returns
 }

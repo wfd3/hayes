@@ -183,9 +183,6 @@ func raiseDSR() {
 	logger.Print("raiseDSR()")
 }
 func lowerDSR() {
-	if !conf.dsrControl {
-		return
-	}
 	leds[MR_LED] = false
 	pins[DSR_PIN] = false
 	logger.Print("lowerDSR()")

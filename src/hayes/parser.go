@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"strings"
-	"time"
 )
 
 // Helper function to parse non-complex AT commands (everthing except ATS.., ATD...)
@@ -233,7 +232,6 @@ func runCommand(cmdstring string) error {
 	}
 
 	err = processCommands(commands)
-	time.Sleep(500 * time.Millisecond) // Simulate command delay
 
 	if err == OK || err == CONNECT {
 		logger.Printf("Saving command string '%s'", cmdstring)

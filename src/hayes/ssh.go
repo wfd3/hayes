@@ -60,6 +60,11 @@ func (m *sshAcceptReadWriteCloser) Stats() (uint64, uint64) {
 	return m.sent, m.recv
 }
 
+func (m *sshAcceptReadWriteCloser) SetDeadline(t time.Time) error {
+	log.Print("SetDeadline not implemented for SSH")
+	return nil
+}
+
 func acceptSSH(channel chan connection, private_key string, busy busyFunc,
 	log *log.Logger, ok chan error) {
 
@@ -205,6 +210,11 @@ func (m *sshDialReadWriteCloser) SetMode(mode bool) {
 
 func (m *sshDialReadWriteCloser) Stats() (uint64, uint64) {
 	return m.sent, m.recv
+}
+
+func (m *sshDialReadWriteCloser) SetDeadline(t time.Time) error {
+	log.Print("SetDeadline not implemented for SSH")
+	return nil
 }
 
 func dialSSH(remote string, log *log.Logger, username string, pw string) (*sshDialReadWriteCloser, error) {

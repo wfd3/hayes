@@ -10,6 +10,8 @@ const (
 
 // ATH0
 func goOnHook() error {
+	var ret error = OK
+	
 	m.dcd = false
 	lowerDSR()
 	m.hookLock.Lock()
@@ -23,10 +25,7 @@ func goOnHook() error {
 			netConn.RemoteAddr())
 		netConn.Close()
 		netConn = nil
-	}
-
-	if err := serial.Flush(); err != nil {
-		logger.Printf("serial.Flush(): %s", err)
+		ret = NO_CARRIER
 	}
 
 	m.mode = COMMANDMODE
@@ -34,7 +33,12 @@ func goOnHook() error {
 	setLineBusy(false)
 	led_HS_off()
 	led_OH_off()
-	return OK
+
+       	if err := serial.Flush(); err != nil {
+		logger.Printf("serial.Flush(): %s", err)
+	}
+
+	return ret
 }
 
 // ATH1

@@ -14,8 +14,8 @@ type Config struct {
 	connectMsgSpeed     bool
 	busyDetect          bool
 	extendedResultCodes bool
-	dcdControl          bool
-	dsrControl          bool
+	dcdPinned           bool
+	dsrPinned           bool
 	dtr                 int
 }
 
@@ -27,9 +27,9 @@ func (c *Config) Reset() {
 	c.speakerMode = 1      // on until other modem heard
 	c.busyDetect = true
 	c.extendedResultCodes = true
-	c.dcdControl = true	// if false, DCD if fixed 'on'
+	c.dcdPinned = true	// if true, DCD if fixed 'on'
 	c.connectMsgSpeed = true
-	c.dsrControl = true	// if false, DSR is fixed 'on'
+	c.dsrPinned = true	// if true, DSR is fixed 'on'
 	c.dtr = 0
 }
 
@@ -68,14 +68,14 @@ func (c *Config) String() string {
 	str += "X" + x(c.extendedResultCodes, c.busyDetect)
 	str += "Y0 "
 	str += "&A0 "
-	str += "&C" + b(c.dcdControl)
+	str += "&C" + b(c.dcdPinned)
 	str += "&D" + i(c.dtr)
 	str += "&G0 "
 	str += "&J0 "
 	str += "&K3 "
 	str += "&Q5 "
 	str += "&R0 "
-	str += "&S" + b(c.dsrControl)
+	str += "&S" + b(c.dsrPinned)
 	str += "&T4 "
 	str += "&U0 "
 	str += "&X4 "

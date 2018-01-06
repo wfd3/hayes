@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"time"
 )
 
 // Telnet negoitation
@@ -194,6 +195,10 @@ func (m *telnetReadWriteCloser) SetMode(mode bool) {
 
 func (m *telnetReadWriteCloser) Stats() (uint64, uint64) {
 	return m.sent, m.recv
+}
+
+func (m *telnetReadWriteCloser) SetDeadline(t time.Time) error {
+	return m.c.SetDeadline(t)
 }
 
 func acceptTelnet(channel chan connection, busy busyFunc, log *log.Logger,

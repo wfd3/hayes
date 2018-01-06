@@ -27,6 +27,7 @@ type connection interface {
 	SetMode(bool)
 	Stats() (uint64, uint64)
 	String() string
+	SetDeadline(t time.Time) error
 }
 
 func answerIncomming(conn connection) bool {
@@ -71,7 +72,7 @@ func answerIncomming(conn connection) bool {
 		// do this here so we behave the same.
 		serial.Println(RING)
 
-		// If Auto Answer if enabled and we've exceeded the
+		// If Auto Answer is enabled and we've exceeded the
 		// configured number of rings to wait before
 		// answering, answer the call.  We do this here before
 		// the 4s delay as I think it feels more correct.
@@ -113,6 +114,35 @@ answered:
 	return true
 }
 
+func startAcceptingCalls() {
+	started_ok := make(chan error)
+
+	if flags.skipTelnet {
+		logger.Print("Telnet server not started by command line flag")
+	} else {
+		go acceptTelnet(callChannel, checkBusy, logger, started_ok)
+		if err := <-started_ok; err != nil {
+			logger.Printf("Telnet server failed to start: %s", err)
+		} else {
+			logger.Print("Telnet server started")
+		}
+	}
+
+
+	if flags.skipSSH {
+		logger.Print("SSH server not started by command line flag")
+	} else {
+		go acceptSSH(callChannel, flags.privateKey, checkBusy, logger,
+			started_ok)
+		if err := <-started_ok; err != nil {
+			logger.Printf("SSH server failed to start: %s", err)
+		} else {
+			logger.Print("SSH server started")
+		}
+	}
+}
+
+
 // Clear the ring counter after 8s
 // Must be a goroutine
 func clearRingCounter() {
@@ -130,21 +160,47 @@ func clearRingCounter() {
 // Pass bytes from the remote dialer to the serial port (for now,
 // stdout) as long as we're offhook, we're in DATA MODE and we have
 // valid carrier (m.comm != nil)
-func handleConnection() {
+func serviceConnection() {
+	var t time.Time
+	var timeout time.Duration
 
 	buf := make([]byte, 1)
-
 	for {
+		// If S30 is non-zero, set a timeout
+		b := registers.Read(REG_INACTIVITY_TIMER)
+		timeout = time.Duration(b) * 10 * time.Second
+		if timeout == time.Duration(0) {
+			t = time.Time{}
+		} else {
+			t = time.Now().Add(timeout)
+		}
+		if err := netConn.SetDeadline(t); err != nil {
+			logger.Printf("netConn.SetDeadline(): %s", err)
+			return
+		}
+		
 		if _, err := netConn.Read(buf); err != nil { // carrier lost
-			logger.Print("netConn.Read(): ", err)
+			nerr, ok := err.(net.Error)
+			switch {
+			case ok && nerr.Timeout():
+				logger.Printf("netConn.Read(): S30 timeout: %s",
+					timeout)
+			case ok && nerr.Temporary():
+				logger.Printf("netConn.Read(): temporary errory")
+				continue
+			default: 
+				logger.Print("netConn.Read(): ", err)
+			}
 			return
 		}
+
 		if m.dcd == false {
-			logger.Print("No carrier at network read")
+			logger.Print("netConn.Read(): No carrier at network read")
 			return
 		}
+
 		if onHook() {
-			logger.Print("On hook at network read")
+			logger.Print("netConn.Read(): On hook at network read")
 			return
 		}
 
@@ -158,38 +214,14 @@ func handleConnection() {
 }
 
 // Accept connection's from dial*() and accept*() functions.
-func handleModem() {
-	var conn connection
-
+func handleCalls() {
 	go clearRingCounter()
+	startAcceptingCalls()
 
-	started_ok := make(chan error)
-
-	if !flags.skipTelnet {
-		go acceptTelnet(callChannel, checkBusy, logger, started_ok)
-		if err := <-started_ok; err != nil {
-			logger.Printf("Telnet server failed to start: %s", err)
-		} else {
-			logger.Print("Telnet server started")
-		}
-	} else {
-		logger.Print("Telnet server not started by command line flag")
-	}
-
-	if !flags.skipSSH {
-		go acceptSSH(callChannel, flags.privateKey, checkBusy, logger,
-			started_ok)
-		if err := <-started_ok; err != nil {
-			logger.Printf("SSH server failed to start: %s", err)
-		} else {
-			logger.Print("SSH server started")
-		}
-	} else {
-		logger.Print("SSH server not started by command line flag")
-	}
-
-	// If we have an incoming call, answer it.  If we have an outgoing call or
-	// an answered incoming call, service the connection
+	// Wait for a connection.  If it's an incoming call, answer
+	// it.  If it's an outgoing call or an answered incoming call,
+	// service it
+	var conn connection
 	for {
 		conn = <-callChannel
 		setLineBusy(true)
@@ -211,15 +243,16 @@ func handleModem() {
 		m.connectSpeed = 38400
 		m.mode = conn.Mode()
 		m.dcd = true
-		handleConnection()
-		raiseDSR()
+		serviceConnection()
 
 		// If we're here, we lost "carrier" somehow.
 		sent, recv := conn.Stats()
-		logger.Printf("Connection closed, sent %s recv %s",
-			bytefmt.ByteSize(sent), bytefmt.ByteSize(recv))
-		serial.Println(NO_CARRIER)
 		goOnHook()
 		setLineBusy(false)
+		serial.Printf("\n")
+		prstatus(NO_CARRIER)
+		logger.Printf("Connection closed, sent %s recv %s",
+			bytefmt.ByteSize(sent), bytefmt.ByteSize(recv))
+
 	}
 }

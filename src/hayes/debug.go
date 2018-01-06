@@ -19,30 +19,36 @@ type out func(string, ...interface{})
 // Debug function
 func outputState(debugf out) {
 
-	if onHook() {
-		debugf("Hook      : ON HOOK\n")
-	} else {
-		debugf("Hook      : OFF HOOK\n")
-	}
-	debugf("EchoInCmd : %t\n", conf.echoInCmdMode)
-	if m.mode == COMMANDMODE {
-		debugf("Mode      : Command\n")
-	} else {
-		debugf("Mode      : Data\n")
-	}
-	debugf("Quiet     : %t\n", conf.quiet)
-	debugf("Verbose   : %t\n", conf.verbose)
-	debugf("Line Busy : %t\n", getLineBusy())
-	debugf("Speed     : %d\n", m.connectSpeed)
-	debugf("Volume    : %d\n", conf.speakerVolume)
-	debugf("SpkrMode  : %d\n", conf.speakerMode)
-	debugf("Last Cmd  : %s\n", m.lastCmd)
-	debugf("Last num  : %s\n", m.lastDialed)
+	debugf("Modem state:\n")
+	debugf(" currentconfig: %d\n", m.currentConfig)
+	debugf(" dcd          : %t\n", m.mode)
+	debugf(" lastCmd      : %s\n", m.lastCmd)
+	debugf(" lastDialed   : %s\n", m.lastDialed)
+	debugf(" connectSpeed : %d\n", m.connectSpeed)
+	debugf(" dcd          : %t\n", m.mode)
+	debugf(" lineBusy     : %t\n", getLineBusy())
+	debugf(" onHook       : %d\n", onHook())
+
+	debugf("Config:\n")
+	debugf(" echoInCmdMode : %t\n", conf.echoInCmdMode)
+	debugf(" speakerMode   : %d\n", conf.speakerMode)
+	debugf(" speakerVolume : %d\n", conf.speakerVolume)
+	debugf(" verbose       : %t\n", conf.verbose)
+	debugf(" quiet         : %t\n", conf.quiet)
+	debugf(" connectMsgSpeed: %t\n", conf.connectMsgSpeed)
+	debugf(" busyDetect    : %t\n", conf.busyDetect)
+	debugf(" extendedResultCodes: %t\n", conf.extendedResultCodes)
+	debugf(" dcdPinned     : %t\n", conf.dcdPinned)
+	debugf(" dsrPinned     : %t\n", conf.dsrPinned)
+	debugf(" dtr           : %d\n", conf.dtr)
+
 	debugf("Phonebook:\n")
 	debugf("%s\n", phonebook.String())
-	debugf("Cur reg   : %d\n", registers.ShowCurrent())
+
 	debugf("Registers:\n")
+	debugf("Curent register: %d\n", registers.ShowCurrent())
 	debugf("%s\n", registers.String())
+
 	if netConn != nil {
 		sent, recv := netConn.Stats()
 		debugf("Connection: %s, tx: %s rx: %s\n", netConn.RemoteAddr(),
@@ -50,9 +56,9 @@ func outputState(debugf out) {
 	} else {
 		debugf("Connection: <Not connected>\n")
 	}
+	
 	debugf("%s\n", showPins())
 	debugf("GoRoutines: %d\n", runtime.NumGoroutine())
-
 }
 
 func showState() {
