@@ -171,7 +171,7 @@ func parseCommand(cmdstring string) ([]string, error) {
 		case '*': // Custom debug registers
 			s, i, err = parseDebug(cmd[c:])
 		case '&':
-			s, i, err = parseAmpersand(cmd)
+			s, i, err = parseAmpersand(cmd[c:])
 		case 'A', '!':
 			opts = "0"
 			s, i, err = parse(cmd[c:], opts)

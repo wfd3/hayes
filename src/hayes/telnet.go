@@ -72,7 +72,7 @@ var decodeMap map[byte]string = map[byte]string{
 func decode(b byte) string {
 	s, ok := decodeMap[b]
 	if !ok {
-		return fmt.Sprintf("%d ", b)
+		return fmt.Sprintf("!%d ", b)
 	}
 	return s + " "
 }
@@ -100,22 +100,21 @@ func (m *telnetReadWriteCloser) command(p []byte) (i int, err error) {
 		return 0, nil
 	}
 
-	s := ""
-	done := false
+	logger.Print("IAC START")
 
+	var s string
+	done := false
 	for !done {
 		s += decode(p[0])
-
 		switch p[0] {
 		case IAC:
 			m.c.Read(p)
 			if p[0] == IAC { // Two in a row, it's just ASCII 255
 				done = true
-				break
 			}
 
 		case NOP, DM, BRK, IP, AO, AYT, EC, EL, GA, SE:
-			// Ignore
+			done = true
 
 		case SB:
 			// Comsume options until we read a final SE
@@ -127,28 +126,44 @@ func (m *telnetReadWriteCloser) command(p []byte) (i int, err error) {
 		case WILL:
 			m.c.Read(p)
 			s += decode(p[0])
-			m.c.Write([]byte{IAC, DONT, p[0]})
+			logger.Printf("Reading: %s", s)
+			if p[0] == LINEMODE || p[0] == ECHO {
+				logger.Printf("Client ACK'ed: %s", s)
+			} else {
+				m.c.Write([]byte{IAC, DONT, p[0]})
+				logger.Printf("Sending: IAC WONT %s", decode(p[0]))
+			}
 
 		case DO:
 			m.c.Read(p)
 			s += decode(p[0])
-			m.c.Write([]byte{IAC, WONT, p[0]})
-			
+			logger.Printf("Reading: %s", s)
+			if p[0] == LINEMODE || p[0] == ECHO {
+//				m.c.write([]byte{IAC, WILL, p[0]})
+//				logger.Printf("Sending: IAC WILL %s", decode(p[0]))			
+			} else {
+				m.c.Write([]byte{IAC, WONT, p[0]})
+				logger.Printf("Sending: IAC WONT %s", decode(p[0]))
+			}
+
 		case DONT:
 			m.c.Read(p)
 			s += decode(p[0])
+			logger.Printf("Reading: %s", s)
 			m.c.Write([]byte{IAC, WONT, p[0]})
-
+			logger.Printf("Sending: IAC WONT %s", decode(p[0]))			
 		case WONT:
 			m.c.Read(p)
 			s += decode(p[0])
+			logger.Printf("Reading: %s", s)
 			m.c.Write([]byte{IAC, DONT, p[0]})
-
+			logger.Printf("Sending: IAC WONT %s", decode(p[0]))			
 		default:
 			done = true
 		}
 	}
 
+	logger.Print("IAC END")
 	return i, err
 }
 
@@ -231,7 +246,7 @@ func acceptTelnet(channel chan connection, busy busyFunc, log *log.Logger,
 		// This is a telnet session, negotiate char-at-a-time
 		// and turn off local echo
 		conn.Write([]byte{IAC, DO, LINEMODE}) // You go into linemode
-		conn.Write([]byte{IAC, DONT, ECHO})   // You don't echo locally
+//		conn.Write([]byte{IAC, DONT, ECHO})   // You don't echo locally
 		conn.Write([]byte{IAC, WILL, ECHO})   // I'll echo to you
 
 		channel <- &telnetReadWriteCloser{INBOUND, DATAMODE, conn, 0, 0}

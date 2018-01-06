@@ -80,7 +80,9 @@ func (e *MError) Error() string {
 
 	if e == CONNECT && conf.connectMsgSpeed {
 		me := speedToResult(m.connectSpeed)
-		return me.Error()
+		if me != CONNECT {
+			return me.Error()
+		}
 	}
 
 	if e == BUSY && !conf.busyDetect {

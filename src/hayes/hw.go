@@ -79,8 +79,6 @@ func handleDTR() {
 		//
 		
 		if waitForUp {	// Wait for DTR to have cycled
-			logger.Printf("Waiting for DTR to go up at %s",
-				now.Format(time.StampMilli))
 			continue
 		}
 

@@ -21,13 +21,18 @@ func outputState(debugf out) {
 
 	debugf("Modem state:\n")
 	debugf(" currentconfig: %d\n", m.currentConfig)
-	debugf(" dcd          : %t\n", m.mode)
+	switch m.mode {
+	case COMMANDMODE:
+		debugf(" mode         : COMMAND\n")
+	case DATAMODE:
+		debugf(" mode         : DATA\n")
+	}
 	debugf(" lastCmd      : %s\n", m.lastCmd)
 	debugf(" lastDialed   : %s\n", m.lastDialed)
 	debugf(" connectSpeed : %d\n", m.connectSpeed)
-	debugf(" dcd          : %t\n", m.mode)
+	debugf(" dcd          : %t\n", m.dcd)
 	debugf(" lineBusy     : %t\n", getLineBusy())
-	debugf(" onHook       : %d\n", onHook())
+	debugf(" onHook       : %t\n", onHook())
 
 	debugf("Config:\n")
 	debugf(" echoInCmdMode : %t\n", conf.echoInCmdMode)
@@ -35,9 +40,9 @@ func outputState(debugf out) {
 	debugf(" speakerVolume : %d\n", conf.speakerVolume)
 	debugf(" verbose       : %t\n", conf.verbose)
 	debugf(" quiet         : %t\n", conf.quiet)
-	debugf(" connectMsgSpeed: %t\n", conf.connectMsgSpeed)
+	debugf(" connctMsgSpeed: %t\n", conf.connectMsgSpeed)
 	debugf(" busyDetect    : %t\n", conf.busyDetect)
-	debugf(" extendedResultCodes: %t\n", conf.extendedResultCodes)
+	debugf(" extResultCodes: %t\n", conf.extendedResultCodes)
 	debugf(" dcdPinned     : %t\n", conf.dcdPinned)
 	debugf(" dsrPinned     : %t\n", conf.dsrPinned)
 	debugf(" dtr           : %d\n", conf.dtr)

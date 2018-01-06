@@ -40,6 +40,7 @@ func answerIncomming(conn connection) bool {
 	for i := 0; i < __MAX_RINGS; i++ {
 		last_ring_time = time.Now()
 		conn.Write([]byte("Ringing...\n\r"))
+		logger.Print("Ringing")
 		if offHook() { // computer has issued 'ATA'
 			netConn = conn
 			conn = nil
@@ -104,11 +105,15 @@ func answerIncomming(conn connection) bool {
 no_answer:
 	// At this point we've not answered and have timed out, or the
 	// caller hung up before we answered.
+	logger.Print("No answer")
+	conn.Write([]byte("No answer, closing connection\n\r"))
 	lowerRI()
 	return false
 
 answered:
 	// if we're here, the computer answered.
+	logger.Print("Answered")
+	conn.Write([]byte("Answered\n\r"))
 	registers.Write(REG_RING_COUNT, 0)
 	lowerRI()
 	return true
@@ -163,6 +168,8 @@ func clearRingCounter() {
 func serviceConnection() {
 	var t time.Time
 	var timeout time.Duration
+
+	logger.Printf("Servicing connection with remote %s", netConn.RemoteAddr())
 
 	buf := make([]byte, 1)
 	for {
@@ -240,9 +247,9 @@ func handleCalls() {
 		// We now have an established connection (either answered or dialed)
 		// so service it.
 		netConn = conn
-		m.connectSpeed = 38400
 		m.mode = conn.Mode()
-		m.dcd = true
+		m.connectSpeed = 38400
+		m.dcd = true	// Force DCD "up" here.
 		serviceConnection()
 
 		// If we're here, we lost "carrier" somehow.
