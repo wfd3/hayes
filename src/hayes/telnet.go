@@ -100,8 +100,6 @@ func (m *telnetReadWriteCloser) command(p []byte) (i int, err error) {
 		return 0, nil
 	}
 
-	logger.Print("IAC START")
-
 	var s string
 	done := false
 	for !done {
@@ -113,9 +111,6 @@ func (m *telnetReadWriteCloser) command(p []byte) (i int, err error) {
 				done = true
 			}
 
-		case NOP, DM, BRK, IP, AO, AYT, EC, EL, GA, SE:
-			done = true
-
 		case SB:
 			// Comsume options until we read a final SE
 			for p[0] != SE {
@@ -126,10 +121,7 @@ func (m *telnetReadWriteCloser) command(p []byte) (i int, err error) {
 		case WILL:
 			m.c.Read(p)
 			s += decode(p[0])
-			logger.Printf("Reading: %s", s)
-			if p[0] == LINEMODE || p[0] == ECHO {
-				logger.Printf("Client ACK'ed: %s", s)
-			} else {
+			if p[0] != LINEMODE && p[0] != ECHO {
 				m.c.Write([]byte{IAC, DONT, p[0]})
 				logger.Printf("Sending: IAC WONT %s", decode(p[0]))
 			}
@@ -137,11 +129,7 @@ func (m *telnetReadWriteCloser) command(p []byte) (i int, err error) {
 		case DO:
 			m.c.Read(p)
 			s += decode(p[0])
-			logger.Printf("Reading: %s", s)
-			if p[0] == LINEMODE || p[0] == ECHO {
-//				m.c.write([]byte{IAC, WILL, p[0]})
-//				logger.Printf("Sending: IAC WILL %s", decode(p[0]))			
-			} else {
+			if p[0] != LINEMODE && p[0] != ECHO {
 				m.c.Write([]byte{IAC, WONT, p[0]})
 				logger.Printf("Sending: IAC WONT %s", decode(p[0]))
 			}
@@ -149,21 +137,21 @@ func (m *telnetReadWriteCloser) command(p []byte) (i int, err error) {
 		case DONT:
 			m.c.Read(p)
 			s += decode(p[0])
-			logger.Printf("Reading: %s", s)
 			m.c.Write([]byte{IAC, WONT, p[0]})
-			logger.Printf("Sending: IAC WONT %s", decode(p[0]))			
+			
 		case WONT:
 			m.c.Read(p)
 			s += decode(p[0])
-			logger.Printf("Reading: %s", s)
 			m.c.Write([]byte{IAC, DONT, p[0]})
-			logger.Printf("Sending: IAC WONT %s", decode(p[0]))			
+
+		case NOP, DM, BRK, IP, AO, AYT, EC, EL, GA, SE:
+			done = true
+
 		default:
 			done = true
 		}
 	}
 
-	logger.Print("IAC END")
 	return i, err
 }
 
