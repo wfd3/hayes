@@ -182,8 +182,8 @@ func serviceConnection() {
 			return
 		}
 		
-		if _, err := m.conn.Read(buf); err != nil { // carrier lost
-			nerr, ok := err.(net.Error)
+		if _, err := m.conn.Read(buf); err != nil { // Remote hung up or ...
+			nerr, ok := err.(net.Error)	    // we timed out.
 			switch {
 			case ok && nerr.Timeout():
 				logger.Printf("conn.Read(): S30 timeout: %s",
@@ -252,8 +252,9 @@ func handleCalls() {
 			serial.Printf("\n")
 			prstatus(NO_CARRIER)
 		}
-		sent, recv := conn.Stats()
+		sent, recv := m.conn.Stats()
 		conn.Close()
+		m.conn = nil
 		goOnHook()
 		setLineBusy(false)
 		logger.Printf("Connection closed, sent %s recv %s",
