@@ -23,8 +23,8 @@ import (
 
 // What mode is the modem in?
 const (
-	COMMANDMODE bool = true
-	DATAMODE    bool = false
+	COMMANDMODE bool = false
+	DATAMODE    bool = true
 )
 
 // How many rings before giving up
@@ -48,6 +48,7 @@ type Modem struct {
 	hook          bool            // Is the phone on or off hook?
 	lineBusyLock  sync.RWMutex
 	hookLock      sync.RWMutex
+	conn          connection
 }
 
 var m Modem
@@ -55,7 +56,6 @@ var conf Config
 var registers Registers
 var phonebook *Phonebook
 var profiles *storedProfiles
-var netConn connection
 var serial *serialPort
 var timer *time.Ticker
 var charchannel chan byte
@@ -116,9 +116,10 @@ func handleSerial() {
 	var status error
 	
 	// Tell user & DTE we're ready
+	raiseCTS()
+	raiseDSR()
 	logger.Print("Modem Ready")
 	prstatus(OK)
-	raiseCTS()
 
 	// Start accepting and processing bytes from the DTE
 	countAtTick = 0
@@ -148,7 +149,8 @@ func handleSerial() {
 					"entering command mode")
 				m.mode = COMMANDMODE
 				prstatus(OK)
-				break
+				s = ""
+				continue
 			} else {
 				waitForOneTick = false
 			}
@@ -202,11 +204,11 @@ func handleSerial() {
 				idx = (idx + 1) % 3
 			}
 			// Send to remote, blinking the SD LED
-			if offHook() && netConn != nil {
+			if offHook() && m.conn != nil {
 				led_SD_on()
 				out := make([]byte, 1)
 				out[0] = c
-				netConn.Write(out)
+				m.conn.Write(out)
 				led_SD_off()
 			}
 		}

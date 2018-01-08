@@ -4,8 +4,8 @@ package main
 
 // Is the phone on or off hook?
 const (
-	ONHOOK = true
-	OFFHOOK = false
+	ONHOOK = false
+	OFFHOOK = true
 )
 
 // ATH0
@@ -20,11 +20,10 @@ func goOnHook() error {
 
 	// It's OK to hang up the phone when there's no active network connection.
 	// But if there is, close it.
-	if netConn != nil {
+	if m.conn != nil {
 		logger.Printf("Hanging up on active connection (remote %s)",
-			netConn.RemoteAddr())
-		netConn.Close()
-		netConn = nil
+			m.conn.RemoteAddr())
+		m.conn.Close()
 		ret = NO_CARRIER
 	}
 

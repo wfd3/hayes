@@ -145,6 +145,7 @@ func dial(to string) error {
 	// Override and stay in command mode if ; present in the
 	// original command string
 	err = CONNECT
+	m.connectSpeed = 38400  // We only go fast...
 	if strings.Contains(to, ";") {
 		conn.SetMode(COMMANDMODE)
 		err = OK

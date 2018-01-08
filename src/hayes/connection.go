@@ -42,8 +42,6 @@ func answerIncomming(conn connection) bool {
 		conn.Write([]byte("Ringing...\n\r"))
 		logger.Print("Ringing")
 		if offHook() { // computer has issued 'ATA'
-			netConn = conn
-			conn = nil
 			goto answered
 		}
 
@@ -61,8 +59,6 @@ func answerIncomming(conn connection) bool {
 			time.Sleep(__DELAY_MS * time.Millisecond)
 			d += __DELAY_MS
 			if offHook() { // computer has issued 'ATA'
-				netConn = conn
-				conn = nil
 				goto answered
 			}
 		}
@@ -169,7 +165,7 @@ func serviceConnection() {
 	var t time.Time
 	var timeout time.Duration
 
-	logger.Printf("Servicing connection with remote %s", netConn.RemoteAddr())
+	logger.Printf("Servicing connection with remote %s", m.conn.RemoteAddr())
 
 	buf := make([]byte, 1)
 	for {
@@ -181,33 +177,33 @@ func serviceConnection() {
 		} else {
 			t = time.Now().Add(timeout)
 		}
-		if err := netConn.SetDeadline(t); err != nil {
-			logger.Printf("netConn.SetDeadline(): %s", err)
+		if err := m.conn.SetDeadline(t); err != nil {
+			logger.Printf("conn.SetDeadline(): %s", err)
 			return
 		}
 		
-		if _, err := netConn.Read(buf); err != nil { // carrier lost
+		if _, err := m.conn.Read(buf); err != nil { // carrier lost
 			nerr, ok := err.(net.Error)
 			switch {
 			case ok && nerr.Timeout():
-				logger.Printf("netConn.Read(): S30 timeout: %s",
+				logger.Printf("conn.Read(): S30 timeout: %s",
 					timeout)
 			case ok && nerr.Temporary():
-				logger.Printf("netConn.Read(): temporary errory")
+				logger.Printf("conn.Read(): temporary errory")
 				continue
 			default: 
-				logger.Print("netConn.Read(): ", err)
+				logger.Print("conn.Read(): ", err)
 			}
 			return
 		}
 
 		if m.dcd == false {
-			logger.Print("netConn.Read(): No carrier at network read")
+			logger.Print("conn.Read(): No carrier at network read")
 			return
 		}
 
 		if onHook() {
-			logger.Print("netConn.Read(): On hook at network read")
+			logger.Print("conn.Read(): On hook at network read")
 			return
 		}
 
@@ -246,18 +242,20 @@ func handleCalls() {
 
 		// We now have an established connection (either answered or dialed)
 		// so service it.
-		netConn = conn
+		m.conn = conn
 		m.mode = conn.Mode()
 		m.connectSpeed = 38400
 		m.dcd = true	// Force DCD "up" here.
 		serviceConnection()
 
-		// If we're here, we lost "carrier" somehow.
+		if m.dcd == true { // User didn't hang up, so print status
+			serial.Printf("\n")
+			prstatus(NO_CARRIER)
+		}
 		sent, recv := conn.Stats()
+		conn.Close()
 		goOnHook()
 		setLineBusy(false)
-		serial.Printf("\n")
-		prstatus(NO_CARRIER)
 		logger.Printf("Connection closed, sent %s recv %s",
 			bytefmt.ByteSize(sent), bytefmt.ByteSize(recv))
 

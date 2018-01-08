@@ -101,56 +101,54 @@ func (m *telnetReadWriteCloser) command(p []byte) (i int, err error) {
 	}
 
 	var s string
-	done := false
-	for !done {
-		s += decode(p[0])
-		switch p[0] {
-		case IAC:
-			m.c.Read(p)
-			if p[0] == IAC { // Two in a row, it's just ASCII 255
-				done = true
-			}
+	i, err = m.c.Read(p)
+	s += decode(p[0])
 
-		case SB:
-			// Comsume options until we read a final SE
-			for p[0] != SE {
-				i, err = m.c.Read(p)
-				s += decode(p[0])
-			}
-
-		case WILL:
-			m.c.Read(p)
+	switch p[0] {
+	case SB:
+		// Comsume options until we read a final SE
+		for p[0] != SE {
+			i, err = m.c.Read(p)
 			s += decode(p[0])
-			if p[0] != LINEMODE && p[0] != ECHO {
-				m.c.Write([]byte{IAC, DONT, p[0]})
-				logger.Printf("Sending: IAC WONT %s", decode(p[0]))
-			}
-
-		case DO:
-			m.c.Read(p)
-			s += decode(p[0])
-			if p[0] != LINEMODE && p[0] != ECHO {
-				m.c.Write([]byte{IAC, WONT, p[0]})
-				logger.Printf("Sending: IAC WONT %s", decode(p[0]))
-			}
-
-		case DONT:
-			m.c.Read(p)
-			s += decode(p[0])
-			m.c.Write([]byte{IAC, WONT, p[0]})
-			
-		case WONT:
-			m.c.Read(p)
-			s += decode(p[0])
-			m.c.Write([]byte{IAC, DONT, p[0]})
-
-		case NOP, DM, BRK, IP, AO, AYT, EC, EL, GA, SE:
-			done = true
-
-		default:
-			done = true
 		}
-	}
+		i, err = m.c.Read(p) // read one beyond the SE
+		
+	case WILL:
+		m.c.Read(p)
+		s += decode(p[0])
+		if p[0] != LINEMODE && p[0] != ECHO {
+			m.c.Write([]byte{IAC, DONT, p[0]})
+			logger.Printf("Sending: IAC WONT %s", decode(p[0]))
+		}
+		i, err = m.c.Read(p) // read next char
+		
+	case DO:
+		m.c.Read(p)
+		s += decode(p[0])
+		if p[0] != LINEMODE && p[0] != ECHO {
+			m.c.Write([]byte{IAC, WONT, p[0]})
+			logger.Printf("Sending: IAC WONT %s", decode(p[0]))
+		}
+		i, err = m.c.Read(p) // read next char
+		
+	case DONT:
+		m.c.Read(p)
+		s += decode(p[0])
+		m.c.Write([]byte{IAC, WONT, p[0]})
+		i, err = m.c.Read(p) // read next char
+		
+	case WONT:
+		m.c.Read(p)
+		s += decode(p[0])
+		m.c.Write([]byte{IAC, DONT, p[0]})
+		i, err = m.c.Read(p) // read next char
+		
+	case NOP, DM, BRK, IP, AO, AYT, EC, EL, GA, SE:
+		m.c.Read(p)		
+
+	case IAC: // Two in a row, it's just ASCII 255
+
+	}		
 
 	return i, err
 }
@@ -159,7 +157,7 @@ func (m *telnetReadWriteCloser) Read(p []byte) (int, error) {
 	i, err := m.c.Read(p)
 
 	// If it's a telnet command, process it
-	if p[0] == IAC {
+	for p[0] == IAC {
 		i, err = m.command(p)
 	}
 	m.recv += uint64(i)
@@ -234,7 +232,6 @@ func acceptTelnet(channel chan connection, busy busyFunc, log *log.Logger,
 		// This is a telnet session, negotiate char-at-a-time
 		// and turn off local echo
 		conn.Write([]byte{IAC, DO, LINEMODE}) // You go into linemode
-//		conn.Write([]byte{IAC, DONT, ECHO})   // You don't echo locally
 		conn.Write([]byte{IAC, WILL, ECHO})   // I'll echo to you
 
 		channel <- &telnetReadWriteCloser{INBOUND, DATAMODE, conn, 0, 0}

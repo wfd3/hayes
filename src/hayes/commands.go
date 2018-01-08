@@ -29,8 +29,8 @@ func networkStatus() error {
 	}
 
 	serial.Println("ACTIVE CONNECTION:")
-	if netConn != nil {
-		serial.Printf("  %s\n", netConn)
+	if m.conn != nil {
+		serial.Printf("  %s\n", m.conn)
 	}
 		
 	return OK
@@ -65,10 +65,7 @@ func factoryReset() error {
 	lowerCTS()
 	lowerRI()
 	stopTimer()
-	m.dcd = false
-	m.lastCmd = ""
-	m.lastDialed = ""
-	m.connectSpeed = 0
+	m = Modem{}
 
 	registers.Reset()
 	conf.Reset()
@@ -94,12 +91,22 @@ func answer() error {
 
 	// Simulate Carrier Detect delay
 	cd := registers.Read(REG_CARRIER_DETECT_RESPONSE_TIME)
-	delay := time.Duration(cd) * 100 * time.Millisecond
-	time.Sleep(delay)
-	m.dcd = true
+	for cd > 0 && m.dcd == false {
+		logger.Printf("cd = %d", cd)
+		time.Sleep(100 * time.Millisecond)
+		cd--
+	}
+
+	logger.Printf("answer(): dcd = %t", m.dcd)
+	
+	if m.dcd != true {
+		goOnHook()
+		return NO_CARRIER
+	}
+
 	m.mode = DATAMODE
 	m.connectSpeed = 38400 // We only go fast...
-	return CONNECT
+	return CONNECT_38400
 }
 
 // AT&V
@@ -369,8 +376,13 @@ func processSingleCommand(cmd string) error {
 		}
 
 	case 'O':
-		m.mode = COMMANDMODE 
-		status = OK
+		switch m.dcd {
+		case true: 
+			m.mode = DATAMODE 
+			status = OK
+		case false:
+			status = ERROR
+		}
 
 	case 'W':
 		switch cmd[1] {
@@ -424,7 +436,6 @@ func processCommands(commands []string) error {
 	var cmd string
 	var status error
 
-	status = OK
 	for _, cmd = range commands {
 		logger.Printf("Processing: %s", cmd)
 		status = processSingleCommand(cmd)
@@ -432,5 +443,5 @@ func processCommands(commands []string) error {
 			return status
 		}
 	}
-	return status
+	return OK
 }

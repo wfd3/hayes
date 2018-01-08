@@ -90,7 +90,6 @@ func handleDTR() {
 			
 		case false:	// DTR was down last time we looped
 			down := now.Sub(startDown)
-			logger.Printf("DTR down for %s", down)
 			if down >= S25time {
 				logger.Print("Triggering processDTR()")
 				waitForUp = true

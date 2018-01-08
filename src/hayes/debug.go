@@ -54,9 +54,9 @@ func outputState(debugf out) {
 	debugf("Curent register: %d\n", registers.ShowCurrent())
 	debugf("%s\n", registers.String())
 
-	if netConn != nil {
-		sent, recv := netConn.Stats()
-		debugf("Connection: %s, tx: %s rx: %s\n", netConn.RemoteAddr(),
+	if m.conn != nil {
+		sent, recv := m.conn.Stats()
+		debugf("Connection: %s, tx: %s rx: %s\n", m.conn.RemoteAddr(),
 			bytefmt.ByteSize(sent), bytefmt.ByteSize(recv))
 	} else {
 		debugf("Connection: <Not connected>\n")
