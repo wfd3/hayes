@@ -30,7 +30,7 @@ Modem commands supported:
 * ATD - Dial
 *	ATE - Command state echo
 *	ATH - Hook command 
-*	ATI - Internal tests
+*	ATI - Internal tests (just parrots a Hayes Smartmodem 96)
 *	ATL - Speaker volume
 *	ATM - Speaker on/off
 *	ATO - On-line command
