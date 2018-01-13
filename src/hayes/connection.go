@@ -120,6 +120,8 @@ answered:
 	conn.Write([]byte("Answered\n\r"))
 	registers.Write(REG_RING_COUNT, 0)
 	lowerRI()
+	raiseDSR()
+	raiseCTS()
 	return true
 }
 
