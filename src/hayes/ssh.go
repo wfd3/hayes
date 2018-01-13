@@ -1,6 +1,7 @@
 package main
 
 import (
+	"code.cloudfoundry.org/bytefmt"
 	"fmt"
 	"golang.org/x/crypto/ssh"
 	"io"
@@ -20,7 +21,25 @@ type sshAcceptReadWriteCloser struct {
 }
 
 func (m *sshAcceptReadWriteCloser) String() string {
-	return fmt.Sprintf("Inbound SSH connection from %s", m.RemoteAddr)
+	var s, host string
+	ip, _, err := net.SplitHostPort(m.RemoteAddr().String())
+	if err != nil {
+		logger.Printf("SplitHostPort(): %s", err)
+	}
+	names, err := net.LookupAddr(ip)
+	if err != nil {
+		host = "(nil)"
+		logger.Printf("LookupAddr(): %s", err)
+	} else {
+		host = names[0]
+	}
+	sent, recv := m.Stats()
+
+	s = fmt.Sprintf("Outbound SSH to %s (%s), sent %s, received %s",
+		host, m.RemoteAddr(), bytefmt.ByteSize(sent),
+		bytefmt.ByteSize(recv))
+
+	return s 
 }
 
 func (m *sshAcceptReadWriteCloser) Read(p []byte) (int, error) {
@@ -169,7 +188,25 @@ type sshDialReadWriteCloser struct {
 }
 
 func (m *sshDialReadWriteCloser) String() string {
-	return fmt.Sprintf("Outbound SSH connection to %s", m.RemoteAddr)
+	var s, host string
+	ip, _, err := net.SplitHostPort(m.RemoteAddr().String())
+	if err != nil {
+		logger.Printf("SplitHostPort(): %s", err)
+	}
+	names, err := net.LookupAddr(ip)
+	if err != nil {
+		host = "(nil)"
+		logger.Printf("LookupAddr(): %s", err)
+	} else {
+		host = names[0]
+	}
+	sent, recv := m.Stats()
+
+	s = fmt.Sprintf("Outbound SSH to %s (%s), sent %s, received %s",
+		host, m.RemoteAddr(), bytefmt.ByteSize(sent),
+		bytefmt.ByteSize(recv))
+
+	return s 
 }
 
 func (m *sshDialReadWriteCloser) Read(p []byte) (int, error) {

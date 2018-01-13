@@ -1,6 +1,7 @@
 package main
 
 import (
+	"code.cloudfoundry.org/bytefmt"
 	"fmt"
 	"log"
 	"net"
@@ -87,12 +88,32 @@ type telnetReadWriteCloser struct {
 }
 
 func (m *telnetReadWriteCloser) String() string {
+	var s, p, host string
 	if m.direction == INBOUND {
-		return fmt.Sprintf("Inbound Telnet connection from %s",
-			m.c.RemoteAddr())
+		s = "Inbound"
+		p = "from"
+	} else {
+		s = "Outbound"
+		p = "to"
 	}
+	ip, _, err := net.SplitHostPort(m.c.RemoteAddr().String())
+	if err != nil {
+		logger.Printf("SplitHostPort(): %s", err)
+	}
+	names, err := net.LookupAddr(ip)
+	if err != nil {
+		host = "(nil)"
+		logger.Printf("LookupAddr(): %s", err)
+	} else {
+		host = names[0]
+	}
+	sent, recv := m.Stats()
 
-	return fmt.Sprintf("Outbound Telnet connection to %s", m.c.RemoteAddr())
+	s = fmt.Sprintf("%s %s %s (%s), sent %s, received %s",
+		s, p, host, m.c.RemoteAddr(), 
+		bytefmt.ByteSize(sent), bytefmt.ByteSize(recv))
+
+	return s
 }
 
 func (m *telnetReadWriteCloser) command(p []byte) (i int, err error) {
