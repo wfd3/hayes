@@ -1,5 +1,6 @@
 # hayes
-Turn a Raspberry Pi 3, some associated hardware bits, and some Go into a Hayes Smartmodem
+Turn a Raspberry Pi 3, some associated hardware bits, and some Go into a Hayes Smartmodem.  Designed for connecting vintage computers to the Internet.
+
 ```
 Command line options:
   -addressbook file
