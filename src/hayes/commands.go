@@ -36,77 +36,32 @@ func networkStatus() error {
 	return OK
 }
 
-
-// ATZn - 0 == config 0, 1 == config 1
-func softReset(i int) error {
-	c, r, err := profiles.Switch(i)
-	if err != nil {
-		return err
-	}
-	logger.Printf("Switching config/registers")
-	factoryReset()
-	conf = c
-	registers = r
-	time.Sleep(250 * time.Millisecond) // Cosmetic pause... 
-	raiseCTS()
-
-	return nil
-}
-
-// AT&F - reset to factory defaults
-func factoryReset() error {
-	err := OK
-	logger.Print("Resetting modem")
-
-	// Reset state
-	goOnHook()
-	setLineBusy(false)
-	lowerDSR()
-	lowerCTS()
-	lowerRI()
-	stopTimer()
-	m = Modem{}
-
-	registers.Reset()
-	conf.Reset()
-
-	phonebook = NewPhonebook(flags.phoneBook, logger)
-	err = phonebook.Load()
-	if err != nil {
-		logger.Print(err)
-	}
-
-	resetTimer()
-	return err
-}
-
 // ATA
 func answer() error {
-	if offHook() {
+	if getLineBusy() {
 		logger.Print("Can't answer, line off hook already")
 		return ERROR
 	}
 
-	goOffHook()
+	pickup()
 
-	// Simulate Carrier Detect delay
+	// Simulate Carrier Detect delay;
+	// REG_CARRIER_DETECT_RESPONSE_TIME is in 1/10's of a second (100ms)
 	cd := registers.Read(REG_CARRIER_DETECT_RESPONSE_TIME)
-	for cd > 0 && m.dcd == false {
-		logger.Printf("cd = %d", cd)
+	for cd > 0 && !m.dcd {
 		time.Sleep(100 * time.Millisecond)
 		cd--
 	}
 
-	logger.Printf("answer(): dcd = %t", m.dcd)
-	
-	if m.dcd != true {
-		goOnHook()
+	if !m.dcd {
+		logger.Print("No carrier at ATA")
+		hangup()
 		return NO_CARRIER
 	}
 
 	m.mode = DATAMODE
 	m.connectSpeed = 38400 // We only go fast...
-	return CONNECT_38400
+	return CONNECT
 }
 
 // AT&V
@@ -114,13 +69,10 @@ func amperV() error {
 	serial.Println("ACTIVE PROFILE:")
 	serial.Println(conf.String())
 	serial.Println(registers.String())
-
 	serial.Println()
 	serial.Println(profiles)
-
 	serial.Println("TELEPHONE NUMBERS:")
 	serial.Println(phonebook)
-
 	return OK
 }
 
@@ -225,7 +177,7 @@ func processAmpersand(cmd string) error {
 		case '1': conf.dtr = 1
 		case '2': conf.dtr = 2
 		case '3': conf.dtr = 3
-		default: return fmt.Errorf("Malformed AT&D command: %s", cmd)
+		default: return fmt.Errorf("Malformed AT& command: %s", cmd)
 		}
 
 	case 'F':
@@ -243,7 +195,7 @@ func processAmpersand(cmd string) error {
 		case '0':
 			return amperV()
 		default:
-			return ERROR
+			return fmt.Errorf("Malformed AT& command: %s", cmd)
 		}
 
 	case 'W':
@@ -265,10 +217,9 @@ func processAmpersand(cmd string) error {
 	case 'Z':
 		var s string
 		var i int
-		_, err := fmt.Sscanf(cmd, "Z%d=%s", &i, &s)
-		if err != nil {
-			logger.Print(err)
-			return err
+		if _, err := fmt.Sscanf(cmd, "Z%d=%s", &i, &s); err != nil {
+			logger.Printf("%s", err)
+			return fmt.Errorf("Malformed AT& command: %s", cmd)
 		}
 		if s[0] == 'D' || s[0] == 'd' { // Extension
 			return phonebook.Delete(i)
@@ -277,6 +228,9 @@ func processAmpersand(cmd string) error {
 
 	// Faked out AT& commands
 	case 'A','B','G','J','K','L','M','O','Q','R','T','U','X':
+		return nil
+
+	default:
 		return nil
 	}
 
@@ -304,16 +258,12 @@ func processSingleCommand(cmd string) error {
 	case 'E':
 		conf.echoInCmdMode = cmd[1] == '0'
 
-	case 'F': // Online Echo mode, F1 assumed for backwards
-		// compatability after Hayes 1200
-		status = OK
-
 	case 'H':
 		switch cmd[1] {
 		case '0':
-			status = goOnHook()
+			status = hangup()
 		case '1':
-			status = goOffHook()
+			status = pickup()
 		}
 
 	case 'I':
@@ -422,7 +372,7 @@ func processSingleCommand(cmd string) error {
 	case '!':
 		status = networkStatus()
 
-	case 'B', 'C', 'N', 'P', 'T', 'Y': // faked out commands
+	case 'B', 'C', 'F', 'N', 'P', 'T', 'Y': // faked out commands
 		status = OK
 
 	default:

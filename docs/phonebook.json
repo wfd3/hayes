@@ -22,7 +22,7 @@
 	},
 	"3": {
 		"Phone": "8586913",
-		"Host": "blackbox",
+		"Host": "ftn.wpusa.dynip.com",
 		"Protocol": "telnet",
 		"Username": "",
 		"Password": ""

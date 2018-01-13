@@ -25,7 +25,7 @@ func (c *Config) Reset() {
 	c.verbose = true       // Text return codes
 	c.speakerVolume = 2    // moderate volume
 	c.speakerMode = 1      // on until other modem heard
-	c.busyDetect = true
+	c.busyDetect = true    // BUSY or OK result code?
 	c.extendedResultCodes = true
 	c.dcdPinned = true	// if true, DCD if fixed 'on'
 	c.connectMsgSpeed = true
@@ -72,7 +72,7 @@ func (c *Config) String() string {
 	str += "&D" + i(c.dtr)
 	str += "&G0 "
 	str += "&J0 "
-	str += "&K3 "
+	str += "&K0 "
 	str += "&Q5 "
 	str += "&R0 "
 	str += "&S" + b(c.dsrPinned)

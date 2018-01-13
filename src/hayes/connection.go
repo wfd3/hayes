@@ -30,6 +30,14 @@ type connection interface {
 	SetDeadline(t time.Time) error
 }
 
+
+// How many rings before giving up
+const __MAX_RINGS = 15
+
+// How long to wait for the remote to answer.  6 seconds is the default
+// ring-silence time
+const __CONNECT_TIMEOUT = __MAX_RINGS * 6 * time.Second
+
 func answerIncomming(conn connection) bool {
 	const __DELAY_MS = 20
 
@@ -147,13 +155,11 @@ func startAcceptingCalls() {
 // Clear the ring counter after 8s
 // Must be a goroutine
 func clearRingCounter() {
-	var delay time.Duration = 8 * time.Second
-
-	for _ = range time.Tick(delay) {
-		if time.Since(last_ring_time) >= delay &&
-			registers.Read(REG_RING_COUNT) != 0 {
+	delay := 8 * time.Second
+	t := time.Tick(delay)
+	for range t { 
+		if time.Since(last_ring_time) >= delay {
 			registers.Write(REG_RING_COUNT, 0)
-			logger.Print("Cleared ring count")
 		}
 	}
 }
@@ -255,7 +261,7 @@ func handleCalls() {
 		sent, recv := m.conn.Stats()
 		conn.Close()
 		m.conn = nil
-		goOnHook()
+		hangup()
 		setLineBusy(false)
 		logger.Printf("Connection closed, sent %s recv %s",
 			bytefmt.ByteSize(sent), bytefmt.ByteSize(recv))

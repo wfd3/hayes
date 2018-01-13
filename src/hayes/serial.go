@@ -37,23 +37,21 @@ type serialPort struct {
 	channel chan byte
 }
 
-func setupSerialPort(port string, speed int, charchannel chan byte,
-	log *log.Logger) *serialPort {
+func setupSerialPort(port string, speed int) *serialPort {
 	var s serialPort
 
 	s.console = port == ""
-	s.log = log
-	s.channel = charchannel
+	s.channel = make(chan byte)
 
 	if s.console {
-		s.log.Print("Using stdin/stdout as DTE")
+		logger.Print("Using stdin/stdout as DTE")
 	} else {
 
-		s.log.Printf("Using serial port %s at %d bps", port, speed)
+		logger.Printf("Using serial port %s at %d bps", port, speed)
 		c := &tarmserial.Config{Name: port, Baud: speed}
 		p, err := tarmserial.OpenPort(c)
 		if err != nil {
-			s.log.Fatal(err)
+			logger.Fatal(err)
 		}
 		s.port = p
 	}
@@ -67,7 +65,7 @@ func (s *serialPort) Flush() error {
 		return nil
 	}
 
-	s.log.Print("flushing serial port")
+	logger.Print("flushing serial port")
 	return s.port.Flush()
 }
 
@@ -92,7 +90,7 @@ func (s *serialPort) getChars() {
 	in := make([]byte, 1)
 	for {
 		if _, err := s.Read(in); err != nil {
-			s.log.Print("Read(): ", err)
+			logger.Print("Read(): ", err)
 		}
 
 		s.channel <- in[0]

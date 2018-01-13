@@ -74,7 +74,7 @@ func dial(to string) error {
 	var err error
 	var clean_to string
 
-	goOffHook()
+	pickup()
 
 	cmd := to[1]
 	if cmd == 'L' {
@@ -123,7 +123,7 @@ func dial(to string) error {
 			conn, err = dialStoredNumber(clean_to[1:])
 		default:
 			logger.Printf("Dial mode '%c' not supported\n", cmd)
-			goOnHook()
+			hangup()
 			err = fmt.Errorf("Dial mode '%c' not supported", cmd)
 		}
 	}
@@ -131,7 +131,7 @@ func dial(to string) error {
 	// if we're connected, setup the connected state in the modem,
 	// otherwise return a BUSY or NO_ANSWER result code.
 	if err != nil {
-		goOnHook()
+		hangup()
 		if err == ERROR {
 			return ERROR
 		}
@@ -184,10 +184,10 @@ func parseDial(cmd string) (string, int, error) {
 		}
 		s = fmt.Sprintf("DT%s", cmd[2:e+1])
 		return s, len(s), nil
-	case 'H', 'h':
+	case 'H', 'h': // Host Dialing
 		s = fmt.Sprintf("DH%s", cmd[c+1:])
 		return s, len(s), nil
-	case 'E', 'e': // Host Dialing
+	case 'E', 'e': // Encrypted host Dialing
 		s = fmt.Sprintf("DE%s", cmd[c+1:])
 		return s, len(s), nil
 	case 'L', 'l': // Dial last number

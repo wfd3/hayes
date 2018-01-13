@@ -125,7 +125,7 @@ func (s *storedProfiles) String() string {
 		t += "&D" + i(s.Config[p].DTR)
 		t += "&G0 "
 		t += "&J0 "
-		t += "&K3 "
+		t += "&K0 "
 		t += "&Q5 "
 		t += "&R0 "
 		t += "&S" + b(s.Config[p].DSRPinned)
@@ -144,28 +144,28 @@ func (s *storedProfiles) String() string {
 	return str
 }
 
-func (s storedProfiles) Switch(i int) (Config, Registers, error) {
+func (s storedProfiles) Switch(i int) error {
 	if i != 1 && i != 0 {
-		return Config{}, Registers{},
-			fmt.Errorf("Invalid stored profile %d", i)
+		return fmt.Errorf("Invalid stored profile %d", i)
 	}
 
 	logger.Printf("Switching to profile %d", i)
-	var c Config
-	c.Reset()
-	c.echoInCmdMode = s.Config[i].EchoInCmdMode
-	c.speakerVolume = s.Config[i].SpeakerVolume
-	c.speakerMode = s.Config[i].SpeakerMode
-	c.quiet = s.Config[i].Quiet
-	c.verbose = s.Config[i].Verbose
-	c.connectMsgSpeed = s.Config[i].ConnectMsgSpeed
-	c.extendedResultCodes = s.Config[i].ExtendedResultCodes
-	c.busyDetect = s.Config[i].BusyDetect
-	c.dcdPinned = s.Config[i].DCDPinned
-	c.dsrPinned = s.Config[i].DSRPinned
-	c.dtr = s.Config[i].DTR
+	conf.Reset()
+	conf.echoInCmdMode = s.Config[i].EchoInCmdMode
+	conf.speakerVolume = s.Config[i].SpeakerVolume
+	conf.speakerMode = s.Config[i].SpeakerMode
+	conf.quiet = s.Config[i].Quiet
+	conf.verbose = s.Config[i].Verbose
+	conf.connectMsgSpeed = s.Config[i].ConnectMsgSpeed
+	conf.extendedResultCodes = s.Config[i].ExtendedResultCodes
+	conf.busyDetect = s.Config[i].BusyDetect
+	conf.dcdPinned = s.Config[i].DCDPinned
+	conf.dsrPinned = s.Config[i].DSRPinned
+	conf.dtr = s.Config[i].DTR
+	registers.Reset()
+	registers = registersJsonUnmap(s.Config[i].Regs)
 
-	return c, registersJsonUnmap(s.Config[i].Regs), nil
+	return nil
 }
 
 // AT&Wn

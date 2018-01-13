@@ -9,14 +9,12 @@ const (
 )
 
 // ATH0
-func goOnHook() error {
+func hangup() error {
 	var ret error = OK
 	
 	m.dcd = false
 	lowerDSR()
-	m.hookLock.Lock()
 	m.hook = ONHOOK
-	m.hookLock.Unlock()
 
 	// It's OK to hang up the phone when there's no active network connection.
 	// But if there is, close it.
@@ -41,39 +39,27 @@ func goOnHook() error {
 }
 
 // ATH1
-func goOffHook() error {
+func pickup() error {
 	setLineBusy(true)
-
-	m.hookLock.Lock()
 	m.hook = OFFHOOK
-	m.hookLock.Unlock()
-
 	led_OH_on()
 	return OK
 }
 
 func onHook() bool {
-	m.hookLock.RLock()
-	defer m.hookLock.RUnlock()
 	return m.hook == ONHOOK
 }
 
 func offHook() bool {
-	m.hookLock.RLock()
-	defer m.hookLock.RUnlock()
 	return m.hook == OFFHOOK
 }
 
 // Is the phone line busy?
 func getLineBusy() bool {
-	m.lineBusyLock.RLock()
-	defer m.lineBusyLock.RUnlock()
 	return m.lineBusy
 }
 
 func setLineBusy(b bool) {
-	m.lineBusyLock.Lock()
-	defer m.lineBusyLock.Unlock()
 	m.lineBusy = b
 }
 

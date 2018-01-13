@@ -9,8 +9,7 @@ var dtrchan chan bool // "Interrupts" for DTR/S25 interactions
 // Watch a subset of pins and/or config, and act as apropriate. 
 // Must be a goroutine
 func handlePINs() {
-	t := time.Tick(100 * time.Millisecond)
-	for range t {
+	for range time.Tick(250 * time.Millisecond) {
 		// Check connect speed, set HS LED
 		switch {
 		case m.connectSpeed > 19200:
@@ -32,28 +31,25 @@ func handlePINs() {
 		// Check dsrPinned
 		if conf.dsrPinned { // DSR is pinned high
 			raiseDSR() 
-		} else {	// DSR high between DCD and Hangup
-			switch  m.dcd {
-			case true:  raiseDSR()
-			case false: lowerDSR()
-			}
-		}
+		} 
 	}
 }
 
 // Handles DTR behavior as specified by &D and S25
 func handleDTR() {
 	var d byte
-	var lastb, waitForUp bool
+	var wasUp, waitForUp bool
 	var startDown time.Time
 	var S25time time.Duration
 
-	lastb = false
+	wasUp = false
 	waitForUp = true
 	startDown = time.Now()
 
 	t := time.Tick(5 * time.Millisecond)
-	for now := range t { 
+	for now := range t {
+
+		// First, see if the DTR detection time has changed
 		dt := registers.Read(REG_DTR_DETECTION_TIME)
 		if d != dt {
 			d = dt
@@ -61,16 +57,15 @@ func handleDTR() {
 			S25time = time.Duration(float64(d) * 10 ) * time.Millisecond
 			logger.Printf("DTR detection window: %s", S25time)
 		}
-		
+
 		if readDTR() {
-			led_TR_on()
-			if lastb == false {
-				logger.Printf("DTR up at %s, down for %s total",
-					now.Format(time.StampMilli),
+			if !wasUp {
+				logger.Printf("DTR up, down for %s total",
 					now.Sub(startDown))
 			}
-			lastb = true
+			wasUp = true
 			waitForUp = false
+			led_TR_on()
 			continue
 		}
 
@@ -82,11 +77,11 @@ func handleDTR() {
 			continue
 		}
 
-		switch lastb {
+		switch wasUp {
 		case true:	// DTR was up last time we looped
-			logger.Printf("DTR down at %s", now.Format(time.StampMilli))
+			logger.Print("DTR down")
 			startDown = now
-			lastb = false
+			wasUp = false
 			
 		case false:	// DTR was down last time we looped
 			down := now.Sub(startDown)
@@ -121,7 +116,7 @@ func processDTR() {
 			logger.Print("DTR toggled, &D2")
 			led_TR_off()
 			if offHook() {
-				status := goOnHook()
+				status := hangup()
 				prstatus(status)
 			}
 			
