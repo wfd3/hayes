@@ -6,8 +6,6 @@ import (
 	"time"
 )
 
-var last_ring_time time.Time
-
 type busyFunc func() bool
 
 // Is the network connection inbound or outbound
@@ -28,101 +26,6 @@ type connection interface {
 	Stats() (uint64, uint64)
 	String() string
 	SetDeadline(t time.Time) error
-}
-
-
-// How many rings before giving up
-const __MAX_RINGS = 15
-
-// How long to wait for the remote to answer.  6 seconds is the default
-// ring-silence time
-const __CONNECT_TIMEOUT = __MAX_RINGS * 6 * time.Second
-
-func answerIncomming(conn connection) bool {
-	const __DELAY_MS = 20
-
-	zero := make([]byte, 1)
-	zero[0] = 0
-
-	r := registers
-	for i := 0; i < __MAX_RINGS; i++ {
-		last_ring_time = time.Now()
-		conn.Write([]byte("Ringing...\n\r"))
-		logger.Print("Ringing")
-		if offHook() { // computer has issued 'ATA'
-			goto answered
-		}
-
-		// Simulate the "2-4" pattern for POTS ring signal (2
-		// seconds of high voltage ring signal, 4 seconds
-		// of silence)
-
-		// Ring for 2s
-		d := 0
-		raiseRI()
-		for onHook() && d < 2000 {
-			if _, err := conn.Write(zero); err != nil {
-				goto no_answer
-			}
-			time.Sleep(__DELAY_MS * time.Millisecond)
-			d += __DELAY_MS
-			if offHook() { // computer has issued 'ATA'
-				goto answered
-			}
-		}
-		lowerRI()
-
-		// By verification, the Hayes Ultra 96 displays the
-		// "RING" text /after/ the RI signal is lowered.  So
-		// do this here so we behave the same.
-		serial.Println(RING)
-
-		// If Auto Answer is enabled and we've exceeded the
-		// configured number of rings to wait before
-		// answering, answer the call.  We do this here before
-		// the 4s delay as I think it feels more correct.
-		ringCount := r.Inc(REG_RING_COUNT)
-		aaCount := r.Read(REG_AUTO_ANSWER)
-		if aaCount > 0 {
-			if ringCount >= aaCount {
-				logger.Print("Auto answering")
-				answer()
-			}
-		}
-
-		// Silence for 4s
-		d = 0
-		for onHook() && d < 4000 {
-			// Test for closed connection
-			if _, err := conn.Write(zero); err != nil {
-				goto no_answer
-			}
-
-			time.Sleep(__DELAY_MS * time.Millisecond)
-			d += __DELAY_MS
-			if offHook() { // computer has issued 'ATA'
-				goto answered
-			}
-		}
-	}
-
-no_answer:
-	// At this point we've not answered and have timed out, or the
-	// caller hung up before we answered.
-	logger.Print("No answer")
-	conn.Write([]byte("No answer, closing connection\n\r"))
-	lowerRI()
-	return false
-
-answered:
-	// if we're here, the computer answered.
-	logger.Print("Answered")
-	conn.Write([]byte("Answered\n\r"))
-	registers.Write(REG_RING_COUNT, 0)
-	lowerRI()
-	raiseDSR()
-	raiseCTS()
-	return true
 }
 
 func startAcceptingCalls() {
@@ -153,18 +56,6 @@ func startAcceptingCalls() {
 	}
 }
 
-
-// Clear the ring counter after 8s
-// Must be a goroutine
-func clearRingCounter() {
-	delay := 8 * time.Second
-	t := time.Tick(delay)
-	for range t { 
-		if time.Since(last_ring_time) >= delay {
-			registers.Write(REG_RING_COUNT, 0)
-		}
-	}
-}
 
 // Pass bytes from the remote dialer to the serial port (for now,
 // stdout) as long as we're offhook, we're in DATA MODE and we have
@@ -226,7 +117,6 @@ func serviceConnection() {
 
 // Accept connection's from dial*() and accept*() functions.
 func handleCalls() {
-	go clearRingCounter()
 	startAcceptingCalls()
 
 	// Wait for a connection.  If it's an incoming call, answer
@@ -234,8 +124,15 @@ func handleCalls() {
 	// service it
 	var conn connection
 	for {
+		lowerDSR()
+		lowerCTS()
+		setLineBusy(false)
+
 		conn = <-callChannel
+
 		setLineBusy(true)
+		raiseDSR()
+		raiseCTS()
 
 		switch conn.Direction() {
 		case INBOUND:
@@ -264,7 +161,6 @@ func handleCalls() {
 		conn.Close()
 		m.conn = nil
 		hangup()
-		setLineBusy(false)
 		logger.Printf("Connection closed, sent %s recv %s",
 			bytefmt.ByteSize(sent), bytefmt.ByteSize(recv))
 

@@ -6,10 +6,24 @@ import (
 
 var dtrchan chan bool // "Interrupts" for DTR/S25 interactions
 
+
+// Clear the ring counter after 8s
+// Must be a goroutine
+func clearRingCounter() {
+	delay := 8 * time.Second
+	for range time.Tick(delay) {
+		if time.Since(last_ring_time) >= delay {
+			registers.Write(REG_RING_COUNT, 0)
+		}
+	}
+}
+
 // Watch a subset of pins and/or config, and act as apropriate. 
 // Must be a goroutine
-func handlePINs() {
+func handlePins() {
+
 	for range time.Tick(250 * time.Millisecond) {
+
 		// Check connect speed, set HS LED
 		switch {
 		case m.connectSpeed > 19200:
@@ -17,7 +31,7 @@ func handlePINs() {
 		default:
 			led_HS_off()
 		}
-
+		
 		// Check carrier, set CD LED
 		if conf.dcdPinned { // DCD is pinned high
 			raiseCD()
@@ -27,8 +41,8 @@ func handlePINs() {
 			case false: lowerCD()
 			}
 		}
-
-		// Check dsrPinned
+		
+		// Check dsrPinnedd
 		if conf.dsrPinned { // DSR is pinned high
 			raiseDSR() 
 		} 
@@ -46,8 +60,7 @@ func handleDTR() {
 	waitForUp = true
 	startDown = time.Now()
 
-	t := time.Tick(5 * time.Millisecond)
-	for now := range t {
+	for now := range time.Tick(5 * time.Millisecond) {
 
 		// First, see if the DTR detection time has changed
 		dt := registers.Read(REG_DTR_DETECTION_TIME)
@@ -88,53 +101,49 @@ func handleDTR() {
 			if down >= S25time {
 				logger.Print("Triggering processDTR()")
 				waitForUp = true
-				dtrchan <- true
+				processDTR()
 			}
 		}
 	}
 }
 
-// "Interrupt Handler" for DTR
+// If DTR is down, do what conf.dtr says:
 func processDTR() {
-	// If DTR is down, do what conf.dtr says:
-	for {
-		<-dtrchan
-		switch conf.dtr {
-		case 0:	// Do nothing, make sure LED is correct
-			logger.Print("DTR Toggled, &D0")
-			led_TR_off()
-			
-		case 1:
-			led_TR_on()
-			logger.Print("DTR toggeled, &D1")
-			if m.mode == DATAMODE {
-				m.mode = COMMANDMODE
-				prstatus(OK)
-			}
-			
-		case 2:
-			logger.Print("DTR toggled, &D2")
-			led_TR_off()
-			if offHook() {
-				status := hangup()
-				prstatus(status)
-			}
-			
-		case 3:	// Reset modem
-			logger.Print("DTR toggled, &D3") 
-			err := softReset(m.currentConfig)
-			if err != nil {
-				logger.Print("softReset() error: %s", err)
-			}
-			prstatus(err)
+	switch conf.dtr {
+	case 0:	// Do nothing, make sure LED is correct
+		logger.Print("DTR Toggled, &D0")
+		led_TR_off()
+		
+	case 1:
+		led_TR_on()
+		logger.Print("DTR toggeled, &D1")
+		if m.mode == DATAMODE {
+			m.mode = COMMANDMODE
+			prstatus(OK)
 		}
-
+		
+	case 2:
+		logger.Print("DTR toggled, &D2")
+		led_TR_off()
+		if offHook() {
+			status := hangup()
+			prstatus(status)
+		}
+		
+	case 3:	// Reset modem
+		logger.Print("DTR toggled, &D3") 
+		err := softReset(m.currentConfig)
+		if err != nil {
+			logger.Print("softReset() error: %s", err)
+		}
+		prstatus(err)
 	}
 }
 
 func setupHW() {
-	go handlePINs()    // Monitor input pins & internal registers
 	dtrchan = make(chan bool)
-	go handleDTR()	   // Watch DTR, sent "interrupts"
-	go processDTR()	   // Catch DTR "interrupts"
+
+	go clearRingCounter()
+	go handlePins()
+	go handleDTR()	   
 }

@@ -151,7 +151,7 @@ func dial(to string) error {
 		err = OK
 	}
 
-	// Remote answered, hand off conneciton to handleModem()
+	// Remote answered, hand off conneciton to handleCalls()
 	callChannel <- conn
 	return err
 }

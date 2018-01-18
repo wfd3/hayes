@@ -47,6 +47,7 @@ var profiles *storedProfiles
 var serial *serialPort
 var timer *time.Ticker
 var callChannel chan connection
+var last_ring_time time.Time
 
 // Catch ^C, reset the HW pins
 // Must be a goroutine
