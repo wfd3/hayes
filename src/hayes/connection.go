@@ -85,11 +85,12 @@ func serviceConnection() {
 			nerr, ok := err.(net.Error)	    // we timed out.
 			switch {
 			case ok && nerr.Timeout():
-				logger.Printf("conn.Read(): S30 timeout: %s",
+				logger.Printf("conn.Read(): triggered S30 timeout: %s",
 					timeout)
 			case ok && nerr.Temporary():
-				logger.Printf("conn.Read(): temporary errory")
-				continue
+				logger.Printf("conn.Read(): temporary errory: %s",
+				err)
+				continue // Really? TODO
 			default: 
 				logger.Print("conn.Read(): ", err)
 			}

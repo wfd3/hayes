@@ -264,11 +264,13 @@ func dialTelnet(remote string, log *log.Logger) (connection, error) {
 	if _, _, err := net.SplitHostPort(remote); err != nil {
 		remote += ":23"
 	}
+	log.Printf("Connecting to: %s", remote)
 	conn, err := net.DialTimeout("tcp", remote, __CONNECT_TIMEOUT)
 	if err != nil {
 		if err, ok := err.(net.Error); ok && err.Timeout() {
 			log.Print("net.DialTimeout: Timed out")
-		}
+		} 
+		log.Printf("Error: %s", err)
 		return nil, err
 	}
 

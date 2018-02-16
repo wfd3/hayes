@@ -13,7 +13,7 @@ const (
 )
 
 // How many rings before giving up
-const __MAX_RINGS = 15
+const __MAX_RINGS = 10
 
 // How long to wait for the remote to answer.  6 seconds is the default
 // ring-silence time
