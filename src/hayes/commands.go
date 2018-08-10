@@ -64,6 +64,48 @@ func answer() error {
 	return CONNECT
 }
 
+
+// ATZn - 0 == config 0, 1 == config 1
+func softReset(i int) error {
+	logger.Printf("Switching config/registers")
+	if err := profiles.Switch(i); err != nil {
+		return err
+	}
+	return nil
+}
+
+// AT&F - reset to factory defaults
+func factoryReset() error {
+	err := OK
+	logger.Print("Resetting modem")
+
+	// Reset state
+	hangup()
+	setLineBusy(false)
+	lowerDSR()
+	lowerCTS()
+	lowerRI()
+	stopTimer()
+	m = Modem{}
+
+	registers.Reset()
+	conf.Reset()
+	profiles, _ = newStoredProfiles()
+	profiles.Switch(profiles.PowerUpConfig)
+
+	phonebook = NewPhonebook(flags.phoneBook, logger)
+	err = phonebook.Load()
+	if err != nil {
+		logger.Print(err)
+	}
+
+	resetTimer()
+
+	raiseCTS()
+	raiseDSR()
+	return err
+}
+
 // AT&V
 func amperV() error {
 	serial.Println("ACTIVE PROFILE:")

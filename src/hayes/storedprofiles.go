@@ -59,9 +59,11 @@ func newStoredProfiles() (*storedProfiles, error) {
 	}
 
 	if err = json.Unmarshal(b, &c); err != nil {
-		logger.Print(err)
+		logger.Printf("Can't load stored configs: %s", err)
 		return &c, err
 	}
+
+	logger.Print("Loaded stored profiles")
 
 	return &c, nil
 }

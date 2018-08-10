@@ -111,7 +111,7 @@ func (r *Registers) Reset() {
 
 var escSequence [3]byte = [3]byte{'+', '+', '+'}
 
-func NewRegisters() Registers {
+func NewRegisters() *Registers {
 	var r Registers
 
 	r.current = 0
@@ -122,7 +122,7 @@ func NewRegisters() Registers {
 		r.regs[i].valid = false
 	}
 
-	return r
+	return &r
 }
 
 func (r *Registers) valid(regnum uint) bool {
@@ -203,7 +203,7 @@ func (r *Registers) String() string {
 	return lineWrap(s, 80)
 }
 
-func (r Registers) JsonMap() map[string]byte {
+func (r *Registers) JsonMap() map[string]byte {
 	s := make(map[string]byte)
 	for _, f := range r.activeRegisters() {
 		k := strconv.Itoa(f)
@@ -212,7 +212,7 @@ func (r Registers) JsonMap() map[string]byte {
 	return s
 }
 
-func registersJsonUnmap(m map[string]byte) Registers {
+func registersJsonUnmap(m map[string]byte) *Registers {
 
 	nr := NewRegisters()
 	for key, val := range m {

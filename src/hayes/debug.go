@@ -77,10 +77,14 @@ func logState() {
 func debug(cmd string) error {
 	logger.Printf("cmd = '%s'", cmd)
 
-	if cmd == "*" {
+	switch {
+	case cmd == "*":
 		showState()
 		logState()
-		return nil
+	case cmd == "*ledtest":
+		ledTest(5)
+	default:
+		return fmt.Errorf("Bad debug command: %s", cmd)
 	}
 
 	return nil
@@ -91,13 +95,23 @@ func debug(cmd string) error {
 // Given a string that looks like a "*" debug command, parse & normalize it
 func parseDebug(cmd string) (string, int, error) {
 
+	logger.Printf("parseDebug(): %s", cmd)
+
+	// Naked AT*
 	if len(cmd) == 1 && cmd[0] == '*' {
 		return "*", 1, nil
 	}
 
+	// Too short
 	if len(cmd) < 2 {
 		return "", 0, fmt.Errorf("Bad command: %s", cmd)
 	}
 
-	return cmd[1:], len(cmd[1:]), nil
+	// Doesn't start with debug character
+	if cmd[0] != '*' {
+		return "", 0, fmt.Errorf("Bad command: %s", cmd)
+	}
+
+	// It's OK!
+	return cmd, len(cmd), nil
 }
