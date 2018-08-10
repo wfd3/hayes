@@ -1,0 +1,51 @@
+Supported Commands
+	ATA - answer
+	ATD - Dial
+	ATE - Command state echo
+	ATH - Hook command 
+	ATI - Internal tests
+	ATL - Speaker volume
+	ATM - Speaker on/off
+	ATO - On-line command
+	ATQ - Result code options
+	ATS - Register commands 
+	ATV - Result code fomat
+	ATW - Negoitation Progress message selection
+	ATX - Call progress options
+	ATZ - Soft reset
+	AT&C - Carrier Data Detect (CDC) options
+	AT&D - Data Terminal Read (DTR) options
+	AT&F - Recall factory profile (factory reset)
+	AT&S - Data Set Ready (DSR) options
+	AT&V - View Configuration Profiles
+	AT&W - Write active profile to memory
+	AT&Y - Select stored profile for hard reset
+	AT&Z - Store telephone number
+
+Extensions:
+	AT! - Display network status 
+	AT* - Debug data
+
+
+Faked out, no action but returns OK status
+   	 ATB
+	 ATC
+	 ATF
+	 ATN
+	 ATP
+	 ATT
+	 ATY
+	 AT&A
+	 AT&B
+         AT&G
+         AT&J
+         AT&K
+         AT&L
+         AT&M
+         AT&O
+         AT&Q
+         AT&R
+         AT&T
+         AT&U
+         AT&X
+	 
