@@ -1,0 +1,93 @@
+{
+	"0": {
+		"Phone": "555-0780",
+		"Host": "tty.livingcomputers.org",
+		"Protocol": "ssh",
+		"Username": "vax780",
+		"Password": ""
+	},
+	"1": {
+		"Phone": "555-0730",
+		"Host": "tty.livingcomputers.org",
+		"Protocol": "ssh",
+		"Username": "vax730",
+		"Password": ""
+	},
+	"2": {
+		"Phone": "555-0032",
+		"Host": "tty.livingcomputers.org",
+		"Protocol": "ssh",
+		"Username": "lcm3b2",
+		"Password": ""
+	},
+	"3": {
+		"Phone": "555-0002",
+		"Host": "tty.livingcomputers.org",
+		"Protocol": "ssh",
+		"Username": "toad2a",
+		"Password": ""
+	},
+	"4": {
+		"Phone": "555-0009",
+		"Host": "tty.livingcomputers.org",
+		"Protocol": "ssh",
+		"Username": "sigma9",
+		"Password": ""
+	},
+	"5": {
+		"Phone": "555-1170",
+		"Host": "tty.livingcomputers.org",
+		"Protocol": "ssh",
+		"Username": "pdp1170",
+		"Password": ""
+	},
+	"6": {
+		"Phone": "555-0587",
+		"Host": "tty.livingcomputers.org",
+		"Protocol": "ssh",
+		"Username": "ki587",
+		"Password": ""
+	},
+	"7": {
+		"Phone": "555-2065",
+		"Host": "tty.livingcomputers.org",
+		"Protocol": "ssh",
+		"Username": "kl2065",
+		"Password": ""
+	},
+	"8": {
+		"Phone": "555-6500",
+		"Host": "tty.livingcomputers.org",
+		"Protocol": "ssh",
+		"Username": "cdc6500",
+		"Password": ""
+	},
+	"9": {
+		"Phone": "100-0001",
+		"Host": "towel.blinkenlights.nl",
+		"Protocol": "telnet",
+		"Username": "",
+		"Password": ""
+	},
+	"10": {
+		"Phone": "100-0002",
+		"Host": "alt.org",
+		"Protocol": "ssh",
+		"Username": "nethack",
+		"Password": ""
+	},
+	"11": {
+		"Phone": "100-0003",
+		"Host": "vintage.thcbbs.com",
+		"Protocol": "telnet",
+		"Username": "",
+		"Password": ""
+	},
+	"12": {
+		"Phone": "100-6502",
+		"Host": "bbs.impakt.net:6502",
+		"Protocol": "telnet",
+		"Username": "",
+		"Password": ""
+	}
+}
