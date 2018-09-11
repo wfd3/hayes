@@ -127,18 +127,9 @@ func (s *serialPort) Write(p []byte) (int, error) {
 }
 
 func (s *serialPort) WriteByte(p byte) (int, error) {
-	var out []byte
 
-	// map '\n' to '\n\r'
-	switch p {
-	case registers.Read(REG_CR_CH):
-		out = make([]byte, 2)
-		out[0] = p
-		out[1] = registers.Read(REG_LF_CH)
-	default:
-		out = make([]byte, 1)
-		out[0] = p
-	}
+	out := make([]byte, 1)
+	out[0] = p
 
 	return s.Write(out)
 }

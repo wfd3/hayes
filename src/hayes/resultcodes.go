@@ -119,6 +119,7 @@ func (e *MError) Error() string {
 // I'm starting to think overloading error as result codes is a massive mistake.
 func prstatus(e error) {
 	time.Sleep(300 * time.Millisecond) // Cosmetic pause...
+	serial.Println()
 	if e == nil {
 		switch conf.verbose {
 		case true:  serial.Println("OK")

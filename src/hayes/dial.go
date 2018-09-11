@@ -8,6 +8,11 @@ import (
 	"unicode"
 )
 
+type interruptable struct {
+	conn connection
+	err error
+}
+
 func supportedProtocol(proto string) bool {
 	switch strings.ToUpper(proto) {
 	case "TELNET", "SSH":
@@ -17,9 +22,29 @@ func supportedProtocol(proto string) bool {
 	}
 }
 
+func makeCall(c chan interruptable, protocol, host, username, password string) {
+	var conn connection
+	var err error
+	
+	switch strings.ToUpper(protocol) {
+	case "SSH":
+		conn, err = dialSSH(host, logger, username, password)
+	case "TELNET":
+		conn, err = dialTelnet(host, logger)
+	default: 
+		conn = nil
+		err = fmt.Errorf("Unknown protocol")
+	}
+	if err != nil {
+		logger.Print(err)
+	}
+	c <- interruptable{conn, err}
+}	
+
 // Using the phonebook mapping, fake out dialing a standard phone number
 // (ATDT5551212)
 func dialNumber(phone string) (connection, error) {
+	var i interruptable
 
 	host, protocol, username, password, err := phonebook.Lookup(phone)
 	if err != nil {
@@ -32,13 +57,16 @@ func dialNumber(phone string) (connection, error) {
 		return nil, fmt.Errorf("Unsupported protocol '%s'", protocol)
 	}
 
-	switch strings.ToUpper(protocol) {
-	case "SSH":
-		return dialSSH(host, logger, username, password)
-	case "TELNET":
-		return dialTelnet(host, logger)
+	c := make(chan interruptable)
+	go makeCall(c, protocol, host, username, password)
+	select {
+	case i = <- c:
+		logger.Printf("dialNumber(): conn = %v, err = %s", i.conn, i.err)
+		return i.conn, i.err
+	case <-serial.channel:
+		logger.Print("dialNumber(): user abort")
+		return nil, nil
 	}
-	return nil, fmt.Errorf("Unknown protocol")
 }
 
 func dialStoredNumber(idxstr string) (connection, error) {
@@ -128,8 +156,11 @@ func dial(to string) error {
 		}
 	}
 
-	// if we're connected, setup the connected state in the modem,
-	// otherwise return a BUSY or NO_ANSWER result code.
+	if err == nil && conn == nil { // User aborted
+		return OK	       // Return OK
+	}
+
+	// if there was an error, return a BUSY or NO_ANSWER result code.
 	if err != nil {
 		hangup()
 		if err == ERROR {
@@ -140,6 +171,8 @@ func dial(to string) error {
 		}
 		return BUSY
 	}
+
+	// We're connected, setup the connected state in the modem. 
 
 	// By default, conn.Mode() will return DATAMODE here.
 	// Override and stay in command mode if ; present in the
