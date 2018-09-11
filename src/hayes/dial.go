@@ -120,7 +120,7 @@ func dial(to string) error {
 			logger.Print("Dialing fake number: ", clean_to)
 			conn, err = dialNumber(clean_to)
 		case 'S': // Stored number (ATDS3)
-			conn, err = dialStoredNumber(clean_to[1:])
+			conn, err = dialStoredNumber(clean_to)
 		default:
 			logger.Printf("Dial mode '%c' not supported\n", cmd)
 			hangup()
