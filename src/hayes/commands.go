@@ -109,8 +109,8 @@ func factoryReset() error {
 // AT&V
 func amperV() error {
 	serial.Println("ACTIVE PROFILE:")
-	serial.Println(conf.String())
-	serial.Println(registers.String())
+	serial.Println(conf)
+	serial.Println(registers)
 	serial.Println()
 	serial.Println(profiles)
 	serial.Println("TELEPHONE NUMBERS:")

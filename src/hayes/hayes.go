@@ -40,7 +40,7 @@ type Modem struct {
 }
 
 var m Modem
-var conf Config
+var conf *Config
 var registers *Registers
 var phonebook *Phonebook
 var profiles *storedProfiles
@@ -85,6 +85,7 @@ func main() {
 	go handleSignals()	// Catch signals in a different thread
 
 	// Setup modem inital state
+	conf = &Config{}
 	registers = NewRegisters()
 	factoryReset()
 

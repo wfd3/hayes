@@ -4,8 +4,6 @@ import (
 	"time"
 )
 
-var dtrchan chan bool // "Interrupts" for DTR/S25 interactions
-
 
 // Clear the ring counter after 8s
 // Must be a goroutine
@@ -141,8 +139,6 @@ func processDTR() {
 }
 
 func setupHW() {
-	dtrchan = make(chan bool)
-
 	go clearRingCounter()
 	go handlePins()
 	go handleDTR()	   
