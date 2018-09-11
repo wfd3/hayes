@@ -126,12 +126,12 @@ func (s *serialPort) Write(p []byte) (int, error) {
 	return s.port.Write(p)
 }
 
-func (s *serialPort) WriteByte(p byte) (int, error) {
+func (s *serialPort) WriteByte(p byte) (error) {
 
 	out := make([]byte, 1)
 	out[0] = p
-
-	return s.Write(out)
+	_, err := s.Write(out)
+	return err
 }
 
 func (s *serialPort) Printf(format string, a ...interface{}) error {
