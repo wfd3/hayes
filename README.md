@@ -50,8 +50,10 @@ Modem commands supported:
 *	AT&Z - Store telephone number
 
 Modem Command Extensions:
-*	AT! - Display network status 
-*	AT* - Dump internal state
+*	AT* - Show internal state
+* AT*network - Show network status
+* AT*ledtest - Run the LED test
+* AT*help - debug comamnd help
 * ATDH*host:port* - Dial *host:port*
 * ATDE*host:port|username|password* - Dial *host:port|username|password* using an SSH tunnel
 * AT&Z*n*=D - Delete phone book entry *n*
@@ -93,5 +95,4 @@ Parts needed:
 * Some LEDs and resistors
 
 The docs/ directory has some basic pin mappings and a crude Fritzing diagram (https://github.com/wfd3/hayes/blob/master/docs/Modem%201.fzz).  
-
   
