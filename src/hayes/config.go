@@ -44,9 +44,6 @@ func (c *Config) String() string {
 		return fmt.Sprintf("%d ", p)
 	}
 	x := func(r, b bool) string {
-		if r == false && b == false {
-			return "0 "
-		}
 		if r == true && b == false {
 			return "1 "
 		}
