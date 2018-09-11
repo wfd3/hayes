@@ -97,18 +97,18 @@ func serviceConnection() {
 			return
 		}
 
-		if m.dcd == false {
+		if m.getdcd() == false {
 			logger.Print("conn.Read(): No carrier at network read")
 			return
 		}
 
-		if onHook() {
+		if m.onHook() {
 			logger.Print("conn.Read(): On hook at network read")
 			return
 		}
 
 		// Send the byte to the DTE, blink the RD LED
-		if m.mode == DATAMODE {
+		if m.getMode() == DATAMODE {
 			led_RD_on()
 			serial.Write(buf)
 			led_RD_off()
@@ -127,11 +127,11 @@ func handleCalls() {
 	for {
 		lowerDSR()
 		lowerCTS()
-		setLineBusy(false)
+		m.setLineBusy(false)
 
 		conn = <-callChannel
 
-		setLineBusy(true)
+		m.setLineBusy(true)
 		raiseDSR()
 		raiseCTS()
 
@@ -149,13 +149,13 @@ func handleCalls() {
 		// We now have an established connection (either answered or dialed)
 		// so service it.
 		m.conn = conn
-		m.mode = conn.Mode()
-		m.connectSpeed = 38400
-		m.dcd = true	// Force DCD "up" here.
+		m.setMode(conn.Mode())
+		m.setConnectSpeed(38400)
+		m.dcdHigh()	// Force DCD "up" here.
 		time.Sleep(250 * time.Millisecond)
 		serviceConnection()
 
-		if m.dcd == true { // User didn't hang up, so print status
+		if m.getdcd() == true { // User didn't hang up, so print status
 			serial.Printf("\n")
 			prstatus(NO_CARRIER)
 		}

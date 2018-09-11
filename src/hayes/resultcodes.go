@@ -79,7 +79,7 @@ func (e *MError) Error() string {
 	}
 
 	if e == CONNECT && conf.connectMsgSpeed {
-		me := speedToResult(m.connectSpeed)
+		me := speedToResult(m.getConnectSpeed())
 		if me != CONNECT {
 			return me.Error()
 		}

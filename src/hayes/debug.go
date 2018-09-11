@@ -20,7 +20,7 @@ func outputState(debugf out) {
 
 	debugf("Modem state:\n")
 	debugf(" currentconfig: %d\n", m.currentConfig)
-	switch m.mode {
+	switch m.getMode() {
 	case COMMANDMODE:
 		debugf(" mode         : COMMAND\n")
 	case DATAMODE:
@@ -28,10 +28,10 @@ func outputState(debugf out) {
 	}
 	debugf(" lastCmd      : %s\n", m.lastCmd)
 	debugf(" lastDialed   : %s\n", m.lastDialed)
-	debugf(" connectSpeed : %d\n", m.connectSpeed)
-	debugf(" dcd          : %t\n", m.dcd)
-	debugf(" lineBusy     : %t\n", getLineBusy())
-	debugf(" onHook       : %t\n", onHook())
+	debugf(" connectSpeed : %d\n", m.getConnectSpeed())
+	debugf(" dcd          : %t\n", m.getdcd())
+	debugf(" lineBusy     : %t\n", m.getLineBusy())
+	debugf(" onHook       : %t\n", m.onHook())
 
 	debugf("Config:\n")
 	debugf(" echoInCmdMode : %t\n", conf.echoInCmdMode)

@@ -24,7 +24,7 @@ func handlePins() {
 
 		// Check connect speed, set HS LED
 		switch {
-		case m.connectSpeed > 19200:
+		case m.getConnectSpeed() > 19200:
 			led_HS_on()
 		default:
 			led_HS_off()
@@ -34,7 +34,7 @@ func handlePins() {
 		if conf.dcdPinned { // DCD is pinned high
 			raiseCD()
 		} else {
-			switch m.dcd { // DCD is set by m.dcd
+			switch m.getdcd() { // DCD is set by m.dcd
 			case true:  raiseCD()
 			case false: lowerCD()
 			}
@@ -115,15 +115,15 @@ func processDTR() {
 	case 1:
 		led_TR_on()
 		logger.Print("DTR toggeled, &D1")
-		if m.mode == DATAMODE {
-			m.mode = COMMANDMODE
+		if m.getMode() == DATAMODE {
+			m.setMode(COMMANDMODE)
 			prstatus(OK)
 		}
 		
 	case 2:
 		logger.Print("DTR toggled, &D2")
 		led_TR_off()
-		if offHook() {
+		if m.offHook() {
 			status := hangup()
 			prstatus(status)
 		}

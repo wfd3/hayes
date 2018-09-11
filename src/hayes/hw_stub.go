@@ -7,6 +7,7 @@ package main
 import (
 	"runtime"
 	"strings"
+	"sync"
 )
 
 const (
@@ -35,6 +36,7 @@ type hwPins [_PIN_LEN]bool
 
 var leds hwPins
 var pins hwPins
+var lock sync.RWMutex
 
 func setupPins() {
 	logger.Printf("Simulated Pins enabled on %s/%s\n",
@@ -58,6 +60,9 @@ func clearPins() {
 
 func showPins() string {
 
+	lock.RLock()
+	defer lock.RUnlock()
+	
 	pp := func(n string, p int) string {
 		var s string
 		if pins[p] {
@@ -105,45 +110,69 @@ func showPins() string {
 
 // LED functions
 func led_HS_on() {
+	lock.Lock()
 	leds[HS_LED] = true
+	lock.Unlock()
 }
 func led_HS_off() {
+	lock.Lock()
 	leds[HS_LED] = false
+	lock.Unlock()
 }
 
 func led_AA_on() {
+	lock.Lock()
 	leds[AA_LED] = true
+	lock.Unlock()
 }
 func led_AA_off() {
+	lock.Lock()
 	leds[AA_LED] = false
+	lock.Unlock()
 }
 
 func led_OH_on() {
+	lock.Lock()
 	leds[OH_LED] = true
+	lock.Unlock()
 }
 func led_OH_off() {
+	lock.Lock()
 	leds[OH_LED] = false
+	lock.Unlock()
 }
 
 func led_TR_on() {
+	lock.Lock()
 	leds[TR_LED] = true
+	lock.Unlock()
 }
 func led_TR_off() {
+	lock.Lock()
 	leds[TR_LED] = false
+	lock.Unlock()
 }
 
 func led_SD_on() {
+	lock.Lock()
 	leds[SD_LED] = true
+	lock.Unlock()
 }
 func led_SD_off() {
+	lock.Lock()
 	leds[SD_LED] = false
+	lock.Unlock()
 }
 
 func led_RD_on() {
+	lock.Lock()
 	leds[RD_LED] = true
+	lock.Unlock()
 }
 func led_RD_off() {
+	lock.Lock()
 	leds[RD_LED] = false
+	lock.Unlock()
 }
 
 func ledTest(i int) {
@@ -154,66 +183,91 @@ func ledTest(i int) {
 
 // RI - Ring Indicator
 func raiseRI() {
+	lock.Lock()
 	pins[RI_PIN] = true
+	lock.Unlock()
 }
 func lowerRI() {
+	lock.Lock()
 	pins[RI_PIN] = false
+	lock.Unlock()
 }
 func readRI() bool {
+	lock.RLock()
+	defer lock.RUnlock()
 	return pins[RI_PIN]
 }
 
 // CD - Carrier Detect
 func raiseCD() {
-	leds[CD_LED] = true
+	lock.Lock()
+	leds[CD_LED] = true	
 	pins[CD_PIN] = true
+	lock.Unlock()
+
 }
 func lowerCD() {
+	lock.Lock()
 	leds[CD_LED] = false
 	pins[CD_PIN] = false
+	lock.Unlock()
 }
 func readCD() bool {
+	lock.RLock()
+	defer lock.RUnlock()
 	return pins[CD_PIN]
 }
 
 // DSR - Data Set Ready
 func raiseDSR() {
+	lock.Lock()
 	leds[MR_LED] = true
 	pins[DSR_PIN] = true
-	logger.Print("raiseDSR()")
+	lock.Unlock()
 }
 func lowerDSR() {
+	lock.Lock()
 	leds[MR_LED] = false
 	pins[DSR_PIN] = false
-	logger.Print("lowerDSR()")
+	lock.Unlock()
 }
 func readDSR() bool {
+	lock.RLock()
+	defer lock.RUnlock()
 	return pins[DSR_PIN]
 }
 
 // CTS - Clear to Send
 func raiseCTS() {
+	lock.Lock()
 	leds[CS_LED] = true
 	pins[CTS_PIN] = true
-	logger.Print("raiseCTS()")
+	lock.Unlock()
 }
 func lowerCTS() {
+	lock.Lock()
 	leds[CS_LED] = true
-	pins[CTS_PIN] = false
-	logger.Print("lowerCTS()")
+	pins[CTS_PIN] = false	
+	lock.Unlock()
 }
 func readCTS() bool {
+	lock.RLock()
+	defer lock.RUnlock()
 	return pins[CTS_PIN]
 }
 
 // DTR - Data Terminal Ready (input)
 func readDTR() bool {
 	// Is the computer ready to send data?
+	lock.RLock()
+	defer lock.RUnlock()
 	return pins[DTR_PIN]
 }
 
 // RTS - Request to Send (input)
 func readRTS() bool {
 	// Has the computer requested data be sent?
+	lock.RLock()
+	defer lock.RUnlock()
 	return pins[RTS_PIN]
 }

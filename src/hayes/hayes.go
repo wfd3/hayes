@@ -20,25 +20,6 @@ import (
 	"time"
 )
 
-// What mode is the modem in?
-const (
-	COMMANDMODE bool = false
-	DATAMODE    bool = true
-)
-
-// Basic modem state.  This is ephemeral.
-type Modem struct {
-	currentConfig int             // Which stored config are we using
-	mode          bool            // DATA or COMMAND mode
-	lastCmd       string          // Last command (for A/ command)
-	lastDialed    string          // Last number dialed (for ATDL)
-	connectSpeed  int             // What speed did we connect at (0 or 38k)
-	dcd           bool            // Data Carrier Detect -- active connection?
-	lineBusy      bool            // Is the "phone line" busy?
-	hook          bool            // Is the phone on or off hook?
-	conn          connection      // Current active connection
-}
-
 var m Modem
 var conf *Config
 var registers *Registers

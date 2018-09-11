@@ -16,7 +16,7 @@ func handleSerial() {
 
 		select {
 		case <-timer.C:
-			if m.mode == COMMANDMODE { // Skip if in COMMAND mode
+			if m.getMode() == COMMANDMODE { // Skip if in COMMAND mode
 				continue
 			}
 
@@ -36,7 +36,7 @@ func handleSerial() {
 			} else if waitForOneTick && countAtTick == 0 {
 				logger.Print("Escape sequence detected, ",
 					"entering command mode")
-				m.mode = COMMANDMODE
+				m.setMode(COMMANDMODE)
 				prstatus(OK)
 				s = ""
 				continue
@@ -56,7 +56,7 @@ func handleSerial() {
 		BS  = registers.Read(REG_BS_CH)
 		ESC = registers.Read(REG_ESC_CH)
 
-		switch m.mode {
+		switch m.getMode() {
 		case COMMANDMODE:
 			if conf.echoInCmdMode { // Echo back to the DTE
 				serial.WriteByte(c)
@@ -101,7 +101,7 @@ func handleSerial() {
 				idx = 0
 			}
 			// Send to remote, blinking the SD LED
-			if offHook() && m.conn != nil {
+			if m.offHook() && m.conn != nil {
 				led_SD_on()
 				out := make([]byte, 1)
 				out[0] = c

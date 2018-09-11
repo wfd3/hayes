@@ -38,7 +38,7 @@ func networkStatus() error {
 
 // ATA
 func answer() error {
-	if getLineBusy() {
+	if m.getLineBusy() {
 		logger.Print("Can't answer, line off hook already")
 		return ERROR
 	}
@@ -48,19 +48,19 @@ func answer() error {
 	// Simulate Carrier Detect delay;
 	// REG_CARRIER_DETECT_RESPONSE_TIME is in 1/10's of a second (100ms)
 	cd := registers.Read(REG_CARRIER_DETECT_RESPONSE_TIME)
-	for cd > 0 && !m.dcd {
+	for cd > 0 && !m.getdcd() {
 		time.Sleep(100 * time.Millisecond)
 		cd--
 	}
 
-	if !m.dcd {
+	if !m.getdcd() {
 		logger.Print("No carrier at ATA")
 		hangup()
 		return NO_CARRIER
 	}
 
-	m.mode = DATAMODE
-	m.connectSpeed = 38400 // We only go fast...
+	m.setMode(DATAMODE)
+	m.setConnectSpeed(38400) // We only go fast...
 	return CONNECT
 }
 
@@ -81,7 +81,7 @@ func factoryReset() error {
 
 	// Reset state
 	hangup()
-	setLineBusy(false)
+	m.setLineBusy(false)
 	lowerDSR()
 	lowerCTS()
 	lowerRI()
@@ -368,9 +368,9 @@ func processSingleCommand(cmd string) error {
 		}
 
 	case 'O':
-		switch m.dcd {
+		switch m.getdcd() {
 		case true: 
-			m.mode = DATAMODE 
+			m.setMode(DATAMODE)
 			status = OK
 		case false:
 			status = ERROR

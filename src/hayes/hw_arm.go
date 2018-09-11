@@ -5,6 +5,7 @@ package main
 import (
 	"github.com/stianeikeland/go-rpio"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -19,6 +20,7 @@ type hwPins map[int]rpio.Pin
 
 var leds hwPins
 var pins hwPins
+var hwlock sync.RWMutex
 
 // LED and data pins
 const (
@@ -57,9 +59,12 @@ func setupPins() {
 		logger.Fatal("Fatal Error: ", err)
 	}
 
-	// LEDs
 	leds = make(hwPins)
+	pins = make(hwPins)
 
+	hwlock.Lock()
+
+	// LEDs
 	leds[HS_LED] = rpio.Pin(HS_LED)
 	leds[HS_LED].Output()
 
@@ -91,8 +96,6 @@ func setupPins() {
 	leds[SD_LED].Output()
 
 	// Pins
-	pins = make(hwPins)
-
 	pins[CTS_PIN] = rpio.Pin(CTS_PIN)
 	pins[CTS_PIN].Output()
 
@@ -111,9 +114,14 @@ func setupPins() {
 	pins[RTS_PIN] = rpio.Pin(RTS_PIN)
 	pins[RTS_PIN].Input()
 
+	hwlock.Unlock()
+
 }
 
 func clearPins() {
+	hwlock.Lock()
+	defer hwlock.Unlock()
+	
 	leds[HS_LED].Low()
 	leds[AA_LED].Low()
 	leds[RI_LED].Low()
@@ -133,6 +141,9 @@ func clearPins() {
 }
 
 func showPins() string {
+	hwlock.RLock()
+	defer hwlock.RUnlock()
+	
 	pp := func(n string, pin rpio.Pin, up rpio.State) string {
 		var s string
 		if pin.Read() == up {
@@ -172,44 +183,68 @@ func showPins() string {
 
 // Led functions
 func led_HS_on() {
+	hwlock.Lock()
+	defer hwlock.Unlock()
 	leds[HS_LED].High()
 }
 func led_HS_off() {
+	hwlock.Lock()
+	defer hwlock.Unlock()
 	leds[HS_LED].Low()
 }
 
 func led_AA_on() {
+	hwlock.Lock()
+	defer hwlock.Unlock()
 	leds[AA_LED].High()
 }
 func led_AA_off() {
+	hwlock.Lock()
+	defer hwlock.Unlock()
 	leds[AA_LED].Low()
 }
 
 func led_OH_on() {
+	hwlock.Lock()
+	defer hwlock.Unlock()
 	leds[OH_LED].High()
 }
 func led_OH_off() {
+	hwlock.Lock()
+	defer hwlock.Unlock()
 	leds[OH_LED].Low()
 }
 
 func led_TR_on() {
+	hwlock.Lock()
+	defer hwlock.Unlock()
 	leds[TR_LED].High()
 }
 func led_TR_off() {
+	hwlock.Lock()
+	defer hwlock.Unlock()
 	leds[TR_LED].Low()
 }
 
 func led_SD_on() {
+	hwlock.Lock()
+	defer hwlock.Unlock()
 	leds[SD_LED].High()
 }
 func led_SD_off() {
+	hwlock.Lock()
+	defer hwlock.Unlock()
 	leds[SD_LED].Low()
 }
 
 func led_RD_on() {
+	hwlock.Lock()
+	defer hwlock.Unlock()
 	leds[RD_LED].High()
 }
 func led_RD_off() {
+	hwlock.Lock()
+	defer hwlock.Unlock()
 	leds[RD_LED].Low()
 }
 
@@ -255,63 +290,91 @@ func ledTest(round int) {
 
 // RI - assert RI and turn on RI light
 func raiseRI() {
+	hwlock.Lock()
+	defer hwlock.Unlock()
 	leds[RI_LED].High()
 	pins[RI_PIN].Low()
 }
 func lowerRI() {
+	hwlock.Lock()
+	defer hwlock.Unlock()
 	leds[RI_LED].Low()
 	pins[RI_PIN].High()
 }
 func readRI() bool {
+	hwlock.RLock()
+	defer hwlock.RUnlock()
 	return pins[RI_PIN].Read() == rpio.Low
 }
 
 // CD - assert CD and turn on CD light
 func raiseCD() {
+	hwlock.Lock()
+	defer hwlock.Unlock()
 	leds[CD_LED].High()
 	pins[CD_PIN].Low()
 }
 func lowerCD() {
+	hwlock.Lock()
+	defer hwlock.Unlock()
 	leds[CD_LED].Low()
 	pins[CD_PIN].High()
 }
 func readCD() bool {
+	hwlock.RLock()
+	defer hwlock.RUnlock()
 	return pins[CD_PIN].Read() == rpio.Low
 }
 
 // DSR - assert DSR and turn on MR light
 func raiseDSR() {
+	hwlock.Lock()
+	defer hwlock.Unlock()
 	leds[MR_LED].High()
 	pins[DSR_PIN].Low()
 }
 
 func lowerDSR() {
+	hwlock.Lock()
+	defer hwlock.Unlock()
 	leds[MR_LED].Low()
 	pins[DSR_PIN].High()
 }
 func readDSR() bool {
+	hwlock.RLock()
+	defer hwlock.RUnlock()
 	return pins[DSR_PIN].Read() == rpio.Low
 }
 
 // CTS - assert CTS and turn on CS light
 func raiseCTS() {
+	hwlock.Lock()
+	defer hwlock.Unlock()
 	leds[CS_LED].High()
 	pins[CTS_PIN].Low()
 }
 func lowerCTS() {
+	hwlock.Lock()
+	defer hwlock.Unlock()
 	leds[CS_LED].Low()
 	pins[CTS_PIN].High()
 }
 func readCTS() bool {
+	hwlock.RLock()
+	defer hwlock.RUnlock()
 	return pins[CTS_PIN].Read() == rpio.Low
 }
 
 // DTR (input)
 func readDTR() bool {
+	hwlock.RLock()
+	defer hwlock.RUnlock()
 	return pins[DTR_PIN].Read() == rpio.Low
 }
 
 // RTS (input)
 func readRTS() bool {
+	hwlock.RLock()
+	defer hwlock.RUnlock()
 	return pins[RTS_PIN].Read() == rpio.Low
 }

@@ -23,9 +23,9 @@ const __CONNECT_TIMEOUT = __MAX_RINGS * 6 * time.Second
 func hangup() error {
 	var ret error = OK
 	
-	m.dcd = false
+	m.dcdLow()
 	lowerDSR()
-	m.hook = ONHOOK
+	m.goOnHook()
 
 	// It's OK to hang up the phone when there's no active network connection.
 	// But if there is, close it.
@@ -36,9 +36,9 @@ func hangup() error {
 		ret = NO_CARRIER
 	}
 
-	m.mode = COMMANDMODE
-	m.connectSpeed = 0
-	setLineBusy(false)
+	m.setMode(COMMANDMODE)
+	m.setConnectSpeed(0)
+	m.setLineBusy(false)
 	led_HS_off()
 	led_OH_off()
 
@@ -52,32 +52,15 @@ func hangup() error {
 // ATH1
 // Note that this will execute in a different context than answerIncoming()
 func pickup() error {
-	setLineBusy(true)
-	m.hook = OFFHOOK
+	m.setLineBusy(true)
+	m.goOffHook()
 	led_OH_on()
 	return OK
 }
 
-func onHook() bool {
-	return m.hook == ONHOOK
-}
-
-func offHook() bool {
-	return m.hook == OFFHOOK
-}
-
-// Is the phone line busy?
-func getLineBusy() bool {
-	return m.lineBusy
-}
-
-func setLineBusy(b bool) {
-	m.lineBusy = b
-}
-
 // "Busy" signal.
 func checkBusy() bool {
-	return offHook() || getLineBusy()
+	return m.offHook() || m.getLineBusy()
 }
 
 // Answer an incomming call.
@@ -91,7 +74,7 @@ func answerIncomming(conn connection) bool {
 		last_ring_time = time.Now()
 		conn.Write([]byte("Ringing...\n\r"))
 		logger.Print("Ringing")
-		if offHook() { // computer has issued 'ATA'
+		if m.offHook() { // computer has issued 'ATA'
 			goto answered
 		}
 
@@ -102,13 +85,13 @@ func answerIncomming(conn connection) bool {
 		// Ring for 2s
 		d := 0
 		raiseRI()
-		for onHook() && d < 2000 {
+		for m.onHook() && d < 2000 {
 			if _, err := conn.Write(zero); err != nil {
 				goto no_answer
 			}
 			time.Sleep(__DELAY_MS * time.Millisecond)
 			d += __DELAY_MS
-			if offHook() { // computer has issued 'ATA'
+			if m.offHook() { // computer has issued 'ATA'
 				goto answered
 			}
 		}
@@ -134,7 +117,7 @@ func answerIncomming(conn connection) bool {
 
 		// Silence for 4s
 		d = 0
-		for onHook() && d < 4000 {
+		for m.onHook() && d < 4000 {
 			// Test for closed connection
 			if _, err := conn.Write(zero); err != nil {
 				goto no_answer
@@ -142,7 +125,7 @@ func answerIncomming(conn connection) bool {
 
 			time.Sleep(__DELAY_MS * time.Millisecond)
 			d += __DELAY_MS
-			if offHook() { // computer has issued 'ATA'
+			if m.offHook() { // computer has issued 'ATA'
 				goto answered
 			}
 		}
