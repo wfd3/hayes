@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"sort"
 	"strings"
 )
 
@@ -26,6 +25,7 @@ func NewPhonebook(filename string, log *log.Logger) *Phonebook {
 	var pb Phonebook
 	pb.filename = filename
 	pb.log = log
+	pb.entries = make(map[int]pb_host)
 	return &pb
 }
 
@@ -60,26 +60,28 @@ func (p *Phonebook) Write() error {
 }
 
 func (p *Phonebook) String() string {
-	if len(p.entries) == 0 {
+	var s string
+
+	count := len(p.entries)
+	if count  == 0 {
 		return "0=\n1=\n2=\n3=\n"
 	}
-
-	var s string
-	var keys []int
-	for k := range p.entries {
-		keys = append(keys, k)
+	if count < 3 {
+		count = 3
 	}
-	sort.Ints(keys)
-	max := keys[len(keys)-1]
 
-	for i := 0; i <= max; i++ {
-		phone, _ := sanitizeNumber(p.entries[i].Phone)
-		if phone == "" {
-			phone = p.entries[i].Phone
+	for i := 0; i <= count; i++ {
+		entry, found := p.entries[i]
+		if found {
+			phone, _ := sanitizeNumber(entry.Phone)
+			if phone == "" {
+				phone = entry.Phone
+			}
+			s += fmt.Sprintf("%d=%s (%s, '%s'/'%s')\n", i, phone,
+				entry.Host, entry.Username, entry.Password)
+		} else {
+			s += fmt.Sprintf("%d=\n", i)
 		}
-		s += fmt.Sprintf("%d=%s (%s, '%s'/'%s')\n", i, phone,
-			p.entries[i].Host, p.entries[i].Username,
-			p.entries[i].Password)
 	}
 	return s
 }
@@ -180,7 +182,7 @@ func (p *Phonebook) Add(pos int, phone string) error {
 		return fmt.Errorf("Number already exisits at another position in phonebook")
 	}
 
-	p.entries[pos] = pb_host{host, phone, proto, username, pw}
+	p.entries[pos] = pb_host{phone, host, proto, username, pw}
 	p.Write()
 	return nil
 }

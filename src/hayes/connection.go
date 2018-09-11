@@ -152,6 +152,7 @@ func handleCalls() {
 		m.mode = conn.Mode()
 		m.connectSpeed = 38400
 		m.dcd = true	// Force DCD "up" here.
+		time.Sleep(250 * time.Millisecond)
 		serviceConnection()
 
 		if m.dcd == true { // User didn't hang up, so print status
