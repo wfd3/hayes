@@ -3,6 +3,7 @@ package main
 import (
 	"code.cloudfoundry.org/bytefmt"
 	"fmt"
+	"net"
 	"runtime"
 )
 
@@ -73,6 +74,45 @@ func logState() {
 	outputState(logf)
 }
 
+// Show the user what our current network status is.
+func networkStatus() {
+	serial.Println("LISTENING ON:")
+	ifaces, _ := net.Interfaces()
+	for _, i := range ifaces {
+		addrs, _ := i.Addrs()
+		for _, a := range addrs {
+			ip, _, _ := net.ParseCIDR(a.String())
+			if !ip.IsMulticast() && !ip.IsLoopback() &&
+				!ip.IsUnspecified() && !ip.IsLinkLocalUnicast() {
+				serial.Printf("  Interface %s: %s\n", i.Name, ip)
+			}
+		}
+	}
+	serial.Println("ACTIVE PROTOCOLS:")
+	if !flags.skipTelnet {
+		serial.Printf("  Telnet (%d)\n", flags.telnetPort)
+	}
+	if !flags.skipSSH {
+		serial.Printf("  SSH (%d)\n", flags.sshdPort)
+	}
+
+	serial.Println("ACTIVE CONNECTION:")
+	if m.conn != nil {
+		serial.Printf("  %s\n", m.conn)
+	} else {
+		serial.Println("  NONE")
+	}
+		
+}
+
+func help() {
+	serial.Println("Debug commands:")
+	serial.Println("AT*        - show internal state")
+	serial.Println("AT*network - show network status")
+	serial.Println("AT*ledtest - run the LED test")
+	serial.Println("AT*help    - this help")
+}
+
 // Given a parsed register command, execute it.
 func debug(cmd string) error {
 	logger.Printf("cmd = '%s'", cmd)
@@ -81,8 +121,12 @@ func debug(cmd string) error {
 	case cmd == "*":
 		showState()
 		logState()
+	case cmd == "*help":
+		help()
 	case cmd == "*ledtest":
 		ledTest(5)
+	case cmd == "*network":
+		networkStatus()
 	default:
 		return fmt.Errorf("Bad debug command: %s", cmd)
 	}

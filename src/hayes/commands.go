@@ -2,39 +2,8 @@ package main
 
 import (
 	"fmt"
-	"net"
 	"time"
 )
-
-// Show the user what our current network status is.
-func networkStatus() error {
-	serial.Println("LISTENING ON:")
-	ifaces, _ := net.Interfaces()
-	for _, i := range ifaces {
-		addrs, _ := i.Addrs()
-		for _, a := range addrs {
-			ip, _, _ := net.ParseCIDR(a.String())
-			if !ip.IsMulticast() && !ip.IsLoopback() &&
-				!ip.IsUnspecified() && !ip.IsLinkLocalUnicast() {
-				serial.Printf("  Interface %s: %s\n", i.Name, ip)
-			}
-		}
-	}
-	serial.Println("ACTIVE PROTOCOLS:")
-	if !flags.skipTelnet {
-		serial.Printf("  Telnet (%d)\n", flags.telnetPort)
-	}
-	if !flags.skipSSH {
-		serial.Printf("  SSH (%d)\n", flags.sshdPort)
-	}
-
-	serial.Println("ACTIVE CONNECTION:")
-	if m.conn != nil {
-		serial.Printf("  %s\n", m.conn)
-	}
-		
-	return OK
-}
 
 // ATA
 func answer() error {
@@ -410,9 +379,6 @@ func processSingleCommand(cmd string) error {
 
 	case '*':
 		status = debug(cmd)
-
-	case '!':
-		status = networkStatus()
 
 	case 'B', 'C', 'F', 'N', 'P', 'T', 'Y': // faked out commands
 		status = OK
