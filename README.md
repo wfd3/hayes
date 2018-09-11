@@ -1,4 +1,4 @@
-# hayes
+# Hayes - 
 Connect vintage computers to the Internet.  Turn a Raspberry Pi 3, some associated hardware bits, and some Go into a fully functional Hayes Smartmodem.
 
 ```
