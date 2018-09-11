@@ -139,7 +139,6 @@ func (m *telnetReadWriteCloser) command(p []byte) (i int, err error) {
 		s += decode(p[0])
 		if p[0] != LINEMODE && p[0] != ECHO {
 			m.c.Write([]byte{IAC, DONT, p[0]})
-			logger.Printf("Sending: IAC WONT %s", decode(p[0]))
 		}
 		i, err = m.c.Read(p) // read next char
 		
@@ -148,7 +147,6 @@ func (m *telnetReadWriteCloser) command(p []byte) (i int, err error) {
 		s += decode(p[0])
 		if p[0] != LINEMODE && p[0] != ECHO {
 			m.c.Write([]byte{IAC, WONT, p[0]})
-			logger.Printf("Sending: IAC WONT %s", decode(p[0]))
 		}
 		i, err = m.c.Read(p) // read next char
 		
