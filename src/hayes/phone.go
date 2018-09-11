@@ -71,7 +71,7 @@ func answerIncomming(conn connection) bool {
 
 	r := registers
 	for i := 0; i < __MAX_RINGS; i++ {
-		last_ring_time = time.Now()
+		m.setLastRingTime()
 		conn.Write([]byte("Ringing...\n\r"))
 		logger.Print("Ringing")
 		if m.offHook() { // computer has issued 'ATA'

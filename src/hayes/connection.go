@@ -126,7 +126,6 @@ func handleCalls() {
 	var conn connection
 	for {
 		lowerDSR()
-		lowerCTS()
 		m.setLineBusy(false)
 
 		conn = <-callChannel

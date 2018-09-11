@@ -9,7 +9,7 @@ func handleSerial() {
 	var idx int
 	var countAtTick, countAtLastTick uint64
 	var waitForOneTick bool
-	
+
 	// Start accepting and processing bytes from the DTE
 	countAtTick = 0
 	for {

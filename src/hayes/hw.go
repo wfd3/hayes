@@ -10,7 +10,7 @@ import (
 func clearRingCounter() {
 	delay := 8 * time.Second
 	for range time.Tick(delay) {
-		if time.Since(last_ring_time) >= delay {
+		if time.Since(m.getLastRingTime()) >= delay {
 			registers.Write(REG_RING_COUNT, 0)
 		}
 	}
