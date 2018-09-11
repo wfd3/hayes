@@ -23,9 +23,10 @@ Supported Commands
 	AT&Z - Store telephone number
 
 Extensions:
-	AT! - Display network status 
-	AT* - Debug data
-
+	AT*        - Debug: dump internal state
+	AT*network - Debug: show network status
+	AT*ledtest - Debug: run the LED test
+	AT*help    - this help text
 
 Faked out, no action but returns OK status
    	 ATB
