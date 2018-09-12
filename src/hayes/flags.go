@@ -23,8 +23,8 @@ var flags struct {
 	telnetPort  uint
 	sshdPort    uint
 	privateKey  string
-	skipTelnet  bool
-	skipSSH     bool
+	telnet      bool
+	ssh         bool
 }
 
 func initFlags() {
@@ -57,11 +57,11 @@ func initFlags() {
 	flag.StringVar(&flags.privateKey, "keyfile", __ID_RSA_FILE,
 		"SSH Private Key `file`")
 
-	flag.BoolVar(&flags.skipTelnet, "notelnet", false,
-		"Don't start telnet server (default false)")
+	flag.BoolVar(&flags.telnet, "telnet", true,
+		"Start telnet server (default true)")
 
-	flag.BoolVar(&flags.skipSSH, "nossh", false,
-		"Don't start SSH server (default false)")
+	flag.BoolVar(&flags.ssh, "ssh", true,
+		"Start SSH server (default true)")
 
 	flag.Parse()
 }

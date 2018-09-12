@@ -31,21 +31,19 @@ type connection interface {
 func startAcceptingCalls() {
 	started_ok := make(chan error)
 
-	if flags.skipTelnet {
-		logger.Print("Telnet server not started by command line flag")
-	} else {
+	if flags.telnet {
 		go acceptTelnet(callChannel, checkBusy, logger, started_ok)
 		if err := <-started_ok; err != nil {
 			logger.Printf("Telnet server failed to start: %s", err)
 		} else {
 			logger.Print("Telnet server started")
 		}
+	} else {
+		logger.Print("Telnet server not started by command line flag")
 	}
 
 
-	if flags.skipSSH {
-		logger.Print("SSH server not started by command line flag")
-	} else {
+	if flags.ssh {
 		go acceptSSH(callChannel, flags.privateKey, checkBusy, logger,
 			started_ok)
 		if err := <-started_ok; err != nil {
@@ -53,6 +51,8 @@ func startAcceptingCalls() {
 		} else {
 			logger.Print("SSH server started")
 		}
+	} else {
+		logger.Print("SSH server not started by command line flag")
 	}
 }
 

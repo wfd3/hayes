@@ -5,10 +5,14 @@ import (
 	"fmt"
 	"net"
 	"runtime"
+	"strings"
 )
 
 func logf(format string, a ...interface{}) {
-	logger.Printf(format, a...)
+	out := fmt.Sprintf(format, a...)
+	out = strings.Replace(out, "\n", "; ", -1)
+	out = strings.TrimRight(out, "; ")
+	logger.Print(out)
 }
 func pf(format string, a ...interface{}) {
 	serial.Printf(format, a...)
@@ -47,12 +51,10 @@ func outputState(debugf out) {
 	debugf(" dsrPinned     : %t\n", conf.dsrPinned)
 	debugf(" dtr           : %d\n", conf.dtr)
 
-	debugf("Phonebook:\n")
-	debugf("%s\n", phonebook.String())
-
-	debugf("Registers:\n")
 	debugf("Curent register: %d\n", registers.ShowCurrent())
-	debugf("%s\n", registers.String())
+	debugf("Registers: %s\n", registers.String())
+
+	debugf("Phonebook: %s\n", phonebook.String())
 
 	if m.conn != nil {
 		sent, recv := m.conn.Stats()
@@ -89,10 +91,10 @@ func networkStatus() {
 		}
 	}
 	serial.Println("ACTIVE PROTOCOLS:")
-	if !flags.skipTelnet {
+	if flags.telnet {
 		serial.Printf("  Telnet (%d)\n", flags.telnetPort)
 	}
-	if !flags.skipSSH {
+	if flags.ssh {
 		serial.Printf("  SSH (%d)\n", flags.sshdPort)
 	}
 
