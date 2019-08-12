@@ -13,6 +13,8 @@ type MError struct {
 	text string
 }
 
+var last_error error
+var last_error_time time.Time
 var (
 	OK             error = nil
 	CONNECT        error = NewMerror(1, "CONNECT")
@@ -115,7 +117,8 @@ func (e *MError) Error() string {
 	return s
 }
 
-// This is needed because nil errors are "OK", but Prinln(OK) can't work.
+// This is needed because nil errors are "OK", but Prinln(OK) can't work, because
+// 'fmt.Println((nil).Error())' is impossible.
 // I'm starting to think overloading error as result codes is a massive mistake.
 func prstatus(e error) {
 	time.Sleep(300 * time.Millisecond) // Cosmetic pause...
@@ -124,6 +127,9 @@ func prstatus(e error) {
 		switch conf.verbose {
 		case true:  serial.Println("OK")
 		case false: serial.Println("0")
+		}
+		if flags.lcd {
+			lcd.Printf(1, "READY")
 		}
 	} else {
 		
@@ -134,5 +140,12 @@ func prstatus(e error) {
 			e = ERROR
 		}
 		serial.Println(e)
+		fmt.Println("fOO")
+		if flags.lcd {
+			fmt.Println("WOO")
+			lcd.Printf(1, "%s", e.Error())
+		}
 	}
+	last_error = e
+	last_error_time = time.Now()
 }	

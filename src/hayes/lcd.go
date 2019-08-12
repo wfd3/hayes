@@ -246,6 +246,9 @@ func NewLcd(c int, r int) (*Lcd, error) {
 }
 
 func (lcd *Lcd) BacklightOn() {
+	if !flags.lcd {
+		return
+	}
 	lcd.m.Lock()
 	defer lcd.m.Unlock()
 	lcd.writeI2C(pinInterpret(INT_BACKLIGHT, 0x00, true))
@@ -253,6 +256,9 @@ func (lcd *Lcd) BacklightOn() {
 }
 
 func (lcd *Lcd) BacklightOff() {
+	if !flags.lcd {
+		return
+	}
 	lcd.m.Lock()
 	defer lcd.m.Unlock()
 	lcd.writeI2C(pinInterpret(INT_BACKLIGHT, 0x00, false))
@@ -260,18 +266,27 @@ func (lcd *Lcd) BacklightOff() {
 }
 
 func (lcd *Lcd) Clear() {
+	if !flags.lcd {
+		return
+	}
 	lcd.m.Lock()
 	defer lcd.m.Unlock()
 	lcd.command(CMD_Clear_Display)
 }
 
 func (lcd *Lcd) Home() {
+	if !flags.lcd {
+		return
+	}
 	lcd.m.Lock()
 	defer lcd.m.Unlock()
 	lcd.command(CMD_Return_Home)
 }
 
 func (lcd *Lcd) SetPosition(line, pos byte) error {
+	if !flags.lcd {
+		return nil
+	}
 	address, err := lcd.getLCDaddress(line, pos)
 	if err != nil {
 		return err
@@ -284,11 +299,17 @@ func (lcd *Lcd) SetPosition(line, pos byte) error {
 }
 
 func (lcd *Lcd) ClearLine(line byte) {
+	if !flags.lcd {
+		return
+	}
 	s := pad("", lcd.cols)
 	lcd.print(line, s)
 }
 
 func (lcd *Lcd) Centerf(line byte, format string, a ...interface{}) (int, error) {
+	if !flags.lcd {
+		return 0, nil
+	}
 	out := sfmt(format, a...)
 	out = shift(out, (lcd.cols - len(out))/2)
 	out = pad(out, lcd.cols)
@@ -296,37 +317,19 @@ func (lcd *Lcd) Centerf(line byte, format string, a ...interface{}) (int, error)
 }
 
 func (lcd *Lcd) RightJustifyf(line byte, format string, a ...interface{}) (int, error) {
+	if !flags.lcd {
+		return 0, nil
+	}
 	out := sfmt(format, a...)
 	out = shift(out, lcd.cols - len(out))
 	return lcd.print(line, out)
 }
 
 func (lcd *Lcd) Printf(line byte, format string, a ...interface{}) (int, error) {
+	if !flags.lcd {
+		return 0, nil
+	}
 	out := sfmt(format, a...)
 	out = pad(out, lcd.cols)
 	return lcd.print(line, out)
-}
-
-func setupLCD() {
-	var err error
-	if !flags.lcd {
-		return
-	}
-	lcd, err = NewLcd(16, 2)
-	if err != nil {
-		logger.Fatal(err)
-	}
-	lcd.BacklightOn()
-	lcd.Clear()
-	lcd.SetPosition(1,1)
-	lcd.Centerf(1, "RetroHayes 1.0")
-}
-
-func shutdownLCD() {
-	if !flags.lcd {
-		return
-	}
-	
-	lcd.Clear()
-	lcd.BacklightOff()
 }

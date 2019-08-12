@@ -16,6 +16,18 @@ func clearRingCounter() {
 	}
 }
 
+func clearLCDNoCarier() {
+	delay := 10 * time.Second
+	for range time.Tick(delay) {
+		if last_error == NO_CARRIER &&
+			time.Since(last_error_time) >= delay {
+			lcd.Printf(1, "OK")
+			last_error = OK
+			last_error_time = time.Now()
+		}
+	}
+}
+
 // Watch a subset of pins and/or config, and act as apropriate. 
 // Must be a goroutine
 func handlePins() {
@@ -141,5 +153,6 @@ func processDTR() {
 func setupHW() {
 	go clearRingCounter()
 	go handlePins()
-	go handleDTR()	   
+	go handleDTR()
+	go clearLCDNoCarier()
 }

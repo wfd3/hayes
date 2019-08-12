@@ -101,6 +101,9 @@ func answerIncomming(conn connection) bool {
 		// "RING" text /after/ the RI signal is lowered.  Do
 		// this here so we behave the same.
 		serial.Println(RING)
+		if flags.lcd {
+			lcd.Printf(1, "RING")
+		}
 
 		// If Auto Answer is enabled and we've exceeded the
 		// configured number of rings to wait before

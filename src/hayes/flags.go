@@ -25,6 +25,8 @@ var flags struct {
 	privateKey  string
 	telnet      bool
 	ssh         bool
+	sound       bool
+	lcd         bool
 }
 
 func initFlags() {
@@ -62,6 +64,13 @@ func initFlags() {
 
 	flag.BoolVar(&flags.ssh, "ssh", true,
 		"Start SSH server (default true)")
+
+	flag.BoolVar(&flags.sound, "sound", false,
+		"Simulate sounds (default false)")
+
+	flag.BoolVar(&flags.lcd, "lcd", false,
+		"Use LCD (default false)")
+
 
 	flag.Parse()
 }

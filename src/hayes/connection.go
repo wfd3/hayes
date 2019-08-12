@@ -151,6 +151,7 @@ func handleCalls() {
 		m.setMode(conn.Mode())
 		m.setConnectSpeed(38400)
 		m.dcdHigh()	// Force DCD "up" here.
+		prstatus(CONNECT)
 		time.Sleep(250 * time.Millisecond)
 		serviceConnection()
 

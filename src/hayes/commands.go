@@ -318,22 +318,24 @@ func processSingleCommand(cmd string) error {
 		switch cmd[1] {
 		case '0':
 			conf.speakerVolume = 0
+			setVolume(0)
 		case '1':
 			conf.speakerVolume = 1
+			setVolume(33)
 		case '2':
 			conf.speakerVolume = 2
+			setVolume(66)
 		case '3':
 			conf.speakerVolume = 3
+			setVolume(100)
 		}
 
 	case 'M':
 		switch cmd[1] {
-		case '0':
-			conf.speakerMode = 0
-		case '1':
-			conf.speakerMode = 1
-		case '2':
-			conf.speakerMode = 2
+		case '0': conf.speakerMode = 0 // Speaker always off
+		case '1': conf.speakerMode = 1 // On until carrier detected
+		case '2': conf.speakerMode = 2 // Always on
+		case '3': conf.speakerMode = 3 // On until carrier detected except during dialing
 		}
 
 	case 'O':
@@ -347,12 +349,9 @@ func processSingleCommand(cmd string) error {
 
 	case 'W':
 		switch cmd[1] {
-		case '0':
-			conf.connectMsgSpeed = false
-		case '1', '2':
-			conf.connectMsgSpeed = true
-		default:
-			status = ERROR
+		case '0': conf.connectMsgSpeed = false
+		case '1', '2': conf.connectMsgSpeed = true
+		default: status = ERROR
 		}
 
 	case 'X': // Change result codes displayed

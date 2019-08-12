@@ -118,6 +118,10 @@ func NewTone(freqs ...float64) *tone {
 }
 
 func (t *tone) StopFreq(freq float64) {
+	if !flags.sound {
+		return
+	}
+
 	wave, exists := t.waves[freq]
 	if exists {
 		wave.Stop()
@@ -125,24 +129,40 @@ func (t *tone) StopFreq(freq float64) {
 }
 
 func (t *tone) Stop() {
+	if !flags.sound {
+		return
+	}
+
 	for _, wave := range t.waves {
 		wave.Stop()
 	}
 }
 
 func (t *tone) BackgroundPlay() {
+	if !flags.sound {
+		return
+	}
+
 	for _, wave := range t.waves {
 		go wave.Play()
 	}
 }
 
 func (t *tone) Play(duration time.Duration) {
+	if !flags.sound {
+		return
+	}
+
 	t.BackgroundPlay()
 	time.Sleep(duration)
 	t.Stop()
 }
 
 func (t *tone)AddFreq(freq float64) {
+	if !flags.sound {
+		return
+	}
+
 	if _, exists := t.waves[freq]; !exists {
 		t.waves[freq] = NewSineWave(freq)
 	}
@@ -167,8 +187,9 @@ func getKeyTones(key rune) *tone {
 	case '0': return NewTone(1336.0, 941.0)
 	case '#': return NewTone(1447.0, 941.0)
 	case 'D': return NewTone(1633.0, 941.0)
+	default: logger.Printf("Unknown DTMF key: %c", key)
 	}
-	panic("invalid key")
+	return nil
 }
 
 var DialTone = NewTone(350.0, 440.0)
@@ -181,6 +202,10 @@ var BusyTone = NewTone(480.0, 620.0)
 
 // Not exactly timed but close enough
 func carrierTone(duration time.Duration) {
+	if !flags.sound {
+		return
+	}
+
 	t := NewTone(0, 2100.0)
 	start := time.Now()
 	t.BackgroundPlay()
@@ -211,6 +236,10 @@ func carrierTone(duration time.Duration) {
 }
 
 func ringTone(count int) {
+	if !flags.sound {
+		return
+	}
+
 	for i := 0; i < count; i++ {
 		RingTone.Play(2 * time.Second)
 		time.Sleep(4 * time.Second)
@@ -218,16 +247,24 @@ func ringTone(count int) {
 }
 
 func busyTone(count int) {
+	if !flags.sound {
+		return
+	}
+
 	for i:= 0; i < count; i++ {
 		BusyTone.Play(500 * time.Millisecond)
 		time.Sleep(500 * time.Millisecond)
 	}
 }
 
-func dialSounds(s string, keypressDelay, interkeyDelay time.Duration) error {
+func dialSounds(s string, keypressDelay, interkeyDelay time.Duration) {
+	if !flags.sound {
+		return 
+	}
+
 	for _, key := range s {
 		if key == ',' {
-			time.Sleep(2*time.Second)
+			time.Sleep(2*time.Second) // TODO: I think there's a register for , delay time
 			continue
 		}
 
@@ -235,34 +272,9 @@ func dialSounds(s string, keypressDelay, interkeyDelay time.Duration) error {
 		t.Play(keypressDelay)
 		time.Sleep(interkeyDelay)
 	}
-
-	return nil
 }
 
-/*
-func main() {
-
-	setVolume(50)
-	
-	fmt.Println("Forground dialtone")
-	DialTone.Play(time.Second)
-
-	fmt.Println("Background dialtone")
-	DialTone.BackgroundPlay()
-	time.Sleep(500 * time.Millisecond)
-	DialTone.Stop()
-	fmt.Println("Background stopped")
-	
-	fmt.Println("Dial")
-	dial("123456789", 100 * time.Millisecond, 10 * time.Millisecond)
-
-	fmt.Println("Ringtone 2")
-	ringTone(2)
-	
-	fmt.Println("Carrier tones")
-	carrierTone(3 * time.Second)
-
-	fmt.Println("Busy tone 4s")
-	busyTone(4)
+func simulateDTMF(s string) {
+	DialTone.Play(250 * time.Millisecond)
+	dialSounds(s, 150 * time.Millisecond, 50 * time.Millisecond)
 }
-*/

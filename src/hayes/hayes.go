@@ -27,6 +27,7 @@ var phonebook *Phonebook
 var profiles *storedProfiles
 var serial *serialPort
 var callChannel chan connection
+var lcd *Lcd
 
 // Catch ^C, reset the HW pins
 // Must be a goroutine
@@ -37,10 +38,11 @@ func handleSignals() {
 	for {
 		// Block until a signal is received.
 		s := <-c
-		logger.Print("Caught signal: ", s)
+		logger.Print("Caught signal: %s", s)
 		switch s {
 		case syscall.SIGINT:
 			clearPins()
+			shutdownLCD()
 			logger.Print("Exiting")
 			os.Exit(0)
 
@@ -48,6 +50,31 @@ func handleSignals() {
 			logState()
 		}
 	}
+}
+
+func setupLCD() {
+	if !flags.lcd {
+		return
+	}
+
+	var err error
+	lcd, err = NewLcd(16, 2)
+	if err != nil {
+		logger.Fatal(err)
+	}
+	lcd.BacklightOn()
+	lcd.Clear()
+	lcd.SetPosition(1,1)
+	lcd.Centerf(1, "RetroHayes 1.0")
+}
+
+func shutdownLCD() {
+	if !flags.lcd {
+		return
+	}
+	
+	lcd.Clear()
+	lcd.BacklightOff()
 }
 
 // Boot the modem
@@ -61,7 +88,8 @@ func main() {
 	// Setup the GPIO and serial port hardware
 	setupPins()
 	serial = setupSerialPort(flags.serialPort, flags.serialSpeed)
-
+	setupLCD()
+	
 	go handleSignals()	// Catch signals in a different thread
 
 	// Setup modem inital state

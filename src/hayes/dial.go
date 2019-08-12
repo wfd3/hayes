@@ -62,10 +62,13 @@ func dialNumber(phone string) (connection, error) {
 	select {
 	case i = <- c:
 		logger.Printf("dialNumber(): conn = %v, err = %s", i.conn, i.err)
+		RingTone.Stop()
 		return i.conn, i.err
 	case <-serial.channel:
 		logger.Print("dialNumber(): user abort")
 		return nil, nil
+
+		// Use time.Tick() here to "ring" the phone
 	}
 }
 
@@ -124,11 +127,15 @@ func dial(to string) error {
 
 	// Is this ATD<number>?  If so, dial it
 	if unicode.IsDigit(rune(cmd)) {
-		clean_to = r.Replace(to[1:])
+		clean_to = to[1:]
+		lcd.Printf(1, "Dialing %s" , clean_to)
+		simulateDTMF(clean_to)
+		clean_to = r.Replace(clean_to)
 		conn, err = dialNumber(clean_to)
 	} else { // ATD<modifier>
 
 		clean_to = r.Replace(to[2:])
+		lcd.Printf(1, "Dialing %s" , clean_to)
 
 		switch cmd {
 		case 'H': // Hostname (ATDH hostname)
