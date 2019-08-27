@@ -18,6 +18,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	lcdm "github.com/wfd3/lcd"
 )
 
 var m Modem
@@ -27,7 +28,7 @@ var phonebook *Phonebook
 var profiles *storedProfiles
 var serial *serialPort
 var callChannel chan connection
-var lcd *Lcd
+var lcd *lcdm.Lcd
 
 // Catch ^C, reset the HW pins
 // Must be a goroutine
@@ -58,10 +59,11 @@ func setupLCD() {
 	}
 
 	var err error
-	lcd, err = NewLcd(16, 2)
+	lcd, err = lcdm.NewLcd(2, 16)
 	if err != nil {
 		logger.Fatal(err)
 	}
+	lcd.On()
 	lcd.BacklightOn()
 	lcd.Clear()
 	lcd.SetPosition(1,1)
@@ -75,6 +77,7 @@ func shutdownLCD() {
 	
 	lcd.Clear()
 	lcd.BacklightOff()
+	lcd.Off()
 }
 
 // Boot the modem
