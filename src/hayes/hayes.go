@@ -39,7 +39,7 @@ func handleSignals() {
 	for {
 		// Block until a signal is received.
 		s := <-c
-		logger.Print("Caught signal: %s", s)
+		logger.Printf("Caught signal: %s", s)
 		switch s {
 		case syscall.SIGINT:
 			clearPins()
@@ -54,30 +54,26 @@ func handleSignals() {
 }
 
 func setupLCD() {
-	if !flags.lcd {
-		return
+	lcd = lcdm.NewLcd(2, 16)
+	if flags.lcd {
+		err := lcd.EnableHW()
+		if err != nil {
+			logger.Fatal(err)
+		}
+		lcd.On()
+		lcd.BacklightOn()
+		lcd.Clear()
+		lcd.SetPosition(1,1)
+		lcd.Centerf(1, "RetroHayes 1.0")
 	}
-
-	var err error
-	lcd, err = lcdm.NewLcd(2, 16)
-	if err != nil {
-		logger.Fatal(err)
-	}
-	lcd.On()
-	lcd.BacklightOn()
-	lcd.Clear()
-	lcd.SetPosition(1,1)
-	lcd.Centerf(1, "RetroHayes 1.0")
 }
 
 func shutdownLCD() {
-	if !flags.lcd {
-		return
+	if flags.lcd {
+		lcd.Clear()
+		lcd.BacklightOff()
+		lcd.Off()
 	}
-	
-	lcd.Clear()
-	lcd.BacklightOff()
-	lcd.Off()
 }
 
 // Boot the modem

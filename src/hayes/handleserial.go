@@ -1,6 +1,37 @@
 package main
 
-// Consume bytes from the serial port and process or send to remote as
+import (
+	"time"
+)
+
+var timer *time.Ticker
+
+func guardtime(gt int) time.Duration {
+	return time.Duration(float64(gt) * 20) * time.Millisecond
+}
+
+func resetGuardCodeTimer(guard_time int) {
+	stopGuardCodeTimer()
+	gt := guardtime(guard_time)
+	logger.Printf("Resetting escape code timer for %v", gt)
+	timer = time.NewTicker(gt)
+}
+
+func stopGuardCodeTimer() {
+	if timer != nil {
+		timer.Stop()
+	}
+}
+
+func startGuardCodeTimer() {
+	if timer != nil {
+		panic("Can't have more than one Escape Code timer")
+	}
+	gt := int(registers.Read(REG_ESC_CODE_GUARD_TIME))
+	resetGuardCodeTimer(gt)
+}
+
+//Consume bytes from the serial port and process or send to remote as
 // per conf.mode
 func handleSerial() {
 	var c, CR, BS, ESC byte
@@ -23,7 +54,7 @@ func handleSerial() {
 			// Look for the command escape sequence
 			// (see http://www.messagestick.net/modem/Hayes_Ch1-4.html)
 			// Basically:
-			// 1s of silence, "+++", 1s of silence.
+			//   1s of silence, "+++", 1s of silence.
 			// So, count the incoming chars between ticks, saving
 			// the previous tick's count.  If you see
 			// countAtTick == 3 && CountAtLastTick == 0 && the last
@@ -72,12 +103,14 @@ func handleSerial() {
 				if m.lastCmd == "" {
 					prstatus(ERROR)
 				} else {
-					prstatus(runCommand(m.lastCmd))
+					err := runCommand(m.lastCmd)
+					prstatus(err)
 				}
 				s = ""
 
 			case c == CR && s != "":
-				prstatus(runCommand(s))
+				err := runCommand(s)
+				prstatus(err)
 				s = ""
 
 			case c == BS && len(s) > 0:

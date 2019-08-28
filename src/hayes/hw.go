@@ -5,23 +5,25 @@ import (
 )
 
 
-// Clear the ring counter after 8s
+// Second granularity background tasks.  Currently. this clears the ring counter after 8s and resets the LCD display to 'READY'
+// after a 'NO CARRIER' or 'BUSY' response after 10s
 // Must be a goroutine
-func clearRingCounter() {
-	delay := 8 * time.Second
-	for range time.Tick(delay) {
-		if time.Since(m.getLastRingTime()) >= delay {
-			registers.Write(REG_RING_COUNT, 0)
-		}
-	}
-}
+func secondTimer() {
+	for range time.Tick(time.Second) {
 
-func clearLCDNoCarier() {
-	delay := 10 * time.Second
-	for range time.Tick(delay) {
-		if last_error == NO_CARRIER &&
-			time.Since(last_error_time) >= delay {
-			lcd.Printf(1, "OK")
+		// Ring Count reset timer
+		last_ring := m.getLastRingTime()
+		if !last_ring.IsZero() && time.Since(last_ring) >= (8 * time.Second) {
+			logger.Printf("Resetting REG_RING_COUNT")
+			registers.Write(REG_RING_COUNT, 0)
+			m.resetLastRingTime()
+		}
+
+		// LCD reset timer
+		if (last_error == NO_CARRIER || last_error == BUSY) && (time.Since(last_error_time) >= (10 * time.Second)) {
+			logger.Printf("Resetting LCD")
+			lcd.Clear()
+			lcd.Printf(1, "READY")
 			last_error = OK
 			last_error_time = time.Now()
 		}
@@ -60,6 +62,7 @@ func handlePins() {
 }
 
 // Handles DTR behavior as specified by &D and S25
+// Must be a goroutine
 func handleDTR() {
 	var d byte
 	var wasUp, waitForUp bool
@@ -117,6 +120,7 @@ func handleDTR() {
 	}
 }
 
+
 // If DTR is down, do what conf.dtr says:
 func processDTR() {
 	switch conf.dtr {
@@ -144,15 +148,14 @@ func processDTR() {
 		logger.Print("DTR toggled, &D3") 
 		err := softReset(m.currentConfig)
 		if err != nil {
-			logger.Print("softReset() error: %s", err)
+			logger.Printf("softReset() error: %s", err)
 		}
 		prstatus(err)
 	}
 }
 
 func setupHW() {
-	go clearRingCounter()
+	go secondTimer()
 	go handlePins()
 	go handleDTR()
-	go clearLCDNoCarier()
 }

@@ -118,3 +118,9 @@ func (m *Modem) getLastRingTime() time.Time {
 	defer m.lock.RUnlock()
 	return m._lastRingTime
 }
+
+func (m *Modem) resetLastRingTime() {
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+	m._lastRingTime = time.Time{}
+}

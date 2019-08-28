@@ -20,7 +20,7 @@ type sshAcceptReadWriteCloser struct {
 	recv       uint64
 }
 
-func (m *sshAcceptReadWriteCloser) String() string {
+func (m *sshAcceptReadWriteCloser) DebugInfo() string {
 	var s, host string
 	ip, _, err := net.SplitHostPort(m.RemoteAddr().String())
 	if err != nil {
@@ -40,6 +40,23 @@ func (m *sshAcceptReadWriteCloser) String() string {
 		bytefmt.ByteSize(recv))
 
 	return s 
+}
+
+func (m *sshAcceptReadWriteCloser) String() string {
+	var host string
+	
+	ip, _, err := net.SplitHostPort(m.RemoteAddr().String())
+	if err != nil {
+		logger.Printf("SplitHostPort(): %s", err)
+	}
+	names, err := net.LookupAddr(ip)
+	if err != nil {
+		host = ip
+	} else {
+		host = names[0]
+	}
+
+	return fmt.Sprintf(">%s", host)
 }
 
 func (m *sshAcceptReadWriteCloser) Read(p []byte) (int, error) {
@@ -188,7 +205,22 @@ type sshDialReadWriteCloser struct {
 }
 
 func (m *sshDialReadWriteCloser) String() string {
-	var s, host string
+	var host string
+	ip, _, err := net.SplitHostPort(m.RemoteAddr().String())
+	if err != nil {
+		logger.Printf("SplitHostPort(): %s", err)
+	}
+	names, err := net.LookupAddr(ip)
+	if err != nil {
+		host = ip
+	} else {
+		host = names[0]
+	}
+	return  fmt.Sprintf(">%s", host)
+}
+
+func (m *sshDialReadWriteCloser) DebugInfo() string {
+	var host string
 	ip, _, err := net.SplitHostPort(m.RemoteAddr().String())
 	if err != nil {
 		logger.Printf("SplitHostPort(): %s", err)
@@ -202,11 +234,9 @@ func (m *sshDialReadWriteCloser) String() string {
 	}
 	sent, recv := m.Stats()
 
-	s = fmt.Sprintf("Outbound SSH to %s (%s), sent %s, received %s",
+	return fmt.Sprintf("Outbound SSH to %s (%s), sent %s, received %s",
 		host, m.RemoteAddr(), bytefmt.ByteSize(sent),
 		bytefmt.ByteSize(recv))
-
-	return s 
 }
 
 func (m *sshDialReadWriteCloser) Read(p []byte) (int, error) {

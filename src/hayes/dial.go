@@ -48,6 +48,7 @@ func dialNumber(phone string) (connection, error) {
 
 	host, protocol, username, password, err := phonebook.Lookup(phone)
 	if err != nil {
+		logger.Print(err)
 		return nil, err
 	}
 

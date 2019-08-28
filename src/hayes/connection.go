@@ -25,6 +25,7 @@ type connection interface {
 	SetMode(bool)
 	Stats() (uint64, uint64)
 	String() string
+	DebugInfo() string
 	SetDeadline(t time.Time) error
 }
 

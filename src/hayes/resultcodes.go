@@ -128,9 +128,7 @@ func prstatus(e error) {
 		case true:  serial.Println("OK")
 		case false: serial.Println("0")
 		}
-		if flags.lcd {
-			lcd.Printf(1, "READY")
-		}
+		lcd.Printf(1, "READY")
 	} else {
 		
 		// If the underlying type isn't MError, log it and print a
@@ -140,10 +138,9 @@ func prstatus(e error) {
 			e = ERROR
 		}
 		serial.Println(e)
-		fmt.Println("fOO")
-		if flags.lcd {
-			fmt.Println("WOO")
-			lcd.Printf(1, "%s", e.Error())
+		lcd.Printf(1, "%s", e.Error())
+		if e == CONNECT {
+			lcd.Printf(2, "%s", m.conn)
 		}
 	}
 	last_error = e

@@ -87,7 +87,7 @@ type telnetReadWriteCloser struct {
 	recv      uint64
 }
 
-func (m *telnetReadWriteCloser) String() string {
+func (m *telnetReadWriteCloser) DebugInfo() string {
 	var s, p, host string
 	if m.direction == INBOUND {
 		s = "Inbound"
@@ -112,6 +112,31 @@ func (m *telnetReadWriteCloser) String() string {
 	s = fmt.Sprintf("%s %s %s (%s), sent %s, received %s",
 		s, p, host, m.c.RemoteAddr(), 
 		bytefmt.ByteSize(sent), bytefmt.ByteSize(recv))
+
+	return s
+}
+
+func (m *telnetReadWriteCloser) String() string {
+	var s, host string
+
+	s = ">"
+	if m.direction == INBOUND {
+		s = "<"
+	}
+
+	ip, _, err := net.SplitHostPort(m.c.RemoteAddr().String())
+	if err != nil {
+		logger.Printf("SplitHostPort(): %s", err)
+	}
+
+	names, err := net.LookupAddr(ip)
+	if err != nil {
+		host = ip
+	} else {
+		host = names[0]
+	}
+
+	s = fmt.Sprintf("%s%s", s, host)
 
 	return s
 }

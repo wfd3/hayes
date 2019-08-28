@@ -54,7 +54,6 @@ func factoryReset() error {
 	lowerDSR()
 	lowerCTS()
 	lowerRI()
-	stopTimer()
 	m = Modem{}
 
 	registers.Reset()
@@ -68,7 +67,8 @@ func factoryReset() error {
 		logger.Print(err)
 	}
 
-	resetTimer()
+	stopGuardCodeTimer()
+	startGuardCodeTimer()
 
 	raiseCTS()
 	raiseDSR()
@@ -119,7 +119,7 @@ func registerCmd(cmd string) error {
 				led_AA_on()
 			}
 		case REG_ESC_CODE_GUARD_TIME:
-			resetTimer()
+			resetGuardCodeTimer(val)
 		case REG_ESC_CH:
 			escSequence[0] = byte(val)
 			escSequence[1] = byte(val)
