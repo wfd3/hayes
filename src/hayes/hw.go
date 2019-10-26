@@ -20,7 +20,8 @@ func secondTimer() {
 		}
 
 		// LCD reset timer
-		if (last_error == NO_CARRIER || last_error == BUSY) && (time.Since(last_error_time) >= (10 * time.Second)) {
+		if (last_error == NO_CARRIER || last_error == BUSY || last_error == NO_ANSWER) &&
+			(time.Since(last_error_time) >= (10 * time.Second)) {
 			logger.Printf("Resetting LCD")
 			lcd.Clear()
 			lcd.Printf(1, "READY")

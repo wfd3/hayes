@@ -5,6 +5,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 )
 
@@ -58,18 +59,21 @@ func dialNumber(phone string) (connection, error) {
 		return nil, fmt.Errorf("Unsupported protocol '%s'", protocol)
 	}
 
+	simulateDTMF(phone)
+	RingTone.BackgroundPlay()
+	
 	c := make(chan interruptable)
 	go makeCall(c, protocol, host, username, password)
 	select {
 	case i = <- c:
 		logger.Printf("dialNumber(): conn = %v, err = %s", i.conn, i.err)
 		RingTone.Stop()
+		carrierTone(time.Second * 2)
 		return i.conn, i.err
 	case <-serial.channel:
 		logger.Print("dialNumber(): user abort")
+		RingTone.Stop()
 		return nil, nil
-
-		// Use time.Tick() here to "ring" the phone
 	}
 }
 

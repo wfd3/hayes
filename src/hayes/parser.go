@@ -21,7 +21,7 @@ func parse(cmd string, opts string) (string, int, error) {
 	return "", 0, fmt.Errorf("Bad command: %s", cmd)
 }
 
-// ATS...
+// Parse ATS...
 // Given a string that looks like a "S" command, parse & normalize it
 func parseRegisters(cmd string) (string, int, error) {
 	var s string
@@ -121,7 +121,7 @@ func parseAmpersand(cmdstr string) (string, int, error) {
 	return s, i, err
 }
 
-// +++
+// Parse a command string
 func parseCommand(cmdstring string) ([]string, error) {
 	var commands []string
 	var s, opts, cmd string
@@ -158,6 +158,11 @@ func parseCommand(cmdstring string) ([]string, error) {
 	commands = nil
 	status = OK
 	f := strings.ToUpper(cmd)
+
+	// Variables below
+	//   s: discrete command, add to array commands
+	//   i: characters parsed out of cmdstring
+	// err: discrete command parse failed in some way.
 	for c < len(cmd) && status == OK {
 		switch f[c] {
 		case 'P', 'T':

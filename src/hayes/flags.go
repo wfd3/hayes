@@ -71,6 +71,5 @@ func initFlags() {
 	flag.BoolVar(&flags.lcd, "lcd", false,
 		"Use LCD (default false)")
 
-
 	flag.Parse()
 }

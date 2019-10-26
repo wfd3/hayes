@@ -58,9 +58,8 @@ func startAcceptingCalls() {
 }
 
 
-// Pass bytes from the remote dialer to the serial port (for now,
-// stdout) as long as we're offhook, we're in DATA MODE and we have
-// valid carrier (m.comm != nil)
+// Pass bytes from the remote dialer to the serial port as long as we're offhook, we're
+// in DATA MODE and we have valid carrier
 func serviceConnection() {
 	var t time.Time
 	var timeout time.Duration
@@ -152,7 +151,9 @@ func handleCalls() {
 		m.setMode(conn.Mode())
 		m.setConnectSpeed(38400)
 		m.dcdHigh()	// Force DCD "up" here.
-		prstatus(CONNECT)
+		if conn.Direction() == INBOUND {
+			prstatus(CONNECT)
+		}
 		time.Sleep(250 * time.Millisecond)
 		serviceConnection()
 

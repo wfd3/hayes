@@ -3,7 +3,7 @@
 package main
 
 import (
-	"github.com/stianeikeland/go-rpio"
+	"github.com/wfd3/go-rpio"
 	"strings"
 	"sync"
 	"time"
@@ -23,46 +23,39 @@ var pins hwPins
 var hwlock sync.RWMutex
 
 // LED and data pins
+// Note that these are the Raspberry PI GPIO#s, and NOT the header or breadboard pins
 const (
 	// LEDs - controlled in handleLeds()
-	HS_LED = 22 // Connected at High speed (conf.speed > 14400)
-	AA_LED = 23 // Auto Answer configured (conf.r[0] > 0)
-	TR_LED = 9  // Terminal Ready (turn on if read(DTR) is high)
+	HS_LED =  6 // Connected at High speed (conf.speed > 14400)
+	AA_LED = 13 // Auto Answer configured (conf.r[0] > 0)
+	TR_LED =  9 // Terminal Ready (turn on if read(DTR) is high)
 	OH_LED = 27 // Is the modem off hook (m.offHook() == true)
-
-	// Receive and Send Data LEDs.  Manually controlled
 	RD_LED = 10 // Receive Data
 	SD_LED = 22 // Send Data
+	CS_LED = 11 // Clear To Send LED
+	RI_LED = 19 // Ring Indicator LED
+	CD_LED = 17 // Carrier Detect LED
+	MR_LED =  5 // Modem Ready LED
 
 	// Data Pins
 	// A MAX3232 translates these from 0V & 3V to RS232 -/+{3,5,12}V
 	CTS_PIN = 12 // Clear To Send pin
-	CS_LED  = 11 // Clear To Send LED
-
-	RI_PIN = 23 // Ring Indicator pin
-	RI_LED = 4  // Ring Indicator LED
-
-	CD_PIN = 24 // Carrier Detect pin
-	CD_LED = 17 // Carrier Detect LED
-
+	RI_PIN  = 23 // Ring Indicator pin
+	CD_PIN  = 24 // Carrier Detect pin
 	DSR_PIN = 25 // Data Set Ready pin
-	MR_LED  = 5  // Modem Ready LED
-
-	RTS_PIN = 7  // Request to Send pin (Input)
+	RTS_PIN =  7 // Request to Send pin (Input)
 	DTR_PIN = 16 // Data Terminal Ready (Input)
 )
 
 func setupPins() {
+	hwlock.Lock()
 
-	logger.Print("Setting up RPi pins")
 	if err := rpio.Open(); err != nil {
 		logger.Fatal("Fatal Error: ", err)
 	}
 
 	leds = make(hwPins)
 	pins = make(hwPins)
-
-	hwlock.Lock()
 
 	// LEDs
 	leds[HS_LED] = rpio.Pin(HS_LED)
@@ -115,6 +108,8 @@ func setupPins() {
 	pins[RTS_PIN].Input()
 
 	hwlock.Unlock()
+
+	clearPins()
 
 }
 

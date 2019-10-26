@@ -101,7 +101,9 @@ func answerIncomming(conn connection) bool {
 		// "RING" text /after/ the RI signal is lowered.  Do
 		// this here so we behave the same.
 		serial.Println(RING)
-		lcd.Printf(1, "RING")
+		lcd.Printf(1, "RING %2d", i)
+		lcd.Printf(2, "<%s", conn.RemoteAddr())
+
 
 		// If Auto Answer is enabled and we've exceeded the
 		// configured number of rings to wait before
@@ -112,6 +114,7 @@ func answerIncomming(conn connection) bool {
 		if aaCount > 0 {
 			if ringCount >= aaCount {
 				logger.Print("Auto answering")
+				lcd.Printf(1, "Auto-answering")
 				answer()
 			}
 		}
@@ -138,6 +141,7 @@ no_answer:
 	logger.Print("No answer")
 	conn.Write([]byte("No answer, closing connection\n\r"))
 	lowerRI()
+	prstatus(NO_ANSWER)
 	return false
 
 answered:

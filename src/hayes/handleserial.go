@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-var timer *time.Ticker
+var guardTimer *time.Ticker
 
 func guardtime(gt int) time.Duration {
 	return time.Duration(float64(gt) * 20) * time.Millisecond
@@ -14,27 +14,27 @@ func resetGuardCodeTimer(guard_time int) {
 	stopGuardCodeTimer()
 	gt := guardtime(guard_time)
 	logger.Printf("Resetting escape code timer for %v", gt)
-	timer = time.NewTicker(gt)
+	guardTimer = time.NewTicker(gt)
 }
 
 func stopGuardCodeTimer() {
-	if timer != nil {
-		timer.Stop()
+	if guardTimer != nil {
+		guardTimer.Stop()
 	}
 }
 
 func startGuardCodeTimer() {
-	if timer != nil {
+	if guardTimer != nil {
 		panic("Can't have more than one Escape Code timer")
 	}
 	gt := int(registers.Read(REG_ESC_CODE_GUARD_TIME))
 	resetGuardCodeTimer(gt)
 }
 
-//Consume bytes from the serial port and process or send to remote as
+// Consume bytes from the serial port and process, or send to remote as
 // per conf.mode
 func handleSerial() {
-	var c, CR, BS, ESC byte
+	var c, CR, BS byte
 	var s string
 	var lastThree [3]byte
 	var idx int
@@ -46,7 +46,7 @@ func handleSerial() {
 	for {
 
 		select {
-		case <-timer.C:
+		case <-guardTimer.C:
 			if m.getMode() == COMMANDMODE { // Skip if in COMMAND mode
 				continue
 			}
@@ -85,7 +85,6 @@ func handleSerial() {
 		// Syntatic helpers.  Reload each time we loop
 		CR  = registers.Read(REG_CR_CH)
 		BS  = registers.Read(REG_BS_CH)
-		ESC = registers.Read(REG_ESC_CH)
 
 		switch m.getMode() {
 		case COMMANDMODE:
@@ -93,7 +92,7 @@ func handleSerial() {
 				serial.WriteByte(c)
 			}
 
-			// Accumulate chars in s until we read a CR, then process
+			// Accumulate chars from 'c' in 's' until we read a CR, then process
 			// s as a command.
 
 			// 'A/' command, immediately exec.
@@ -124,15 +123,10 @@ func handleSerial() {
 			}
 
 		case DATAMODE:
-			// Look for the command escape sequence
-			switch c {
-			case ESC:
-				lastThree[idx] = c
-				idx = (idx + 1) % 3
-			default: 
-				lastThree = [3]byte{' ', ' ', ' '}
-				idx = 0
-			}
+			// Save the last three characters, it might be the command escape sequence
+			lastThree[idx] = c
+			idx = (idx + 1) % 3
+
 			// Send to remote, blinking the SD LED
 			if m.offHook() && m.conn != nil {
 				led_SD_on()

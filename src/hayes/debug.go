@@ -6,6 +6,7 @@ import (
 	"net"
 	"runtime"
 	"strings"
+	"time"
 )
 
 func logf(format string, a ...interface{}) {
@@ -107,12 +108,25 @@ func networkStatus() {
 		
 }
 
+func toggleRS232() {
+	serial.Println("Toggling RS232 lines")
+	serial.Printf("Current Pin Status: %s\n", showPins())
+	for i :=0; i<5; i++ {
+		raiseCD();
+		time.Sleep(250 * time.Millisecond)
+		lowerCD()
+		time.Sleep(250 * time.Millisecond)
+	}
+	serial.Printf("Current Pin Status: %s\n", showPins())	
+}
+
 func help() {
 	serial.Println("Debug commands:")
 	serial.Println("AT*        - show internal state")
 	serial.Println("AT*network - show network status")
 	serial.Println("AT*ledtest - run the LED test")
 	serial.Println("AT*help    - this help")
+	serial.Println("AT*232     - toggle RS232 lines")
 }
 
 // Given a parsed register command, execute it.
@@ -129,6 +143,8 @@ func debug(cmd string) error {
 		ledTest(5)
 	case cmd == "*network":
 		networkStatus()
+	case cmd == "*232":
+		toggleRS232()
 	default:
 		return fmt.Errorf("Bad debug command: %s", cmd)
 	}

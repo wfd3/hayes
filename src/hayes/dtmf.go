@@ -275,6 +275,9 @@ func dialSounds(s string, keypressDelay, interkeyDelay time.Duration) {
 }
 
 func simulateDTMF(s string) {
+	if !flags.sound {
+		return
+	}
 	DialTone.Play(250 * time.Millisecond)
 	dialSounds(s, 150 * time.Millisecond, 50 * time.Millisecond)
 }

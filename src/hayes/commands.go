@@ -248,7 +248,7 @@ func processAmpersand(cmd string) error {
 	return nil
 }
 
-// process each command
+// process a single command
 func processSingleCommand(cmd string) error {
 	var status error
 

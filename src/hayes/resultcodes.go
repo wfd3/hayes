@@ -138,10 +138,13 @@ func prstatus(e error) {
 			e = ERROR
 		}
 		serial.Println(e)
-		lcd.Printf(1, "%s", e.Error())
-		if e == CONNECT {
+		switch {
+		case e == CONNECT:
 			lcd.Printf(2, "%s", m.conn)
+		case e == OK:
+			lcd.Clear()
 		}
+		lcd.Printf(1, "%s", e.Error())
 	}
 	last_error = e
 	last_error_time = time.Now()

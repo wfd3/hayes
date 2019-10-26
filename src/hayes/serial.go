@@ -64,8 +64,6 @@ func (s *serialPort) Flush() error {
 	if s.console || s.port == nil {
 		return nil
 	}
-
-	logger.Print("flushing serial port")
 	return s.port.Flush()
 }
 
