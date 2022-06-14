@@ -97,7 +97,6 @@ func (m *sshAcceptReadWriteCloser) Stats() (uint64, uint64) {
 }
 
 func (m *sshAcceptReadWriteCloser) SetDeadline(t time.Time) error {
-	log.Print("SetDeadline not implemented for SSH")
 	return nil
 }
 
@@ -280,7 +279,6 @@ func (m *sshDialReadWriteCloser) Stats() (uint64, uint64) {
 }
 
 func (m *sshDialReadWriteCloser) SetDeadline(t time.Time) error {
-	log.Print("SetDeadline not implemented for SSH")
 	return nil
 }
 

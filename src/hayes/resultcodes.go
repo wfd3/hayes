@@ -117,11 +117,13 @@ func (e *MError) Error() string {
 	return s
 }
 
-// This is needed because nil errors are "OK", but Prinln(OK) can't work, because
-// 'fmt.Println((nil).Error())' is impossible.
-// I'm starting to think overloading error as result codes is a massive mistake.
+// This is needed because nil errors are "OK", but Prinln(OK) can't
+// work, because 'fmt.Println((nil).Error())' is impossible.  I'm
+// starting to think overloading error as result codes is a massive
+// mistake.
 func prstatus(e error) {
 	time.Sleep(300 * time.Millisecond) // Cosmetic pause...
+
 	serial.Println()
 	if e == nil {
 		switch conf.verbose {

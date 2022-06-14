@@ -90,6 +90,7 @@ func main() {
 	setupLCD()
 	
 	go handleSignals()	// Catch signals in a different thread
+	soundInit()
 
 	// Setup modem inital state
 	conf = &Config{}

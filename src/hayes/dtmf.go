@@ -8,14 +8,15 @@ package main
 // Requires libasound2-dev
 
 import (
+	"io"
 	"math"
 	"time"
 	"github.com/hajimehoshi/oto"
 )
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
 // Code to handle sine waves
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
 const sampleRate int = 44100 
 const channelNum int = 1
 const bitDepthInBytes int = 2
@@ -25,6 +26,9 @@ var volume float64 = 0.5
 
 type sineWave struct {
 	freq float64
+	phase float64
+	radians float64
+	p oto.Player
 	stop chan bool
 	stopped chan bool
 	playing bool
@@ -42,23 +46,58 @@ func getVolume() int {
 	return int(volume * 100)
 }
 
-func NewSineWave(freq float64) *sineWave {
-	if oto_context == nil {
-		var err error
-		oto_context, err = oto.NewContext(sampleRate, channelNum, bitDepthInBytes, 4096)
-		if err != nil {
-			panic(err)
-		}
+func soundInit() error {
+	if !flags.sound {
+		return nil
 	}
+	if oto_context != nil {
+		return nil
+	}
+
+	ctx, ready, err :=
+		oto.NewContext(sampleRate, channelNum, bitDepthInBytes)
+	if err != nil {
+		return err
+	}
+	<- ready
+	oto_context = ctx
+	return nil
+}
+
+func NewSineWave(freq float64) *sineWave {
 	
 	c := make(chan bool, 0)
 	d := make(chan bool, 0)
+	r := freq * 2 * math.Pi / float64(sampleRate)
 
 	return &sineWave{
 		freq: freq,
+		phase: 0,
+		radians: r,
 		stop: c,
 		stopped: d,
 		playing: false,
+	}
+}
+
+func (s *sineWave) Read(buf []byte) (int, error) {
+
+	if !s.playing {
+		return 0, io.EOF
+	}
+
+	select {
+	case <- s.stop:
+		s.playing = false
+		s.stopped <- true
+		return 0, io.EOF	// Must return here.
+	default:
+		s.phase += s.radians
+		t := math.Sin(s.phase) * volume
+		v := uint16(t * 32000)
+		buf[0] = byte(v)
+		buf[1] = byte(v >> 8)
+		return 2, nil
 	}
 }
 
@@ -67,42 +106,23 @@ func (s *sineWave) Play() {
 		return
 	}
 	s.playing = true
-	p := oto_context.NewPlayer()
+	s.p = oto_context.NewPlayer(s)
+	go s.p.Play()
 
-	var buf []byte
-
-	phase := float64(0.0)
-	radians := s.freq * 2 * math.Pi / float64(sampleRate)
-	for { 
-		phase += radians
-		t := math.Sin(phase) * volume
-		select {
-		case <- s.stop:
-			s.playing = false
-			s.stopped <- true
-			p.Close()
-			return	// Must return here.
-		default:
-			v := uint16(t * 32000)
-			buf = []byte{uint8(v & 0xff), uint8(v >> 8)}
-			_, err := p.Write(buf)
-			if err != nil {
-				panic(err)
-			}
-		}
-	}
 }
-
 func (s *sineWave) Stop() {
 	if s.playing {
 		s.stop <- true
 		<- s.stopped
+		s.p.Close()
+		s.p = nil
 	}
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Code to handle playing one or more tones, either in foreground or background
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
+// Code to handle playing one or more tones simultaneously, either in
+// foreground or background
+//////////////////////////////////////////////////////////////////////////////
 
 type tone struct {
 	waves map[float64]*sineWave
@@ -168,6 +188,12 @@ func (t *tone)AddFreq(freq float64) {
 	}
 	go t.waves[freq].Play()
 }
+//////////////////////////////////////////////////////////////////////////////
+// Touch tone tones
+//////////////////////////////////////////////////////////////////////////////
+var DialTone = NewTone(350.0, 440.0)
+var RingTone = NewTone(440.0, 480.0)
+var BusyTone = NewTone(480.0, 620.0)
 
 func getKeyTones(key rune) *tone {
 	switch key {
@@ -192,13 +218,9 @@ func getKeyTones(key rune) *tone {
 	return nil
 }
 
-var DialTone = NewTone(350.0, 440.0)
-var RingTone = NewTone(440.0, 480.0)
-var BusyTone = NewTone(480.0, 620.0)
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
 // Code to generate DTMF and carrier frequencies
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
 
 // Not exactly timed but close enough
 func carrierTone(duration time.Duration) {
@@ -263,8 +285,9 @@ func dialSounds(s string, keypressDelay, interkeyDelay time.Duration) {
 	}
 
 	for _, key := range s {
-		if key == ',' {
-			time.Sleep(2*time.Second) // TODO: I think there's a register for , delay time
+		if key == ',' { 
+			delay := registers.Read(REG_COMMA_DELAY)
+			time.Sleep(time.Duration(delay) * time.Second) 
 			continue
 		}
 
